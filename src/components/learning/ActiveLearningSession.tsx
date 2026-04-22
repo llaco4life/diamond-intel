@@ -67,7 +67,12 @@ export function ActiveLearningSession({ game: initial }: { game: GameRow }) {
           </TabsContent>
         </Tabs>
       </div>
-      <AtBatLogButton gameId={game.id} inning={inning} />
+      <AtBatLogButton
+        gameId={game.id}
+        inning={inning}
+        homeTeam={game.home_team}
+        awayTeam={game.away_team}
+      />
     </div>
   );
 }
