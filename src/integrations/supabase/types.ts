@@ -357,6 +357,7 @@ export type Database = {
           is_team_level: boolean
           jersey_number: string | null
           key_play: string | null
+          offensive_team: string | null
           pitcher_id: string | null
           player_id: string
           steal_it: string | null
@@ -371,6 +372,7 @@ export type Database = {
           is_team_level?: boolean
           jersey_number?: string | null
           key_play?: string | null
+          offensive_team?: string | null
           pitcher_id?: string | null
           player_id: string
           steal_it?: string | null
@@ -385,6 +387,7 @@ export type Database = {
           is_team_level?: boolean
           jersey_number?: string | null
           key_play?: string | null
+          offensive_team?: string | null
           pitcher_id?: string | null
           player_id?: string
           steal_it?: string | null

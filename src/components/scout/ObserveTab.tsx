@@ -15,13 +15,18 @@ import { toast } from "sonner";
 export function ObserveTab({
   gameId,
   defaultInning,
+  homeTeam,
+  awayTeam,
 }: {
   gameId: string;
   defaultInning: number;
+  homeTeam: string;
+  awayTeam: string;
 }) {
   const { user } = useAuth();
   const [inning, setInning] = useMyInning(gameId, user?.id ?? null, defaultInning);
   const { write, sync, pending } = useOfflineWriter();
+  const [offensiveTeam, setOffensiveTeam] = useState<string>(awayTeam);
   const [keyPlay, setKeyPlay] = useState("");
   const [pJersey, setPJersey] = useState("");
   const [pTag, setPTag] = useState("");
@@ -32,7 +37,7 @@ export function ObserveTab({
   const reload = useCallback(async () => {
     const { data } = await supabase
       .from("scout_observations")
-      .select("id, inning, is_team_level, jersey_number, tags, key_play, steal_it, created_at")
+      .select("id, inning, is_team_level, jersey_number, tags, key_play, steal_it, offensive_team, created_at")
       .eq("game_id", gameId)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -67,9 +72,10 @@ export function ObserveTab({
       inning,
       is_team_level: true,
       tags: [tag],
+      offensive_team: offensiveTeam,
     });
     if (res.ok) {
-      toast.success(tag);
+      toast.success(`${tag} · ${offensiveTeam}`);
       reload();
     } else {
       toast.warning(`${tag} (queued)`);
@@ -85,6 +91,7 @@ export function ObserveTab({
       is_team_level: true,
       tags: [],
       key_play: keyPlay.trim(),
+      offensive_team: offensiveTeam,
     });
     if (res.ok) toast.success("Key play saved");
     else toast.warning("Saved offline");
@@ -105,6 +112,7 @@ export function ObserveTab({
       jersey_number: pJersey.trim(),
       tags: pTag.trim() ? [pTag.trim()] : [],
       key_play: pNote.trim() || null,
+      offensive_team: offensiveTeam,
     });
     if (res.ok) toast.success(`#${pJersey} logged`);
     else toast.warning("Saved offline");
@@ -116,6 +124,30 @@ export function ObserveTab({
 
   return (
     <div className="space-y-4">
+      <section className="rounded-xl border bg-card p-3">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          On offense
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={offensiveTeam === awayTeam ? "default" : "outline"}
+            onClick={() => setOffensiveTeam(awayTeam)}
+            className="h-11 flex-1"
+          >
+            {awayTeam}
+          </Button>
+          <Button
+            type="button"
+            variant={offensiveTeam === homeTeam ? "default" : "outline"}
+            onClick={() => setOffensiveTeam(homeTeam)}
+            className="h-11 flex-1"
+          >
+            {homeTeam}
+          </Button>
+        </div>
+      </section>
+
       <InningStepper inning={inning} onChange={setInning} />
 
       {pending > 0 && (
