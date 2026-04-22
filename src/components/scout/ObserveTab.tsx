@@ -269,6 +269,7 @@ export function ObserveTab({
           className="mt-2 min-h-20"
         />
         <SideToggle
+          label="This play was about"
           value={keyPlaySide}
           onChange={(v) => {
             setKeyPlaySide(v);
@@ -306,6 +307,7 @@ export function ObserveTab({
           className="mt-2 min-h-16"
         />
         <SideToggle
+          label="This player is on"
           value={pSide}
           onChange={(v) => {
             setPSide(v);
@@ -315,6 +317,11 @@ export function ObserveTab({
           defenseTeam={defenseTeam}
           className="mt-2"
         />
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {pSide === "offense"
+            ? `Logging jersey from ${offenseTeam} offense`
+            : `Logging jersey from ${defenseTeam} defense`}
+        </p>
         <Button onClick={addPlayerObs} className="mt-2 w-full">
           Log player
         </Button>
@@ -362,12 +369,14 @@ export function ObserveTab({
 }
 
 function SideToggle({
+  label,
   value,
   onChange,
   offenseTeam,
   defenseTeam,
   className,
 }: {
+  label: string;
   value: Side;
   onChange: (v: Side) => void;
   offenseTeam: string;
@@ -375,9 +384,9 @@ function SideToggle({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <span className="text-xs text-muted-foreground">Applies to:</span>
-      <div className="flex flex-1 overflow-hidden rounded-lg border">
+    <div className={cn("space-y-1.5", className)}>
+      <span className="block text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="flex overflow-hidden rounded-lg border">
         <button
           type="button"
           onClick={() => onChange("offense")}
@@ -388,7 +397,7 @@ function SideToggle({
               : "bg-background text-muted-foreground",
           )}
         >
-          Offense · {offenseTeam}
+          Offense: {offenseTeam}
         </button>
         <button
           type="button"
@@ -400,7 +409,7 @@ function SideToggle({
               : "bg-background text-muted-foreground",
           )}
         >
-          Defense · {defenseTeam}
+          Defense: {defenseTeam}
         </button>
       </div>
     </div>
