@@ -1,25 +1,31 @@
 
 
-# Observe Tab — Wording Clarity (already implemented)
+# Status check: Coach Dashboard v1 not yet built
 
-All requested changes are already live in `src/components/scout/ObserveTab.tsx` from the previous approved build. No new work is required — confirming the current state below.
+The plan was approved and I confirmed the `GameSetup` opponent linking, but the actual build was not executed — no dashboard files have been created yet.
 
-## Current state in `ObserveTab.tsx`
+## What exists today
+- `src/routes/dashboard.tsx` — still the stub `StubPage` ("Phase 5") behind `ProtectedShell coachOnly`.
+- No `src/components/dashboard/` directory.
 
-**Key Play card**
-- Label: `This play was about`
-- Options: `Offense: {offenseTeam}` / `Defense: {defenseTeam}`
+## What I will build now (unchanged from approved plan)
 
-**By-player card**
-- Label: `This player is on`
-- Options: `Offense: {offenseTeam}` / `Defense: {defenseTeam}`
-- Helper text below toggle (`text-xs text-muted-foreground mt-1.5`):
-  - offense → `Logging jersey from {offenseTeam} offense`
-  - defense → `Logging jersey from {defenseTeam} defense`
+**Update**
+- `src/routes/dashboard.tsx` → renders `<DashboardPage />` inside `<ProtectedShell coachOnly>`.
 
-**Save logic**: unchanged — still writes `applies_to_team` using the same offense/defense mapping.
+**Create under `src/components/dashboard/`**
+- `DashboardPage.tsx` — title + tabs row. `Scout Reports` active; `Learning Insights`, `Development`, `At-Bat Trends` disabled with "Coming soon".
+- `ScoutReportsTab.tsx` — local nav state (`list | sessions | report`) with back button.
+- `OpponentList.tsx` — groups strictly by `games.opponent_id`; orphans surface as muted footer "X sessions missing opponent link".
+- `OpponentSessionList.tsx` — sessions for selected opponent, sorted by `game_date` desc, with date / tournament / score / status / obs count.
+- `ScoutingReportView.tsx` — single-game report: header, Team Observations by inning, Player-Level Intel by jersey, Pitcher Intel, Steal It Wall, Coach Game Plan.
+- `GamePlanEditor.tsx` — debounced (800ms) autosave to `scouting_reports` keyed by `(game_id, coach_id)`; insert-then-update lifecycle, race-safe, flush on unmount.
 
-## If something looks off in your preview
+**Behavior locked in**
+- Opponent grouping: `opponent_id` only, no string matching.
+- Orphan wording: "X sessions missing opponent link".
+- Null `applies_to_team` → muted "Unspecified" chip.
+- No schema, RLS, or Scout Mode changes.
 
-If the live preview still shows "Applies to" or the old `·` separator, it's a stale build. Hard-refresh the preview (or let me know what you're seeing) and I can investigate further. Otherwise no code changes are needed for this request.
+Approve and I will switch to build mode and ship it.
 
