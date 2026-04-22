@@ -21,17 +21,7 @@ export function LearningLobby({
   const [loading, setLoading] = useState(true);
   const [resumingId, setResumingId] = useState<string | null>(null);
 
-  const loadRecent = async () => {
-    const { data: r } = await supabase
-      .from("games")
-      .select("*")
-      .eq("created_by", userId)
-      .eq("game_type", "learning")
-      .eq("status", "ended")
-      .order("created_at", { ascending: false })
-      .limit(5);
-    setRecent((r as GameRow[] | null) ?? []);
-  };
+
 
   const handleResume = async (game: GameRow) => {
     setResumingId(game.id);
