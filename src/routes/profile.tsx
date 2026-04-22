@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Copy, Check, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Copy, Check, LogOut, Users } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -116,7 +116,11 @@ function ProfilePage() {
         </section>
       )}
 
-      <section className="rounded-2xl border bg-card p-5 shadow-card">
+      {(role === "head_coach" || role === "assistant_coach") && org && (
+        <RosterSection orgId={org.id} />
+      )}
+
+      <section className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
         <h2 className="mb-3 text-sm font-semibold">My game history</h2>
         <p className="text-sm text-muted-foreground">
           Coming soon — once you've logged a game, your history will appear here.
