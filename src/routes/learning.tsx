@@ -68,7 +68,15 @@ function LearningPage() {
   }
 
   if (showSetup) {
-    return <LearningSetup onCancel={() => setShowSetup(false)} />;
+    return (
+      <LearningSetup
+        onCancel={() => setShowSetup(false)}
+        onCreated={(g) => {
+          setShowSetup(false);
+          setActiveSession(g);
+        }}
+      />
+    );
   }
 
   return (
