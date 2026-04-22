@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -38,9 +38,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [org, setOrg] = useState<Organization | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
+
+  const finishInit = () => {
+    if (!initialized.current) {
+      initialized.current = true;
+      setLoading(false);
+    }
+  };
 
   const loadUserData = async (userId: string) => {
-    // Defer with setTimeout-style separation: just sequential awaits, no auth API calls inside
     const [profileRes, roleRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
@@ -63,31 +70,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up listener FIRST
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
-        // defer to avoid deadlock
         setTimeout(() => {
-          loadUserData(newSession.user.id).finally(() => setLoading(false));
+          loadUserData(newSession.user.id).finally(finishInit);
         }, 0);
       } else {
         setProfile(null);
         setOrg(null);
         setRole(null);
-        setLoading(false);
+        finishInit();
       }
     });
 
-    // THEN check existing session
     supabase.auth.getSession().then(({ data: { session: existing } }) => {
       setSession(existing);
       setUser(existing?.user ?? null);
       if (existing?.user) {
-        loadUserData(existing.user.id).finally(() => setLoading(false));
+        loadUserData(existing.user.id).finally(finishInit);
       } else {
-        setLoading(false);
+        finishInit();
       }
     });
 
