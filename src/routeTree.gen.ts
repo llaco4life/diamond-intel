@@ -18,6 +18,7 @@ import { Route as DevelopmentRouteImport } from './routes/development'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
+import { Route as LearningSummarySessionIdRouteImport } from './routes/learning.summary.$sessionId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -64,27 +65,35 @@ const ScoutSummaryGameIdRoute = ScoutSummaryGameIdRouteImport.update({
   path: '/summary/$gameId',
   getParentRoute: () => ScoutRoute,
 } as any)
+const LearningSummarySessionIdRoute =
+  LearningSummarySessionIdRouteImport.update({
+    id: '/summary/$sessionId',
+    path: '/summary/$sessionId',
+    getParentRoute: () => LearningRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
-  '/learning': typeof LearningRoute
+  '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
-  '/learning': typeof LearningRoute
+  '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
 export interface FileRoutesById {
@@ -92,11 +101,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
-  '/learning': typeof LearningRoute
+  '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/scout'
     | '/signup'
+    | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/scout'
     | '/signup'
+    | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
   id:
     | '__root__'
@@ -132,6 +144,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/scout'
     | '/signup'
+    | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
   fileRoutesById: FileRoutesById
 }
@@ -139,7 +152,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   DevelopmentRoute: typeof DevelopmentRoute
-  LearningRoute: typeof LearningRoute
+  LearningRoute: typeof LearningRouteWithChildren
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   ScoutRoute: typeof ScoutRouteWithChildren
@@ -211,8 +224,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScoutSummaryGameIdRouteImport
       parentRoute: typeof ScoutRoute
     }
+    '/learning/summary/$sessionId': {
+      id: '/learning/summary/$sessionId'
+      path: '/summary/$sessionId'
+      fullPath: '/learning/summary/$sessionId'
+      preLoaderRoute: typeof LearningSummarySessionIdRouteImport
+      parentRoute: typeof LearningRoute
+    }
   }
 }
+
+interface LearningRouteChildren {
+  LearningSummarySessionIdRoute: typeof LearningSummarySessionIdRoute
+}
+
+const LearningRouteChildren: LearningRouteChildren = {
+  LearningSummarySessionIdRoute: LearningSummarySessionIdRoute,
+}
+
+const LearningRouteWithChildren = LearningRoute._addFileChildren(
+  LearningRouteChildren,
+)
 
 interface ScoutRouteChildren {
   ScoutSummaryGameIdRoute: typeof ScoutSummaryGameIdRoute
@@ -228,7 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   DevelopmentRoute: DevelopmentRoute,
-  LearningRoute: LearningRoute,
+  LearningRoute: LearningRouteWithChildren,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   ScoutRoute: ScoutRouteWithChildren,
@@ -237,3 +269,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
