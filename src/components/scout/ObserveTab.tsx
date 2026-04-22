@@ -124,6 +124,30 @@ export function ObserveTab({
 
   return (
     <div className="space-y-4">
+      <section className="rounded-xl border bg-card p-3">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          On offense
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={offensiveTeam === awayTeam ? "default" : "outline"}
+            onClick={() => setOffensiveTeam(awayTeam)}
+            className="h-11 flex-1"
+          >
+            {awayTeam}
+          </Button>
+          <Button
+            type="button"
+            variant={offensiveTeam === homeTeam ? "default" : "outline"}
+            onClick={() => setOffensiveTeam(homeTeam)}
+            className="h-11 flex-1"
+          >
+            {homeTeam}
+          </Button>
+        </div>
+      </section>
+
       <InningStepper inning={inning} onChange={setInning} />
 
       {pending > 0 && (
