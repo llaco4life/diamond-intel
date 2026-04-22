@@ -1,0 +1,1 @@
+ALTER TABLE public.scout_observations ADD COLUMN IF NOT EXISTS offensive_team text;
