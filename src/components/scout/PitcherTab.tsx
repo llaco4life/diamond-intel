@@ -20,9 +20,11 @@ interface Pitcher {
 export function PitcherTab({
   gameId,
   defaultInning,
+  defenseTeam,
 }: {
   gameId: string;
   defaultInning: number;
+  defenseTeam?: string;
 }) {
   const { user } = useAuth();
   const [inning] = useMyInning(gameId, user?.id ?? null, defaultInning);
@@ -85,6 +87,7 @@ export function PitcherTab({
       inning,
       is_team_level: true,
       tags: [tag],
+      applies_to_team: defenseTeam ?? null,
     });
     if (res.ok) toast.success(tag);
     else toast.warning(`${tag} (queued)`);

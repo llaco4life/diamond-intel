@@ -15,6 +15,7 @@ interface Obs {
   key_play: string | null;
   steal_it: string | null;
   pitcher_id: string | null;
+  applies_to_team: string | null;
   created_at: string;
 }
 
@@ -46,7 +47,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
       let obsQuery = supabase
         .from("scout_observations")
         .select(
-          "id, player_id, inning, is_team_level, jersey_number, tags, key_play, steal_it, pitcher_id, created_at",
+          "id, player_id, inning, is_team_level, jersey_number, tags, key_play, steal_it, pitcher_id, applies_to_team, created_at",
         )
         .eq("game_id", gameId)
         .order("inning", { ascending: true });
@@ -97,15 +98,25 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     );
   }
 
-  // Group team tags into counts per inning
+  // Group team tags into counts per inning, split by applies_to_team
   const innings = Array.from(new Set(obs.map((o) => o.inning))).sort((a, b) => a - b);
-  const tagCounts = (rows: Obs[]) => {
-    const map = new Map<string, number>();
+  const tagCountsByTeam = (rows: Obs[]) => {
+    // Map<tag, Map<team-or-unspecified, count>>
+    const map = new Map<string, Map<string, number>>();
     for (const r of rows) {
       if (!r.tags) continue;
-      for (const t of r.tags) map.set(t, (map.get(t) ?? 0) + 1);
+      const teamKey = r.applies_to_team ?? "Unspecified";
+      for (const t of r.tags) {
+        if (!map.has(t)) map.set(t, new Map());
+        const inner = map.get(t)!;
+        inner.set(teamKey, (inner.get(teamKey) ?? 0) + 1);
+      }
     }
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+    return Array.from(map.entries()).sort(
+      (a, b) =>
+        Array.from(b[1].values()).reduce((s, n) => s + n, 0) -
+        Array.from(a[1].values()).reduce((s, n) => s + n, 0),
+    );
   };
 
   const keyPlays = obs.filter((o) => o.key_play);
@@ -163,7 +174,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
           <div className="space-y-3">
             {innings.map((i) => {
               const rows = obs.filter((o) => o.inning === i);
-              const counts = tagCounts(rows);
+              const counts = tagCountsByTeam(rows);
               const players = rows.filter((r) => !r.is_team_level);
               return (
                 <div key={i} className="rounded-xl border bg-card p-3">
@@ -171,16 +182,21 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
                     Inning {i}
                   </p>
                   {counts.length > 0 && (
-                    <div className="mb-2 flex flex-wrap gap-1.5">
-                      {counts.map(([t, c]) => (
-                        <span
-                          key={t}
-                          className="rounded-full bg-primary-soft px-2.5 py-0.5 text-xs text-primary"
-                        >
-                          {t} ×{c}
-                        </span>
+                    <ul className="mb-2 space-y-1">
+                      {counts.map(([tag, teamMap]) => (
+                        <li key={tag} className="flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className="font-medium">{tag}</span>
+                          {Array.from(teamMap.entries()).map(([team, c]) => (
+                            <span
+                              key={team}
+                              className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] text-primary"
+                            >
+                              ×{c} vs {team}
+                            </span>
+                          ))}
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   )}
                   {players.length > 0 && (
                     <ul className="space-y-1 text-sm">
@@ -189,6 +205,11 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
                           <span className="mr-1.5 inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">
                             #{p.jersey_number}
                           </span>
+                          {p.applies_to_team && (
+                            <span className="mr-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                              {p.applies_to_team}
+                            </span>
+                          )}
                           {p.tags?.join(", ")}
                           {p.key_play && <span className="italic"> — "{p.key_play}"</span>}
                         </li>
