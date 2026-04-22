@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { ArrowLeftRight } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +26,27 @@ export function LearningSessionHeader({
 }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  const [swapping, setSwapping] = useState(false);
+
+  const swapTeams = async () => {
+    if (swapping) return;
+    setSwapping(true);
+    const { error } = await supabase
+      .from("games")
+      .update({
+        home_team: game.away_team,
+        away_team: game.home_team,
+        home_score: game.away_score,
+        away_score: game.home_score,
+      })
+      .eq("id", game.id);
+    setSwapping(false);
+    if (error) {
+      toast.error("Could not swap teams.");
+      return;
+    }
+    toast.success("Home and away swapped");
+  };
 
   const endSession = async () => {
     if (busy) return;
@@ -55,7 +77,35 @@ export function LearningSessionHeader({
             {game.home_team} <span className="text-muted-foreground">vs</span> {game.away_team}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={swapping}
+                aria-label="Swap home and away"
+                title="Swap home/away"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Swap home and away?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will switch{" "}
+                  <span className="font-medium text-foreground">{game.home_team}</span> and{" "}
+                  <span className="font-medium text-foreground">{game.away_team}</span> (including
+                  scores). Use this if you got home/away backwards when starting the session.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={swapTeams}>Swap</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <div className="text-center">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Inning</p>
             <p className="text-xl font-bold tabular-nums">{inning}</p>
