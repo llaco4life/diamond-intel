@@ -71,11 +71,50 @@ export function ObserveTab({
     return "offense";
   }, [lastContext]);
 
-  // Auto-update segmented control defaults when context changes (until user touches it).
+  // Resolve a safe team for the by-player form. Falls back gracefully if pTeam
+  // is empty or no longer matches either current team name.
+  const resolveSafePTeam = useCallback((): string => {
+    if (pTeam === homeTeam || pTeam === awayTeam) return pTeam;
+    // 1. resolve from current context
+    const fromCtx = resolveAppliesTo(lastContext, offenseTeam, defenseTeam);
+    if (fromCtx === homeTeam || fromCtx === awayTeam) return fromCtx;
+    // 2. offense or defense based on context category
+    const side = defaultSideFromContext();
+    const fromSide = side === "defense" ? defenseTeam : offenseTeam;
+    if (fromSide === homeTeam || fromSide === awayTeam) return fromSide;
+    // 3. final fallback
+    return homeTeam;
+  }, [pTeam, homeTeam, awayTeam, lastContext, offenseTeam, defenseTeam, defaultSideFromContext]);
+
+  const isPlayerFormPristine = !pJersey && !pTag && !pNote && !pTeamTouched;
+
+  // Auto-update Key Play side default from context (until touched).
   useEffect(() => {
     if (!keyPlaySideTouched) setKeyPlaySide(defaultSideFromContext());
-    if (!pSideTouched) setPSide(defaultSideFromContext());
-  }, [defaultSideFromContext, keyPlaySideTouched, pSideTouched]);
+  }, [defaultSideFromContext, keyPlaySideTouched]);
+
+  // Auto-update By-player team default while pristine; also re-resolve if
+  // pTeam ever becomes invalid.
+  useEffect(() => {
+    if (isPlayerFormPristine) {
+      const side = defaultSideFromContext();
+      const next = side === "defense" ? defenseTeam : offenseTeam;
+      setPTeam(next);
+      return;
+    }
+    if (pTeam !== homeTeam && pTeam !== awayTeam) {
+      setPTeam(resolveSafePTeam());
+    }
+  }, [
+    isPlayerFormPristine,
+    defaultSideFromContext,
+    offenseTeam,
+    defenseTeam,
+    pTeam,
+    homeTeam,
+    awayTeam,
+    resolveSafePTeam,
+  ]);
 
   const reload = useCallback(async () => {
     const { data } = await supabase
