@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       at_bats: {
         Row: {
+          batter_number: string | null
+          batter_team: string | null
           confidence_level: number
           created_at: string
           execution: number
@@ -24,10 +26,13 @@ export type Database = {
           inning: number
           mental_focus: number
           notes: string | null
+          pitch_counts: Json
           pitches_seen: string | null
           player_id: string
         }
         Insert: {
+          batter_number?: string | null
+          batter_team?: string | null
           confidence_level: number
           created_at?: string
           execution: number
@@ -36,10 +41,13 @@ export type Database = {
           inning: number
           mental_focus: number
           notes?: string | null
+          pitch_counts?: Json
           pitches_seen?: string | null
           player_id: string
         }
         Update: {
+          batter_number?: string | null
+          batter_team?: string | null
           confidence_level?: number
           created_at?: string
           execution?: number
@@ -48,6 +56,7 @@ export type Database = {
           inning?: number
           mental_focus?: number
           notes?: string | null
+          pitch_counts?: Json
           pitches_seen?: string | null
           player_id?: string
         }
