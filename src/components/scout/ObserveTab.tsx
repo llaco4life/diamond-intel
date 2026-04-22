@@ -56,8 +56,8 @@ export function ObserveTab({
   const [pJersey, setPJersey] = useState("");
   const [pTag, setPTag] = useState("");
   const [pNote, setPNote] = useState("");
-  const [pSide, setPSide] = useState<Side>("offense");
-  const [pSideTouched, setPSideTouched] = useState(false);
+  const [pTeam, setPTeam] = useState<string>(awayTeam);
+  const [pTeamTouched, setPTeamTouched] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [recent, setRecent] = useState<any[]>([]);
@@ -71,11 +71,50 @@ export function ObserveTab({
     return "offense";
   }, [lastContext]);
 
-  // Auto-update segmented control defaults when context changes (until user touches it).
+  // Resolve a safe team for the by-player form. Falls back gracefully if pTeam
+  // is empty or no longer matches either current team name.
+  const resolveSafePTeam = useCallback((): string => {
+    if (pTeam === homeTeam || pTeam === awayTeam) return pTeam;
+    // 1. resolve from current context
+    const fromCtx = resolveAppliesTo(lastContext, offenseTeam, defenseTeam);
+    if (fromCtx === homeTeam || fromCtx === awayTeam) return fromCtx;
+    // 2. offense or defense based on context category
+    const side = defaultSideFromContext();
+    const fromSide = side === "defense" ? defenseTeam : offenseTeam;
+    if (fromSide === homeTeam || fromSide === awayTeam) return fromSide;
+    // 3. final fallback
+    return homeTeam;
+  }, [pTeam, homeTeam, awayTeam, lastContext, offenseTeam, defenseTeam, defaultSideFromContext]);
+
+  const isPlayerFormPristine = !pJersey && !pTag && !pNote && !pTeamTouched;
+
+  // Auto-update Key Play side default from context (until touched).
   useEffect(() => {
     if (!keyPlaySideTouched) setKeyPlaySide(defaultSideFromContext());
-    if (!pSideTouched) setPSide(defaultSideFromContext());
-  }, [defaultSideFromContext, keyPlaySideTouched, pSideTouched]);
+  }, [defaultSideFromContext, keyPlaySideTouched]);
+
+  // Auto-update By-player team default while pristine; also re-resolve if
+  // pTeam ever becomes invalid.
+  useEffect(() => {
+    if (isPlayerFormPristine) {
+      const side = defaultSideFromContext();
+      const next = side === "defense" ? defenseTeam : offenseTeam;
+      setPTeam(next);
+      return;
+    }
+    if (pTeam !== homeTeam && pTeam !== awayTeam) {
+      setPTeam(resolveSafePTeam());
+    }
+  }, [
+    isPlayerFormPristine,
+    defaultSideFromContext,
+    offenseTeam,
+    defenseTeam,
+    pTeam,
+    homeTeam,
+    awayTeam,
+    resolveSafePTeam,
+  ]);
 
   const reload = useCallback(async () => {
     const { data } = await supabase
@@ -164,7 +203,7 @@ export function ObserveTab({
       toast.error("Jersey + tag or note required");
       return;
     }
-    const appliesTo = pSide === "offense" ? offenseTeam : defenseTeam;
+    const safeTeam = resolveSafePTeam();
     const res = await write("scout_observations", {
       game_id: gameId,
       player_id: user.id,
@@ -174,14 +213,14 @@ export function ObserveTab({
       tags: pTag.trim() ? [pTag.trim()] : [],
       key_play: pNote.trim() || null,
       offensive_team: offenseTeam,
-      applies_to_team: appliesTo,
+      applies_to_team: safeTeam,
     });
     if (res.ok) toast.success(`#${pJersey} logged`);
     else toast.warning("Saved offline");
     setPJersey("");
     setPTag("");
     setPNote("");
-    setPSideTouched(false);
+    setPTeamTouched(false);
     reload();
   };
 
@@ -306,22 +345,18 @@ export function ObserveTab({
           placeholder="Note (optional)"
           className="mt-2 min-h-16"
         />
-        <SideToggle
-          label="This player is on"
-          value={pSide}
-          onChange={(v) => {
-            setPSide(v);
-            setPSideTouched(true);
+        <TeamToggle
+          label="Team being evaluated"
+          value={pTeam}
+          onChange={(t) => {
+            setPTeam(t);
+            setPTeamTouched(true);
           }}
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
           offenseTeam={offenseTeam}
-          defenseTeam={defenseTeam}
           className="mt-2"
         />
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {pSide === "offense"
-            ? `Logging jersey from ${offenseTeam} offense`
-            : `Logging jersey from ${defenseTeam} defense`}
-        </p>
         <Button onClick={addPlayerObs} className="mt-2 w-full">
           Log player
         </Button>
@@ -411,6 +446,63 @@ function SideToggle({
         >
           Defense: {defenseTeam}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function TeamToggle({
+  label,
+  value,
+  onChange,
+  homeTeam,
+  awayTeam,
+  offenseTeam,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (team: string) => void;
+  homeTeam: string;
+  awayTeam: string;
+  offenseTeam: string;
+  className?: string;
+}) {
+  const helperFor = (team: string) =>
+    team === offenseTeam ? "currently on offense" : "currently on defense";
+
+  const renderBtn = (team: string) => {
+    const selected = value === team;
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(team)}
+        className={cn(
+          "flex w-full flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left",
+          selected
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-border bg-background",
+        )}
+      >
+        <span className="text-sm font-semibold">{team}</span>
+        <span
+          className={cn(
+            "text-[11px]",
+            selected ? "opacity-90" : "text-muted-foreground",
+          )}
+        >
+          {helperFor(team)}
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <span className="block text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="space-y-1.5">
+        {renderBtn(homeTeam)}
+        {renderBtn(awayTeam)}
       </div>
     </div>
   );
