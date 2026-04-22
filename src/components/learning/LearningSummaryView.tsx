@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow } from "@/hooks/useActiveGame";
+import { pitchLabel, type PitchCounts } from "@/lib/pitchTypes";
 
 interface Obs {
   id: string;
@@ -26,6 +27,9 @@ interface AtBat {
   pitches_seen: string | null;
   notes: string | null;
   created_at: string;
+  batter_number: string | null;
+  batter_team: "my_team" | "opponent" | null;
+  pitch_counts: PitchCounts | null;
 }
 
 export function LearningSummaryView({ sessionId }: { sessionId: string }) {
@@ -52,7 +56,9 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
           .order("inning", { ascending: true }),
         supabase
           .from("at_bats")
-          .select("id, inning, confidence_level, execution, mental_focus, pitches_seen, notes, created_at")
+          .select(
+            "id, inning, confidence_level, execution, mental_focus, pitches_seen, notes, created_at, batter_number, batter_team, pitch_counts",
+          )
           .eq("game_id", sessionId)
           .eq("player_id", user.id)
           .order("inning", { ascending: true }),
@@ -60,7 +66,7 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
       if (!cancel) {
         setGame((g as GameRow | null) ?? null);
         setObs((o as Obs[]) ?? []);
-        setAtBats((a as AtBat[]) ?? []);
+        setAtBats((a as unknown as AtBat[]) ?? []);
         setLoading(false);
       }
     })();
@@ -166,20 +172,49 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
           </p>
         ) : (
           <ul className="space-y-2">
-            {atBats.map((a) => (
-              <li key={a.id} className="rounded-xl border bg-card p-3 text-sm">
-                <p className="text-xs text-muted-foreground">Inning {a.inning}</p>
-                <p className="mt-0.5">
-                  Conf <span className="font-semibold">{a.confidence_level}</span> · Exec{" "}
-                  <span className="font-semibold">{a.execution}</span> · Focus{" "}
-                  <span className="font-semibold">{a.mental_focus}</span>
-                </p>
-                {a.pitches_seen && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">{a.pitches_seen}</p>
-                )}
-                {a.notes && <p className="mt-0.5 italic">"{a.notes}"</p>}
-              </li>
-            ))}
+            {atBats.map((a) => {
+              const teamName =
+                a.batter_team === "my_team"
+                  ? game.home_team
+                  : a.batter_team === "opponent"
+                    ? game.away_team
+                    : null;
+              const counts = a.pitch_counts ?? {};
+              const countEntries = Object.entries(counts).filter(
+                ([, v]) => typeof v === "number" && v > 0,
+              );
+              return (
+                <li key={a.id} className="rounded-xl border bg-card p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">
+                    Inning {a.inning}
+                    {a.batter_number && ` · #${a.batter_number}`}
+                    {teamName && ` · ${teamName}`}
+                  </p>
+                  <p className="mt-0.5">
+                    Conf <span className="font-semibold">{a.confidence_level}</span> · Exec{" "}
+                    <span className="font-semibold">{a.execution}</span> · Focus{" "}
+                    <span className="font-semibold">{a.mental_focus}</span>
+                  </p>
+                  {countEntries.length > 0 ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {countEntries.map(([slug, v]) => (
+                        <span
+                          key={slug}
+                          className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium"
+                        >
+                          {pitchLabel(slug)} ×{v}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    a.pitches_seen && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{a.pitches_seen}</p>
+                    )
+                  )}
+                  {a.notes && <p className="mt-0.5 italic">"{a.notes}"</p>}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
