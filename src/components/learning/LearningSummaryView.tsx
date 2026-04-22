@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow } from "@/hooks/useActiveGame";
 import { pitchLabel, type PitchCounts } from "@/lib/pitchTypes";
+import { PITCHING_TAG_SET } from "@/lib/scoutTags";
 
 interface Obs {
   id: string;
@@ -15,7 +16,14 @@ interface Obs {
   key_play: string | null;
   steal_it: string | null;
   applies_to_team: string | null;
+  pitcher_id: string | null;
   created_at: string;
+}
+
+interface PitcherRow {
+  id: string;
+  jersey_number: string;
+  team_side: "my_team" | "opponent" | null;
 }
 
 interface AtBat {
@@ -37,6 +45,7 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
   const [game, setGame] = useState<GameRow | null>(null);
   const [obs, setObs] = useState<Obs[]>([]);
   const [atBats, setAtBats] = useState<AtBat[]>([]);
+  const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,12 +53,12 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const [{ data: g }, { data: o }, { data: a }] = await Promise.all([
+      const [{ data: g }, { data: o }, { data: a }, { data: p }] = await Promise.all([
         supabase.from("games").select("*").eq("id", sessionId).maybeSingle(),
         supabase
           .from("scout_observations")
           .select(
-            "id, inning, is_team_level, jersey_number, tags, key_play, steal_it, applies_to_team, created_at",
+            "id, inning, is_team_level, jersey_number, tags, key_play, steal_it, applies_to_team, pitcher_id, created_at",
           )
           .eq("game_id", sessionId)
           .eq("player_id", user.id)
@@ -62,11 +71,16 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
           .eq("game_id", sessionId)
           .eq("player_id", user.id)
           .order("inning", { ascending: true }),
+        supabase
+          .from("pitchers")
+          .select("id, jersey_number, team_side")
+          .eq("game_id", sessionId),
       ]);
       if (!cancel) {
         setGame((g as GameRow | null) ?? null);
         setObs((o as Obs[]) ?? []);
         setAtBats((a as unknown as AtBat[]) ?? []);
+        setPitchers((p as PitcherRow[] | null) ?? []);
         setLoading(false);
       }
     })();

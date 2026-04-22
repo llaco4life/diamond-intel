@@ -12,6 +12,7 @@ import { ObservationList } from "@/components/scout/ObservationList";
 import { resolveAppliesTo } from "@/lib/scoutTags";
 import { toast } from "sonner";
 import { MissionCard } from "./MissionCard";
+import { CurrentPitcherBar, type CurrentPitcher } from "./CurrentPitcherBar";
 
 type Side = "offense" | "defense";
 
@@ -37,6 +38,7 @@ export function LearningObserveTab({
   );
 
   const [pendingCoaching, setPendingCoaching] = useState<{ tag: string } | null>(null);
+  const [currentPitcher, setCurrentPitcher] = useState<CurrentPitcher | null>(null);
   const [keyPlay, setKeyPlay] = useState("");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [recent, setRecent] = useState<any[]>([]);
@@ -59,17 +61,26 @@ export function LearningObserveTab({
     reload();
   }, [reload]);
 
-  const writeTag = async (tag: string, appliesTo: string) => {
+  const writeTag = async (
+    tag: string,
+    appliesTo: string,
+    pitcher?: CurrentPitcher | null,
+  ) => {
     if (!user) return;
-    const res = await write("scout_observations", {
+    const payload: Record<string, unknown> = {
       game_id: gameId,
       player_id: user.id,
       inning,
-      is_team_level: true,
+      is_team_level: pitcher ? false : true,
       tags: [tag],
       offensive_team: offenseTeam,
       applies_to_team: appliesTo,
-    });
+    };
+    if (pitcher) {
+      payload.pitcher_id = pitcher.id;
+      payload.jersey_number = pitcher.jersey_number;
+    }
+    const res = await write("scout_observations", payload);
     if (res.ok) {
       toast.success(`${tag} · ${appliesTo}`);
       reload();
@@ -79,12 +90,20 @@ export function LearningObserveTab({
   };
 
   const onPickTag = async (tag: string, categoryId: string) => {
+    if (categoryId === "pitching" && !currentPitcher) {
+      toast.error("Pick or add the current pitcher first");
+      return;
+    }
     const resolved = resolveAppliesTo(categoryId, offenseTeam, defenseTeam);
     if (resolved === null) {
       setPendingCoaching({ tag });
       return;
     }
-    await writeTag(tag, resolved);
+    await writeTag(
+      tag,
+      resolved,
+      categoryId === "pitching" ? currentPitcher : null,
+    );
   };
 
   const addKeyPlay = async () => {
@@ -139,6 +158,14 @@ export function LearningObserveTab({
           </Button>
         </div>
       </section>
+
+      <CurrentPitcherBar
+        gameId={gameId}
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+        current={currentPitcher}
+        onChange={setCurrentPitcher}
+      />
 
       <InningStepper inning={inning} onChange={onInningChange} />
 
