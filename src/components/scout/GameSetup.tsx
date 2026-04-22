@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export function GameSetup() {
+export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
   const { user, org } = useAuth();
   const navigate = useNavigate();
   const [opponent, setOpponent] = useState("");
