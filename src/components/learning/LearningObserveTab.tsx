@@ -13,6 +13,7 @@ import { resolveAppliesTo } from "@/lib/scoutTags";
 import { toast } from "sonner";
 import { MissionCard } from "./MissionCard";
 import { CurrentPitcherBar, type CurrentPitcher } from "./CurrentPitcherBar";
+import { DiamondDecisionsCard } from "./DiamondDecisionsCard";
 
 type Side = "offense" | "defense";
 
@@ -134,6 +135,8 @@ export function LearningObserveTab({
   return (
     <div className="space-y-4">
       <MissionCard inning={inning} />
+
+      <DiamondDecisionsCard gameId={gameId} inning={inning} />
 
       <section className="rounded-xl border bg-card p-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
