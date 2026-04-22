@@ -450,3 +450,60 @@ function SideToggle({
     </div>
   );
 }
+
+function TeamToggle({
+  label,
+  value,
+  onChange,
+  homeTeam,
+  awayTeam,
+  offenseTeam,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (team: string) => void;
+  homeTeam: string;
+  awayTeam: string;
+  offenseTeam: string;
+  className?: string;
+}) {
+  const helperFor = (team: string) =>
+    team === offenseTeam ? "currently on offense" : "currently on defense";
+
+  const renderBtn = (team: string) => {
+    const selected = value === team;
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(team)}
+        className={cn(
+          "flex w-full flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left",
+          selected
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-border bg-background",
+        )}
+      >
+        <span className="text-sm font-semibold">{team}</span>
+        <span
+          className={cn(
+            "text-[11px]",
+            selected ? "opacity-90" : "text-muted-foreground",
+          )}
+        >
+          {helperFor(team)}
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <span className="block text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="space-y-1.5">
+        {renderBtn(homeTeam)}
+        {renderBtn(awayTeam)}
+      </div>
+    </div>
+  );
+}
