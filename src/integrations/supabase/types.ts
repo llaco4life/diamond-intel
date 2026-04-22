@@ -127,6 +127,50 @@ export type Database = {
           },
         ]
       }
+      diamond_decision_responses: {
+        Row: {
+          created_at: string
+          game_id: string
+          id: string
+          inning: number
+          player_id: string
+          prompt_key: string
+          prompt_text: string
+          response: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          id?: string
+          inning: number
+          player_id: string
+          prompt_key: string
+          prompt_text: string
+          response: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          id?: string
+          inning?: number
+          player_id?: string
+          prompt_key?: string
+          prompt_text?: string
+          response?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diamond_decision_responses_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_assignments: {
         Row: {
           assignment: string

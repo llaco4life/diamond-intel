@@ -40,12 +40,20 @@ interface AtBat {
   pitch_counts: PitchCounts | null;
 }
 
+interface DiamondResponse {
+  inning: number;
+  prompt_key: string;
+  prompt_text: string;
+  response: string;
+}
+
 export function LearningSummaryView({ sessionId }: { sessionId: string }) {
   const { user } = useAuth();
   const [game, setGame] = useState<GameRow | null>(null);
   const [obs, setObs] = useState<Obs[]>([]);
   const [atBats, setAtBats] = useState<AtBat[]>([]);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
+  const [diamond, setDiamond] = useState<DiamondResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,7 +61,7 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const [{ data: g }, { data: o }, { data: a }, { data: p }] = await Promise.all([
+      const [{ data: g }, { data: o }, { data: a }, { data: p }, { data: d }] = await Promise.all([
         supabase.from("games").select("*").eq("id", sessionId).maybeSingle(),
         supabase
           .from("scout_observations")
@@ -75,12 +83,19 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
           .from("pitchers")
           .select("id, jersey_number, team_side")
           .eq("game_id", sessionId),
+        supabase
+          .from("diamond_decision_responses")
+          .select("inning, prompt_key, prompt_text, response")
+          .eq("game_id", sessionId)
+          .eq("player_id", user.id)
+          .order("inning", { ascending: true }),
       ]);
       if (!cancel) {
         setGame((g as GameRow | null) ?? null);
         setObs((o as Obs[]) ?? []);
         setAtBats((a as unknown as AtBat[]) ?? []);
         setPitchers((p as PitcherRow[] | null) ?? []);
+        setDiamond((d as DiamondResponse[] | null) ?? []);
         setLoading(false);
       }
     })();
@@ -107,7 +122,10 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const innings = Array.from(new Set(obs.map((o) => o.inning))).sort((a, b) => a - b);
+  const inningSet = new Set<number>();
+  for (const o of obs) inningSet.add(o.inning);
+  for (const d of diamond) inningSet.add(d.inning);
+  const innings = Array.from(inningSet).sort((a, b) => a - b);
   const steals = obs.filter((o) => o.steal_it);
   const notes = obs.filter((o) => !o.steal_it);
 
@@ -136,27 +154,45 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
           <div className="space-y-3">
             {innings.map((i) => {
               const rows = notes.filter((o) => o.inning === i);
-              if (rows.length === 0) return null;
+              const dRows = diamond.filter((d) => d.inning === i);
+              if (rows.length === 0 && dRows.length === 0) return null;
               return (
                 <div key={i} className="rounded-xl border bg-card p-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Inning {i}
                   </p>
-                  <ul className="space-y-1 text-sm">
-                    {rows.map((r) => (
-                      <li key={r.id}>
-                        {r.applies_to_team && (
-                          <span className="mr-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                            {r.applies_to_team}
-                          </span>
-                        )}
-                        {r.tags && r.tags.length > 0 && (
-                          <span className="font-medium">{r.tags.join(", ")}</span>
-                        )}
-                        {r.key_play && <span className="italic"> — "{r.key_play}"</span>}
-                      </li>
-                    ))}
-                  </ul>
+                  {rows.length > 0 && (
+                    <ul className="space-y-1 text-sm">
+                      {rows.map((r) => (
+                        <li key={r.id}>
+                          {r.applies_to_team && (
+                            <span className="mr-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                              {r.applies_to_team}
+                            </span>
+                          )}
+                          {r.tags && r.tags.length > 0 && (
+                            <span className="font-medium">{r.tags.join(", ")}</span>
+                          )}
+                          {r.key_play && <span className="italic"> — "{r.key_play}"</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {dRows.length > 0 && (
+                    <div className={rows.length > 0 ? "mt-3" : ""}>
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-accent-foreground/80">
+                        Diamond Decisions
+                      </p>
+                      <ul className="space-y-1.5 text-sm">
+                        {dRows.map((d) => (
+                          <li key={d.prompt_key}>
+                            <p className="text-xs text-muted-foreground">{d.prompt_text}</p>
+                            <p className="italic">→ "{d.response}"</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               );
             })}

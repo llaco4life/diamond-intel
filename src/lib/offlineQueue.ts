@@ -3,7 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 const QUEUE_KEY = "scout:queue:v1";
 
-export type QueuedTable = "scout_observations" | "pitchers" | "game_assignments" | "at_bats";
+export type QueuedTable =
+  | "scout_observations"
+  | "pitchers"
+  | "game_assignments"
+  | "at_bats"
+  | "diamond_decision_responses";
 
 export interface QueuedWrite {
   id: string;
@@ -44,9 +49,20 @@ export async function flushQueue(): Promise<{ flushed: number; remaining: number
   const remaining: QueuedWrite[] = [];
   for (const item of q) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from(item.table) as any).insert(item.payload);
-      if (error) throw error;
+      // Diamond Decisions uses a unique key (game_id, player_id, inning, prompt_key).
+      // Replay queued edits with upsert so the latest queued response wins
+      // when the user edited the same prompt multiple times offline.
+      if (item.table === "diamond_decision_responses") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from(item.table) as any).upsert(item.payload, {
+          onConflict: "game_id,player_id,inning,prompt_key",
+        });
+        if (error) throw error;
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from(item.table) as any).insert(item.payload);
+        if (error) throw error;
+      }
       flushed++;
     } catch {
       remaining.push(item);
