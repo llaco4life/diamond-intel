@@ -57,7 +57,12 @@ export function ActiveGame({
             <TabsTrigger value="steal" className="py-2">Steal It</TabsTrigger>
           </TabsList>
           <TabsContent value="observe" className="mt-4">
-            <ObserveTab gameId={game.id} defaultInning={game.current_inning} />
+            <ObserveTab
+              gameId={game.id}
+              defaultInning={game.current_inning}
+              homeTeam={game.home_team}
+              awayTeam={game.away_team}
+            />
           </TabsContent>
           <TabsContent value="pitcher" className="mt-4">
             <PitcherTab gameId={game.id} defaultInning={game.current_inning} />
