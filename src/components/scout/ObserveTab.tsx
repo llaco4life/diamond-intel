@@ -72,9 +72,10 @@ export function ObserveTab({
       inning,
       is_team_level: true,
       tags: [tag],
+      offensive_team: offensiveTeam,
     });
     if (res.ok) {
-      toast.success(tag);
+      toast.success(`${tag} · ${offensiveTeam}`);
       reload();
     } else {
       toast.warning(`${tag} (queued)`);
@@ -90,6 +91,7 @@ export function ObserveTab({
       is_team_level: true,
       tags: [],
       key_play: keyPlay.trim(),
+      offensive_team: offensiveTeam,
     });
     if (res.ok) toast.success("Key play saved");
     else toast.warning("Saved offline");
@@ -110,6 +112,7 @@ export function ObserveTab({
       jersey_number: pJersey.trim(),
       tags: pTag.trim() ? [pTag.trim()] : [],
       key_play: pNote.trim() || null,
+      offensive_team: offensiveTeam,
     });
     if (res.ok) toast.success(`#${pJersey} logged`);
     else toast.warning("Saved offline");
