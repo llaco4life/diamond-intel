@@ -40,12 +40,20 @@ interface AtBat {
   pitch_counts: PitchCounts | null;
 }
 
+interface DiamondResponse {
+  inning: number;
+  prompt_key: string;
+  prompt_text: string;
+  response: string;
+}
+
 export function LearningSummaryView({ sessionId }: { sessionId: string }) {
   const { user } = useAuth();
   const [game, setGame] = useState<GameRow | null>(null);
   const [obs, setObs] = useState<Obs[]>([]);
   const [atBats, setAtBats] = useState<AtBat[]>([]);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
+  const [diamond, setDiamond] = useState<DiamondResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,7 +61,7 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const [{ data: g }, { data: o }, { data: a }, { data: p }] = await Promise.all([
+      const [{ data: g }, { data: o }, { data: a }, { data: p }, { data: d }] = await Promise.all([
         supabase.from("games").select("*").eq("id", sessionId).maybeSingle(),
         supabase
           .from("scout_observations")
@@ -75,12 +83,19 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
           .from("pitchers")
           .select("id, jersey_number, team_side")
           .eq("game_id", sessionId),
+        supabase
+          .from("diamond_decision_responses")
+          .select("inning, prompt_key, prompt_text, response")
+          .eq("game_id", sessionId)
+          .eq("player_id", user.id)
+          .order("inning", { ascending: true }),
       ]);
       if (!cancel) {
         setGame((g as GameRow | null) ?? null);
         setObs((o as Obs[]) ?? []);
         setAtBats((a as unknown as AtBat[]) ?? []);
         setPitchers((p as PitcherRow[] | null) ?? []);
+        setDiamond((d as DiamondResponse[] | null) ?? []);
         setLoading(false);
       }
     })();
