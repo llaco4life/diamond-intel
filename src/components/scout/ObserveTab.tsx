@@ -345,22 +345,22 @@ export function ObserveTab({
           placeholder="Note (optional)"
           className="mt-2 min-h-16"
         />
-        <SideToggle
-          label="This player is on"
-          value={pSide}
-          onChange={(v) => {
-            setPSide(v);
-            setPSideTouched(true);
+        <TeamToggle
+          label="Team being evaluated"
+          value={pTeam}
+          onChange={(t) => {
+            setPTeam(t);
+            setPTeamTouched(true);
           }}
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
           offenseTeam={offenseTeam}
-          defenseTeam={defenseTeam}
           className="mt-2"
         />
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {pSide === "offense"
-            ? `Logging jersey from ${offenseTeam} offense`
-            : `Logging jersey from ${defenseTeam} defense`}
-        </p>
+        <Button onClick={addPlayerObs} className="mt-2 w-full">
+          Log player
+        </Button>
+      </section>
         <Button onClick={addPlayerObs} className="mt-2 w-full">
           Log player
         </Button>
