@@ -1,118 +1,64 @@
 
 
-# Learning Mode v1 — Final Plan (revised)
+# At-Bat Logging Upgrade — Final Plan
 
-Personal-session focused. Reuses Scout Mode building blocks. No new migrations tonight.
+## Schema migration
 
-## Schema verification — `at_bats` is clean
-
-Confirmed against the live schema:
-
-| Field requested | Column on `at_bats` | Type | Nullable |
-|---|---|---|---|
-| confidence | `confidence_level` | integer | No |
-| execution | `execution` | integer | No |
-| mental focus | `mental_focus` | integer | No |
-| pitches seen | `pitches_seen` | text | Yes |
-| notes | `notes` | text | Yes |
-
-Plus `game_id`, `player_id`, `inning`, `created_at`. RLS already enforces `player_id = auth.uid()` and that the parent game belongs to the user's org. **All five fields are supported natively — we will use `at_bats` directly. No workaround needed.**
-
-## "My Team" — no auto-fill from org.name
-
-`LearningSetup` will include a **My Team** input:
-- Empty by default (placeholder: "e.g. Unity Perez 14U")
-- Saved to `games.home_team`
-- `games.away_team` falls back to the opponent input, or to the context label ("Live Practice" / "Scrimmage" / "Watching") when no opponent is given
-- `org.name` is **not** referenced in the Learning setup flow
-
-## 1. Reused from Scout Mode (no rebuild)
-
-| Component | Reused as-is |
-|---|---|
-| `InningStepper` | Inning navigation |
-| `TeamTagGrid` + `scoutTags.ts` | Quick observation tags |
-| `getCategory` / `resolveAppliesTo` | Offense/defense routing |
-| `useOfflineWriter` | All writes |
-| `useMyInning` | Per-user inning persistence |
-| Sticky header pattern from `ActiveGameHeader` | Adapted for session header |
-| `Sheet`, `Textarea`, `Input`, `Button`, `Label`, `Slider` | UI primitives |
-
-## 2. New Learning components
-
-```
-src/routes/learning.tsx                     (replace stub: lobby ↔ setup ↔ active)
-src/routes/learning.summary.$sessionId.tsx  (mirrors scout.summary)
-src/components/learning/
-  LearningLobby.tsx                  Start session + recent ended sessions (filtered to created_by = me)
-  LearningSetup.tsx                  My Team, opponent, context, date, optional timer
-  ActiveLearningSession.tsx          Header + 3 tabs: Observe / Steal / At-Bats
-  LearningSessionHeader.tsx          Sticky: context label, inning, optional timer, End Session
-  MissionCard.tsx                    Green-tint; cycles 7 missions by inning
-  LearningObserveTab.tsx             Mission card + offense toggle + TeamTagGrid + Key Play
-  LearningStealTab.tsx               Pink card; textarea-only
-  AtBatLogButton.tsx                 Floating FAB + modal (confidence/execution/mental_focus 1-5, pitches_seen, notes)
-  LearningSummaryView.tsx            Observations grouped by inning + steal-it list + at-bat list
+```sql
+ALTER TABLE public.at_bats
+  ADD COLUMN batter_number text,
+  ADD COLUMN batter_team text CHECK (batter_team IN ('my_team','opponent')),
+  ADD COLUMN pitch_counts jsonb NOT NULL DEFAULT '{}'::jsonb
+    CHECK (jsonb_typeof(pitch_counts) = 'object');
 ```
 
-## 3. Data model — reuse existing tables, zero migrations
+All three columns nullable/defaulted so legacy rows remain valid. `pitches_seen` kept for back-compat reads.
 
-| Concept | Table | How |
-|---|---|---|
-| Session | `games` | `game_type='learning'`, `home_team`=My Team input, `away_team`=opponent or context label, `tournament_name`=context type, `created_by`=user, `status`=active/ended |
-| Observations | `scout_observations` | Filtered to `player_id = auth.uid()` everywhere in Learning |
-| Steal It | `scout_observations.steal_it` | Textarea-only row, `is_team_level=true`, `tags=[]` |
-| At-Bat reflections | `at_bats` | Direct write, all 5 fields native |
+## Storage shape
 
-## 4. At-Bat save path
+`pitch_counts` is a flat JSONB object keyed by canonical pitch slug, only non-zero entries saved:
 
-```ts
-useOfflineWriter().write("at_bats", {
-  game_id, player_id, inning,
-  confidence_level, execution, mental_focus,   // 1-5 sliders
-  pitches_seen,                                // text
-  notes                                        // text
-});
+```json
+{ "fastball": 3, "change_up": 1, "rise_ball": 2 }
 ```
 
-Multiple logs per session allowed. Offline queue + retry handled by existing hook.
+## New file
 
-## 5. Steal It → future development tracking
+**`src/lib/pitchTypes.ts`** — single source of truth for pitch slug ↔ label.
 
-Stored on `scout_observations.steal_it` tonight. The `development_items` table already has `source_game_id` and `source_note` columns — the future Development Log feature will convert any steal_it row into a `development_items` row by copying these fields. Nothing required tonight beyond writing to `steal_it`.
+## File edits
 
-## 6. Mission cycle
+**`src/components/learning/AtBatLogButton.tsx`**
+- Add **Batter #** numeric input (`inputMode="numeric"`).
+- Add **Team** segmented toggle: `My Team` / `Opponent`. No default — user must pick.
+- Replace pitches-seen text input with **PitchCounter list**: each row = label, `−`, count, `+`. Min 0. 44px tap targets.
+- Keep Notes textarea (placeholder mentions sequence/location).
+- **Save validation (new requirement):** Save button disabled until `batter_number.trim() !== ""` AND `batter_team` is set. On submit, double-check and toast an error if missing.
+- Write `batter_number`, `batter_team`, `pitch_counts` (non-zero entries only), `notes`. Do not write `pitches_seen`.
+- Recent-list inside the sheet renders the new fields using actual team names (see below).
 
-```ts
-const MISSIONS = [
-  "Watch the pitcher", "Study the catcher", "Defense positioning",
-  "Base running", "Hitting approach", "Coaching decisions", "Pressure moments",
-];
-const mission = MISSIONS[(inning - 1) % 7];
-```
+**`src/components/learning/LearningSummaryView.tsx`**
+- Accept/derive `home_team` and `away_team` from the session's `games` row (already loaded for the header).
+- For each at-bat row render: `Inning N · #BatterX · {batter_team === 'my_team' ? home_team : away_team}`.
+- Below 1–5 scores, render pitch counts as inline chips: `Fastball ×3 · Change-up ×1`.
+- Legacy rows: if `pitch_counts` empty and `pitches_seen` text present, fall back to that text. If `batter_team` is null, show no team label (don't fabricate).
+- Notes line unchanged.
 
-## 7. Offense/defense
+**`src/components/learning/AtBatLogButton.tsx`** recent list also uses `home_team`/`away_team` passed in as props from `ActiveLearningSession`.
 
-Single toggle: defaults to `away_team` on offense (you're usually watching "them"). Flips to put `home_team` (My Team) on offense. Coaching tags still trigger the existing offense/defense bottom-sheet prompt.
+## Prop wiring
 
-## 8. End Session
+`ActiveLearningSession` already loads the game row → pass `homeTeam` and `awayTeam` down to `AtBatLogButton`. `LearningSummaryView` already fetches the game → reuse those fields.
 
-Header button → `update games set status='ended'` → navigate to `/learning/summary/$sessionId` → render observations grouped by inning, steal-it list, and at-bat list.
+## Untouched
 
-## Intentionally out of scope tonight
+Scout Mode, observation flow, Steal It, RLS, offline queue, summary structure outside the at-bat list.
 
-- No `development_items` writes (stays in `scout_observations.steal_it`)
-- No coach dashboards for learning sessions
-- No shared/multi-user learning sessions, no Join flow
-- No PDF, charts, compare-sessions
-- No new migrations, no RLS changes
-- No realtime subscriptions on learning sessions
-- No `Pitcher` / `My Job` tabs, no opponent linkage to past games
-- No bottom-nav changes
+## Files
 
-## File summary
-
-- **Create:** 9 files in `src/components/learning/` + `src/routes/learning.summary.$sessionId.tsx`
-- **Replace:** `src/routes/learning.tsx` (currently a stub)
-- **Touch nothing in Scout Mode.** Zero migrations.
+- migration: 3 new columns on `at_bats`
+- new: `src/lib/pitchTypes.ts`
+- edit: `src/components/learning/AtBatLogButton.tsx`
+- edit: `src/components/learning/ActiveLearningSession.tsx` (pass team names through)
+- edit: `src/components/learning/LearningSummaryView.tsx` (at-bat block + team name rendering)
 
