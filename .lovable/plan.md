@@ -1,21 +1,25 @@
 
 
-# Observe Tab — Wording-only update for Key Play & By-Player
+# Observe Tab — Wording Clarity (already implemented)
 
-Single-file change in `src/components/scout/ObserveTab.tsx`. No schema, no save logic, no other components.
+All requested changes are already live in `src/components/scout/ObserveTab.tsx` from the previous approved build. No new work is required — confirming the current state below.
 
-## Changes
+## Current state in `ObserveTab.tsx`
 
-1. **`SideToggle` component** — add a required `label: string` prop. Render the label in place of the hardcoded `"Applies to:"`. Change option separator from `·` to `:` so options read `Offense: {offenseTeam}` and `Defense: {defenseTeam}`.
+**Key Play card**
+- Label: `This play was about`
+- Options: `Offense: {offenseTeam}` / `Defense: {defenseTeam}`
 
-2. **Key Play card** — pass `label="This play was about"` to `SideToggle`.
+**By-player card**
+- Label: `This player is on`
+- Options: `Offense: {offenseTeam}` / `Defense: {defenseTeam}`
+- Helper text below toggle (`text-xs text-muted-foreground mt-1.5`):
+  - offense → `Logging jersey from {offenseTeam} offense`
+  - defense → `Logging jersey from {defenseTeam} defense`
 
-3. **By-player card** — pass `label="This player is on"` to `SideToggle`. Add helper text directly below the toggle (`text-xs text-muted-foreground mt-1.5`):
-   - offense selected → `Logging jersey from {offenseTeam} offense`
-   - defense selected → `Logging jersey from {defenseTeam} defense`
+**Save logic**: unchanged — still writes `applies_to_team` using the same offense/defense mapping.
 
-## Out of scope
-- DB / `applies_to_team` logic unchanged.
-- Coaching sheet, context card, tag grid badges, recent observations chips unchanged.
-- Context-aware default behavior on Key Play preserved.
+## If something looks off in your preview
+
+If the live preview still shows "Applies to" or the old `·` separator, it's a stale build. Hard-refresh the preview (or let me know what you're seeing) and I can investigate further. Otherwise no code changes are needed for this request.
 
