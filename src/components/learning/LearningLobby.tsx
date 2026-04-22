@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
 
 export function LearningLobby({
@@ -18,6 +19,26 @@ export function LearningLobby({
   const [active, setActive] = useState<GameRow[]>([]);
   const [recent, setRecent] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resumingId, setResumingId] = useState<string | null>(null);
+
+
+
+  const handleResume = async (game: GameRow) => {
+    setResumingId(game.id);
+    const { data, error } = await supabase
+      .from("games")
+      .update({ status: "active" })
+      .eq("id", game.id)
+      .select("*")
+      .single();
+    setResumingId(null);
+    if (error || !data) {
+      toast.error("Could not resume session.");
+      return;
+    }
+    toast.success("Session resumed.");
+    onResume(data as GameRow);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -124,13 +145,23 @@ export function LearningLobby({
                     {g.tournament_name ?? "Learning"}
                   </p>
                 </div>
-                <Link
-                  to="/learning/summary/$sessionId"
-                  params={{ sessionId: g.id }}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  View summary
-                </Link>
+                <div className="flex shrink-0 items-center gap-3">
+                  <Link
+                    to="/learning/summary/$sessionId"
+                    params={{ sessionId: g.id }}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    View summary
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleResume(g)}
+                    disabled={resumingId === g.id}
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    {resumingId === g.id ? "Resuming…" : "Resume"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
