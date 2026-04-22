@@ -350,6 +350,7 @@ export type Database = {
       }
       scout_observations: {
         Row: {
+          applies_to_team: string | null
           created_at: string
           game_id: string
           id: string
@@ -365,6 +366,7 @@ export type Database = {
           tags: Json
         }
         Insert: {
+          applies_to_team?: string | null
           created_at?: string
           game_id: string
           id?: string
@@ -380,6 +382,7 @@ export type Database = {
           tags?: Json
         }
         Update: {
+          applies_to_team?: string | null
           created_at?: string
           game_id?: string
           id?: string
