@@ -1,152 +1,99 @@
 
 
-# Phase 2 — Scout Mode (Revised)
+# Scout Mode — Team Context for Observations (Revised)
 
-Same scope as approved, with three changes folded in: full tag catalog, summary visible to all, per-player inning control.
+Same plan as approved, with two corrections to coaching labels and default-team logic.
 
-## End-to-end flow
+## Schema change
 
-1. **Coach taps Scout** → if no active game, sees Game Setup. If a game is live for the org, jumps in.
-2. **Game Setup** (coach only): opponent (autocomplete from `opponents`), game type, tournament name (optional), home/away, timed toggle + minute limit. Tap **Start Game** → `games` row, `status='active'`, `current_inning=1`.
-3. **Active Game screen** — sticky header (score, timer, end-game). Four tabs: Observe, Pitcher, My Job, Steal It. Anyone in the org can add observations.
-4. **Per-player inning** — each user's view tracks their *own* current inning locally (persisted in `localStorage` keyed by `gameId+userId`). Stepper `◀ Inning 3 ▶` is visible to **everyone** — players and coaches alike. Defaults to `games.current_inning` on first load.
-5. **End Game** (coach only) → `status='completed'`, navigate to summary.
+Add one nullable column to `scout_observations`:
 
-## Screens & components
+- `applies_to_team text` — the team the observation describes (offense or defense team name).
 
-### `/scout` — entry router
-Reads org's active game. If active → `<ActiveGame />`. If none + coach → `<GameSetup />`. If none + player → empty state.
+Nullable so existing rows stay valid. New writes always populate it. No backfill, no RLS changes.
 
-### `<GameSetup />` (coach only)
-Form → upserts opponent → inserts game → replace-navigates to `/scout`.
+## Category → team mapping (`src/lib/scoutTags.ts`)
 
-### `<ActiveGameHeader />`
-Sticky: home/away score (coach +/− buttons), timer (if timed), End Game button (coach only). **Inning stepper lives inside each tab's content area**, not the header, since it's now per-user.
+| Category     | Default applies to       |
+|--------------|--------------------------|
+| Pitching     | defense_team             |
+| Defense      | defense_team             |
+| Offense      | offense_team             |
+| Base running | offense_team             |
+| Coaching     | ask (offensive vs defensive coaching) |
 
-### Tab 1: Observe
-- **Per-user inning stepper** at top: `◀ Inning N ▶`. Anyone can advance/rewind their own view. Persists locally.
-- **Team Tag Grid** — chips grouped by category (5 collapsible sections). Tap a chip = insert `scout_observations` row with `is_team_level=true`, `tags=[tag]`, `inning=<my current inning>`. Toast confirms.
-- **Key Play note** — textarea + Save → row with `key_play` populated.
-- **By-player observation** — jersey # + tag chips + optional note → row with `is_team_level=false`, `jersey_number`.
-- **Recent observations** — last 10 from current game, grouped by inning.
+Each `TagCategory` gains `defaultAppliesTo: "offense" | "defense" | "ask"`. Helper `resolveAppliesTo(categoryId, offenseTeam, defenseTeam)` returns the correct team name (or `null` for `ask`).
 
-### Tab 2: Pitcher
-- List of pitchers for game. One marked active.
-- Add Pitcher (jersey, name, notes) + "Set as active."
-- Tap pitcher row to switch active.
-- Quick observations: "Got tired", "Lost control", "Adjusting" with `pitcher_id` set.
+## Coaching prompt (REVISED — adjustment 1)
 
-### Tab 3: My Job
-- Reads `game_assignments` for me + this game.
-- If unassigned: chooser (Pitcher tendencies, 1B signs, 3B signs, Catcher pop time, Batting order, Defensive shifts, Bench chatter, Outfield arms).
-- If assigned: shows assignment + reminder + shortcut to Observe.
+When a Coaching chip is tapped, open a small bottom sheet with two large buttons labeled by **role**, not home/away:
 
-### Tab 4: Steal It
-- Wall of `scout_observations` where `steal_it IS NOT NULL` (this game + historical vs same opponent).
-- Add Steal It form: free-text + optional tag → inserts with `steal_it` and `is_team_level=true`.
+- **Offensive Coaching** — *[offense team name]*
+- **Defensive Coaching** — *[defense team name]*
 
-### `<GameSummary />` — `/scout/summary/$gameId`
-**Visible to all org members** (players + coaches).
-- Final score, opponent, date.
-- Observations grouped by inning, team tags collapsed into counts ("Aggressive jumps ×4").
-- Key plays as chronological list.
-- Pitcher log per pitcher.
-- Steal It wall (full).
-- **Filtering**:
-  - Coaches: see all observations from every org member, plus a small "current inning per player" panel showing each player's last-known inning view.
-  - Players: see only rows where `player_id = auth.uid()`. Query is filtered at fetch time (RLS still permits read; we just narrow by `player_id` for player-role users).
-- "Back to Home" button.
+One tap dismisses the sheet, sets `applies_to_team` to the corresponding team, and saves. Sheet copy: "Whose coaching are you tagging?"
 
-## Tag catalog (`src/lib/scoutTags.ts`)
+## Key Play / By-Player default (REVISED — adjustment 2)
 
-Five categories with the full set you provided:
+These forms get a small segmented control: `Applies to: [Offense] [Defense]`. The default is **context-aware**, not always offense:
 
-```ts
-export const TAG_CATEGORIES = [
-  { id: "pitching", label: "Pitching", tags: [
-    "Rise ball", "Drop curve", "Change-up", "Fastball only",
-    "Lost command", "Strong command", "Wild pitch", "Tipping pitches",
-    "Same motion all pitches", "Effective change-up",
-  ]},
-  { id: "defense", label: "Defense", tags: [
-    "Smart shift", "Covered the gap", "Great communication", "Cut-off perfect",
-    "Weak arm in left", "Weak arm in center", "Weak arm in right",
-    "Slow corners", "Diving stop", "Missed assignment",
-  ]},
-  { id: "offense", label: "Offense", tags: [
-    "Patient at-bat", "First pitch hacker", "2-strike adjustment",
-    "Pulls everything", "Goes oppo", "Bunt threat", "Slapper",
-    "Free swinger", "K looking", "Good two-strike approach",
-  ]},
-  { id: "baserunning", label: "Base running", tags: [
-    "Aggressive jumps", "Conservative baserunner", "Great reads",
-    "Picked off", "Overran base", "Tagged up correctly",
-    "Scores on wild pitches", "Soft on contact reads",
-  ]},
-  { id: "coaching", label: "Coaching", tags: [
-    "Bunt-heavy coach", "Steal-happy", "Hit-and-run",
-    "Frequent mound visits", "Aggressive pinch running",
-    "Conservative substitutions", "Strong defensive adjustments",
-  ]},
-];
+- Triggered from a Pitching/Defense category context → default **defense**
+- Triggered from an Offense/Base running category context → default **offense**
+- Triggered from Coaching context → no default; user must pick (same prompt as coaching tags)
+- Standalone (no category context — the plain Key Play card and the By-player card at the bottom of the Observe tab) → default **offense**
+
+Implementation: `ObserveTab` tracks a `lastCategoryContext` set whenever a chip is picked from `TeamTagGrid`. The Key Play and By-player forms read this when they mount/render their segmented control's default. User can override with one tap before saving.
+
+## Observe tab UI
+
+Replace current "On offense" row with a context card showing both sides:
+
+```text
+┌─────────────────────────────────────────┐
+│  ON OFFENSE          ON DEFENSE         │
+│  [ Away Team ✓ ]     Home Team          │
+│  [ Home Team   ]     Away Team          │
+└─────────────────────────────────────────┘
 ```
 
-Tags are stored as their string label in `scout_observations.tags` (jsonb array). The Observe tab renders each category as a collapsible section with tap-to-tag chips.
+Tapping a team in the offense column flips both sides instantly.
 
-## Offline queue + sync
+Each collapsible category in `TeamTagGrid` gets a small badge in its header:
 
-Hybrid optimistic writes, unchanged from approved plan:
-- `idb-keyval`-backed queue in `src/lib/offlineQueue.ts`.
-- `useOfflineWriter()` hook: append to IDB → optimistic UI update → attempt insert → on success remove from queue, on failure leave queued.
-- `window.online` listener + manual "Sync now" button flush the queue in order.
-- Pending count badge in header when queue non-empty.
+- "Pitching · evaluating *Home Team*"
+- "Defense · evaluating *Home Team*"
+- "Offense · evaluating *Away Team*"
+- "Base running · evaluating *Away Team*"
+- "Coaching · choose when tagging"
 
-## Database
+Badges update live when offense flips.
 
-Schema already covers everything. **One small migration** for index performance:
+## Recent observations
 
-```sql
-CREATE INDEX IF NOT EXISTS idx_scout_obs_game_inning_created
-  ON public.scout_observations (game_id, inning, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_pitchers_game ON public.pitchers (game_id);
-CREATE INDEX IF NOT EXISTS idx_games_org_status ON public.games (org_id, status);
-```
+`ObservationList` adds a small team chip per row (offense = `primary-soft`, defense = `muted`). Rows with null `applies_to_team` show "—".
 
-No table changes, no RLS changes. Existing policies already allow:
-- Org members read all observations for org games (player-level filter happens client-side for the summary).
-- Players insert their own observations.
+## Components changing
 
-## Files to create
+- `src/lib/scoutTags.ts` — add `defaultAppliesTo` per category, export `resolveAppliesTo()` helper.
+- `src/components/scout/ObserveTab.tsx` — new context card; track `lastCategoryContext`; coaching prompt sheet with **Offensive/Defensive Coaching** labels; context-aware default on Key Play and By-player segmented controls.
+- `src/components/scout/TeamTagGrid.tsx` — accept `offenseTeam` + `defenseTeam` props; render evaluation badge per category header; `onPick` signature becomes `(tag, categoryId)`.
+- `src/components/scout/ObservationList.tsx` — render team chip per row.
+- `src/components/scout/GameSummaryView.tsx` — split tag counts by `applies_to_team` (e.g., "Aggressive jumps ×3 vs Home, ×1 vs Away"); legacy null rows grouped under "Unspecified team".
+- Migration file: add `applies_to_team` column.
 
-- `src/routes/scout.tsx` (replace stub)
-- `src/routes/scout.summary.$gameId.tsx`
-- `src/components/scout/GameSetup.tsx`
-- `src/components/scout/ActiveGame.tsx`
-- `src/components/scout/ActiveGameHeader.tsx`
-- `src/components/scout/InningStepper.tsx` (per-user, localStorage-backed)
-- `src/components/scout/ObserveTab.tsx`
-- `src/components/scout/PitcherTab.tsx`
-- `src/components/scout/MyJobTab.tsx`
-- `src/components/scout/StealItTab.tsx`
-- `src/components/scout/TeamTagGrid.tsx` (renders 5 categories from `scoutTags.ts`)
-- `src/components/scout/ObservationList.tsx`
-- `src/components/scout/GameSummaryView.tsx` (handles player-vs-coach filtering)
-- `src/lib/scoutTags.ts`
-- `src/lib/offlineQueue.ts`
-- `src/hooks/useOfflineWriter.ts`
-- `src/hooks/useActiveGame.ts`
-- `src/hooks/useMyInning.ts` (reads/writes per-user current inning to localStorage)
-- `supabase/migrations/<ts>_scout_indexes.sql`
+## Summary/report compatibility
 
-## Tech notes
+- Legacy rows (no `applies_to_team`) render under "Unspecified team" subgroup — nothing breaks.
+- Steal It wall and key plays display the team chip when present.
+- Pitcher tab quick-observations auto-set `applies_to_team = defense_team` on write — no UI change there.
 
-- TanStack Query for all reads, invalidated by writes.
-- Supabase Realtime on `scout_observations` filtered by `game_id` so everyone sees new tags live.
-- Tabs use existing shadcn `<Tabs>`. Tag chips minimum 44px tall.
-- `useMyInning(gameId)` returns `[inning, setInning]`, persisted to `localStorage` under key `inning:${gameId}:${userId}`. Falls back to `games.current_inning` on first read.
-- Game Summary uses role from `useAuth()` to decide whether to filter by `player_id`.
+## Offline queue
 
-## Out of scope (deferred)
+`useOfflineWriter` is payload-agnostic; new field flows through automatically. No changes.
 
-Learning Mode, Coach Dashboard analytics, Development Log, PDF export, Compare Opponents, voice-to-text, photo/video attachments.
+## Out of scope
+
+- Editing or backfilling old observations.
+- Per-tag (not per-category) overrides.
+- Changing Pitcher tab UI.
 
