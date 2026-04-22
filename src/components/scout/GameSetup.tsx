@@ -12,50 +12,53 @@ export function GameSetup() {
   const { user, org } = useAuth();
   const navigate = useNavigate();
   const [opponent, setOpponent] = useState("");
+  const [homeTeam, setHomeTeam] = useState("");
+  const [awayTeam, setAwayTeam] = useState("");
   const [tournament, setTournament] = useState("");
   const [gameType, setGameType] = useState<"scout" | "learning">("scout");
-  const [home, setHome] = useState(true);
   const [isTimed, setIsTimed] = useState(false);
   const [minutes, setMinutes] = useState("90");
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (org && !homeTeam) setHomeTeam(org.name);
+  }, [org, homeTeam]);
+
   const start = async () => {
     if (!user || !org) return;
-    if (!opponent.trim()) {
-      toast.error("Opponent name is required");
+    if (!homeTeam.trim() || !awayTeam.trim()) {
+      toast.error("Home and away team names are required");
       return;
     }
+    const opponentName = opponent.trim() || awayTeam.trim();
     setSubmitting(true);
     try {
-      // upsert opponent
-      const teamName = opponent.trim();
       let opponentId: string | null = null;
       const { data: existing } = await supabase
         .from("opponents")
         .select("id")
         .eq("org_id", org.id)
-        .eq("team_name", teamName)
+        .eq("team_name", opponentName)
         .maybeSingle();
       if (existing?.id) {
         opponentId = existing.id;
       } else {
         const { data: created, error: oErr } = await supabase
           .from("opponents")
-          .insert({ org_id: org.id, team_name: teamName })
+          .insert({ org_id: org.id, team_name: opponentName })
           .select("id")
           .single();
         if (oErr) throw oErr;
         opponentId = created.id;
       }
 
-      const myTeam = org.name;
       const { error: gErr } = await supabase.from("games").insert({
         org_id: org.id,
         opponent_id: opponentId,
         game_type: gameType,
         tournament_name: tournament.trim() || null,
-        home_team: home ? myTeam : teamName,
-        away_team: home ? teamName : myTeam,
+        home_team: homeTeam.trim(),
+        away_team: awayTeam.trim(),
         is_timed: isTimed,
         time_limit_minutes: isTimed ? parseInt(minutes, 10) || null : null,
         timer_started_at: isTimed ? new Date().toISOString() : null,
