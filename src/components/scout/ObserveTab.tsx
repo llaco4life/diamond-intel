@@ -37,7 +37,7 @@ export function ObserveTab({
   const reload = useCallback(async () => {
     const { data } = await supabase
       .from("scout_observations")
-      .select("id, inning, is_team_level, jersey_number, tags, key_play, steal_it, created_at")
+      .select("id, inning, is_team_level, jersey_number, tags, key_play, steal_it, offensive_team, created_at")
       .eq("game_id", gameId)
       .order("created_at", { ascending: false })
       .limit(20);
