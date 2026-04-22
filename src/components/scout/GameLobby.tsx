@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
+import { DeleteGameButton } from "@/components/DeleteGameButton";
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -20,9 +21,11 @@ function relativeTime(iso: string): string {
 interface ActiveGameRowProps {
   game: GameRow;
   onJoin: (g: GameRow) => void;
+  onDelete: (g: GameRow) => void;
+  deleting: boolean;
 }
 
-function ActiveGameRow({ game, onJoin }: ActiveGameRowProps) {
+function ActiveGameRow({ game, onJoin, onDelete, deleting }: ActiveGameRowProps) {
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [trackingCount, setTrackingCount] = useState<number | null>(null);
 
@@ -73,9 +76,17 @@ function ActiveGameRow({ game, onJoin }: ActiveGameRowProps) {
             ? "Tracking…"
             : `${trackingCount} ${trackingCount === 1 ? "person" : "people"} tracking`}
         </p>
-        <Button size="sm" onClick={() => onJoin(game)}>
-          Join Game
-        </Button>
+        <div className="flex items-center gap-2">
+          <DeleteGameButton
+            game={game}
+            busy={deleting}
+            onConfirm={() => onDelete(game)}
+            iconOnly
+          />
+          <Button size="sm" onClick={() => onJoin(game)}>
+            Join Game
+          </Button>
+        </div>
       </div>
     </li>
   );
