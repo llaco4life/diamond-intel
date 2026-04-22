@@ -1,6 +1,4 @@
-import { Outlet, createRootRoute, HeadContent, Scripts, Link } from "@tanstack/react-router";
-import { Toaster } from "sonner";
-import { AuthProvider } from "@/hooks/useAuth";
+import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
 
@@ -30,19 +28,26 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { title: "Diamond Intel — Softball Scouting & Development" },
-      {
-        name: "description",
-        content:
-          "Diamond Intel is a sports tech app for softball teams to scout opponents, track player development, and run smarter game plans.",
-      },
-      { name: "theme-color", content: "#1D9E75" },
+      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { title: "Diamond Intel" },
+      { name: "description", content: "Diamond Intel is a softball scouting and player development platform built for competitive travel ball teams. Scout opponents, track player growth, and build ga" },
+      { name: "author", content: "Lovable" },
       { property: "og:title", content: "Diamond Intel" },
-      { property: "og:description", content: "Scouting and player development for softball teams." },
+      { property: "og:description", content: "Diamond Intel is a softball scouting and player development platform built for competitive travel ball teams. Scout opponents, track player growth, and build ga" },
       { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Diamond Intel" },
+      { name: "twitter:description", content: "Diamond Intel is a softball scouting and player development platform built for competitive travel ball teams. Scout opponents, track player growth, and build ga" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/UFrlpy1TZ9O0b7HouzX3AlKP8563/social-images/social-1776866457100-diamond-intel-social.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/UFrlpy1TZ9O0b7HouzX3AlKP8563/social-images/social-1776866457100-diamond-intel-social.webp" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      {
+        rel: "stylesheet",
+        href: appCss,
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -64,10 +69,5 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  return (
-    <AuthProvider>
-      <Outlet />
-      <Toaster position="top-center" richColors closeButton />
-    </AuthProvider>
-  );
+  return <Outlet />;
 }
