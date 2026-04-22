@@ -2,17 +2,21 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
 
 export function GameLobby({
   orgId,
   onStart,
+  onResumed,
 }: {
   orgId: string;
   onStart: () => void;
+  onResumed?: () => void;
 }) {
   const [recent, setRecent] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resumingId, setResumingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +37,31 @@ export function GameLobby({
       cancelled = true;
     };
   }, [orgId]);
+
+  const handleResume = async (game: GameRow) => {
+    setResumingId(game.id);
+    try {
+      const { error } = await supabase
+        .from("games")
+        .update({ status: "active" })
+        .eq("id", game.id)
+        .select("id, status")
+        .single();
+      if (error) {
+        // 23505 = another active scout game already exists
+        if (error.code === "23505" && game.game_type === "scout") {
+          toast.error("Another active game already exists. End it before resuming this one.");
+        } else {
+          toast.error("Could not resume game.");
+        }
+        return;
+      }
+      toast.success("Game resumed.");
+      onResumed?.();
+    } finally {
+      setResumingId(null);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-xl px-4 pt-8 pb-6">
@@ -61,9 +90,9 @@ export function GameLobby({
             {recent.map((g) => (
               <li
                 key={g.id}
-                className="flex items-center justify-between rounded-xl border bg-card p-3"
+                className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {g.home_team} <span className="text-muted-foreground">vs</span> {g.away_team}
                   </p>
@@ -71,13 +100,23 @@ export function GameLobby({
                     {new Date(g.game_date).toLocaleDateString()} · {g.home_score}–{g.away_score}
                   </p>
                 </div>
-                <Link
-                  to="/scout/summary/$gameId"
-                  params={{ gameId: g.id }}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  View summary
-                </Link>
+                <div className="flex shrink-0 items-center gap-3">
+                  <Link
+                    to="/scout/summary/$gameId"
+                    params={{ gameId: g.id }}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    View summary
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleResume(g)}
+                    disabled={resumingId === g.id}
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    {resumingId === g.id ? "Resuming…" : "Resume"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
