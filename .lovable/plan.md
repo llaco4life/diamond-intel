@@ -1,64 +1,63 @@
 
 
-# At-Bat Logging Upgrade — Final Plan
+# Pitcher Intelligence — Final Plan
 
 ## Schema migration
 
 ```sql
-ALTER TABLE public.at_bats
-  ADD COLUMN batter_number text,
-  ADD COLUMN batter_team text CHECK (batter_team IN ('my_team','opponent')),
-  ADD COLUMN pitch_counts jsonb NOT NULL DEFAULT '{}'::jsonb
-    CHECK (jsonb_typeof(pitch_counts) = 'object');
+ALTER TABLE public.pitchers
+  ADD COLUMN team_side text CHECK (team_side IN ('my_team','opponent'));
 ```
 
-All three columns nullable/defaulted so legacy rows remain valid. `pitches_seen` kept for back-compat reads.
-
-## Storage shape
-
-`pitch_counts` is a flat JSONB object keyed by canonical pitch slug, only non-zero entries saved:
-
-```json
-{ "fastball": 3, "change_up": 1, "rise_ball": 2 }
-```
+Nullable so existing Scout-mode rows remain valid. No RLS changes. `types.ts` regenerates.
 
 ## New file
 
-**`src/lib/pitchTypes.ts`** — single source of truth for pitch slug ↔ label.
+**`src/components/learning/CurrentPitcherBar.tsx`**
+- Slim bar: "Pitching: [#22 · Opponent ▼]  [+ New pitcher]"
+- Dropdown lists pitchers for current `game_id` (label format `#<jersey> · <team name>` using `homeTeam`/`awayTeam` props).
+- "+ New pitcher" opens a sheet:
+  - **Jersey #** numeric input (required)
+  - **Team** segmented toggle: `My Team` / `Opponent` (required)
+  - Save disabled until both set.
+- **Duplicate guard (new):** before insert, query `pitchers` where `game_id = X AND jersey_number = Y AND team_side = Z`. If a match exists, toast `"Pitcher already exists — selected"` and set it as current instead of inserting. Otherwise insert via `useOfflineWriter` and select on success.
+- Offline note: when the writer queues the insert (offline), skip the duplicate check (we cannot trust local state for sync conflicts) and rely on the user to pick from the list once online. The bar shows the queued pitcher optimistically in local state.
 
 ## File edits
 
-**`src/components/learning/AtBatLogButton.tsx`**
-- Add **Batter #** numeric input (`inputMode="numeric"`).
-- Add **Team** segmented toggle: `My Team` / `Opponent`. No default — user must pick.
-- Replace pitches-seen text input with **PitchCounter list**: each row = label, `−`, count, `+`. Min 0. 44px tap targets.
-- Keep Notes textarea (placeholder mentions sequence/location).
-- **Save validation (new requirement):** Save button disabled until `batter_number.trim() !== ""` AND `batter_team` is set. On submit, double-check and toast an error if missing.
-- Write `batter_number`, `batter_team`, `pitch_counts` (non-zero entries only), `notes`. Do not write `pitches_seen`.
-- Recent-list inside the sheet renders the new fields using actual team names (see below).
+**`src/components/learning/LearningObserveTab.tsx`**
+- Mount `CurrentPitcherBar` under the offense toggle. Lift `currentPitcher` (id + jersey) into state.
+- In `onPickTag`: when `categoryId === "pitching"`, require `currentPitcher`. If missing, toast `"Pick or add the current pitcher first"` and abort.
+- For pitching writes, include on the `scout_observations` row:
+  - `pitcher_id: currentPitcher.id`
+  - `jersey_number: currentPitcher.jersey_number` (denormalized for fast summary reads)
+  - `is_team_level: false`
+  - `applies_to_team` resolved as today (defense side)
+- Non-pitching tags unchanged.
 
-**`src/components/learning/LearningSummaryView.tsx`**
-- Accept/derive `home_team` and `away_team` from the session's `games` row (already loaded for the header).
-- For each at-bat row render: `Inning N · #BatterX · {batter_team === 'my_team' ? home_team : away_team}`.
-- Below 1–5 scores, render pitch counts as inline chips: `Fastball ×3 · Change-up ×1`.
-- Legacy rows: if `pitch_counts` empty and `pitches_seen` text present, fall back to that text. If `batter_team` is null, show no team label (don't fabricate).
-- Notes line unchanged.
+**`src/lib/scoutTags.ts`**
+- Export `PITCHING_TAG_SET: Set<string>` derived from the existing Pitching category, for the summary filter. No behavior change.
 
-**`src/components/learning/AtBatLogButton.tsx`** recent list also uses `home_team`/`away_team` passed in as props from `ActiveLearningSession`.
-
-## Prop wiring
-
-`ActiveLearningSession` already loads the game row → pass `homeTeam` and `awayTeam` down to `AtBatLogButton`. `LearningSummaryView` already fetches the game → reuse those fields.
+**`src/components/learning/LearningSummaryView.tsx`** — add Pitcher Summary section between "Steal It" and "At-bat log":
+- Extend the `scout_observations` select to include `pitcher_id, jersey_number`.
+- Fetch `pitchers` where `game_id = sessionId` (parallel with existing queries).
+- Build per-pitcher rollup:
+  1. Filter observations where `pitcher_id IS NOT NULL` AND tag ∈ `PITCHING_TAG_SET`.
+  2. Aggregate tag counts per `pitcher_id`.
+  3. For at-bat pitch counts: opposing `team_side` = `'opponent'` if `batter_team === 'my_team'` else `'my_team'`. If exactly one pitcher in this session has that `team_side`, attribute `pitch_counts` to them. Otherwise skip and show disclaimer.
+  4. Render one card per pitcher: `#22 · {team name}` + observation tag chips + at-bat pitch chips (labeled "from at-bats").
+- Disclaimer line if any at-bats were skipped: "Some at-bat pitch counts not attributed — multiple pitchers seen for that team."
+- Empty state if no pitchers: "No pitchers identified this session. Add the current pitcher in Observe to enable pitcher rollups."
 
 ## Untouched
 
-Scout Mode, observation flow, Steal It, RLS, offline queue, summary structure outside the at-bat list.
+Scout Mode (PitcherTab keeps working — `team_side` is nullable), Steal It, At-Bat modal, RLS, observation flow outside pitching tags, offline queue (`pitchers` already in `QueuedTable`).
 
 ## Files
 
-- migration: 3 new columns on `at_bats`
-- new: `src/lib/pitchTypes.ts`
-- edit: `src/components/learning/AtBatLogButton.tsx`
-- edit: `src/components/learning/ActiveLearningSession.tsx` (pass team names through)
-- edit: `src/components/learning/LearningSummaryView.tsx` (at-bat block + team name rendering)
+- migration: 1 column on `pitchers`
+- new: `src/components/learning/CurrentPitcherBar.tsx`
+- edit: `src/components/learning/LearningObserveTab.tsx`
+- edit: `src/components/learning/LearningSummaryView.tsx`
+- edit: `src/lib/scoutTags.ts`
 
