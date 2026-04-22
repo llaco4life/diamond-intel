@@ -66,16 +66,7 @@ export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
         status: "active",
         created_by: user.id,
       });
-      if (gErr) {
-        // 23505 = unique_violation on games_one_active_scout_per_org race.
-        const code = (gErr as { code?: string }).code;
-        if (gameType === "scout" && code === "23505") {
-          toast.info("A teammate just started a game — joining theirs.");
-          navigate({ to: "/scout", replace: true });
-          return;
-        }
-        throw gErr;
-      }
+      if (gErr) throw gErr;
       toast.success("Game started");
       navigate({ to: "/scout", replace: true });
     } catch (e) {
