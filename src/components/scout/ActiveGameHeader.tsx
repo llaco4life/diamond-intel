@@ -85,7 +85,7 @@ export function ActiveGameHeader({
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={busy}>
-                  End Game
+                  {busy ? "Ending…" : "End Game"}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
