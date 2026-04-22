@@ -56,8 +56,8 @@ export function ObserveTab({
   const [pJersey, setPJersey] = useState("");
   const [pTag, setPTag] = useState("");
   const [pNote, setPNote] = useState("");
-  const [pSide, setPSide] = useState<Side>("offense");
-  const [pSideTouched, setPSideTouched] = useState(false);
+  const [pTeam, setPTeam] = useState<string>(awayTeam);
+  const [pTeamTouched, setPTeamTouched] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [recent, setRecent] = useState<any[]>([]);
