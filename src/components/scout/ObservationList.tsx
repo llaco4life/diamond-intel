@@ -6,10 +6,18 @@ interface ObsRow {
   tags: string[] | null;
   key_play: string | null;
   steal_it: string | null;
+  applies_to_team?: string | null;
+  offensive_team?: string | null;
   created_at: string;
 }
 
-export function ObservationList({ rows }: { rows: ObsRow[] }) {
+export function ObservationList({
+  rows,
+  offenseTeam,
+}: {
+  rows: ObsRow[];
+  offenseTeam?: string;
+}) {
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -34,20 +42,38 @@ export function ObservationList({ rows }: { rows: ObsRow[] }) {
             Inning {inning}
           </p>
           <ul className="space-y-1.5">
-            {byInning.get(inning)!.map((r) => (
-              <li key={r.id} className="text-sm">
-                {r.jersey_number && (
-                  <span className="mr-1.5 inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">
-                    #{r.jersey_number}
-                  </span>
-                )}
-                {r.steal_it && <span className="font-semibold text-pink-foreground">🔥 {r.steal_it}</span>}
-                {r.key_play && <span className="italic">"{r.key_play}"</span>}
-                {r.tags && r.tags.length > 0 && (
-                  <span>{r.tags.join(", ")}</span>
-                )}
-              </li>
-            ))}
+            {byInning.get(inning)!.map((r) => {
+              const team = r.applies_to_team ?? null;
+              const isOffense =
+                team && offenseTeam ? team === offenseTeam : null;
+              return (
+                <li key={r.id} className="flex flex-wrap items-center gap-1.5 text-sm">
+                  {team ? (
+                    <span
+                      className={
+                        isOffense === false
+                          ? "rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          : "rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary"
+                      }
+                    >
+                      {team}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                      —
+                    </span>
+                  )}
+                  {r.jersey_number && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">
+                      #{r.jersey_number}
+                    </span>
+                  )}
+                  {r.steal_it && <span className="font-semibold text-pink-foreground">🔥 {r.steal_it}</span>}
+                  {r.key_play && <span className="italic">"{r.key_play}"</span>}
+                  {r.tags && r.tags.length > 0 && <span>{r.tags.join(", ")}</span>}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}

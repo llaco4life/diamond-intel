@@ -1,6 +1,9 @@
+export type AppliesTo = "offense" | "defense" | "ask";
+
 export interface TagCategory {
   id: string;
   label: string;
+  defaultAppliesTo: AppliesTo;
   tags: string[];
 }
 
@@ -8,6 +11,7 @@ export const TAG_CATEGORIES: TagCategory[] = [
   {
     id: "pitching",
     label: "Pitching",
+    defaultAppliesTo: "defense",
     tags: [
       "Rise ball",
       "Drop curve",
@@ -24,6 +28,7 @@ export const TAG_CATEGORIES: TagCategory[] = [
   {
     id: "defense",
     label: "Defense",
+    defaultAppliesTo: "defense",
     tags: [
       "Smart shift",
       "Covered the gap",
@@ -40,6 +45,7 @@ export const TAG_CATEGORIES: TagCategory[] = [
   {
     id: "offense",
     label: "Offense",
+    defaultAppliesTo: "offense",
     tags: [
       "Patient at-bat",
       "First pitch hacker",
@@ -56,6 +62,7 @@ export const TAG_CATEGORIES: TagCategory[] = [
   {
     id: "baserunning",
     label: "Base running",
+    defaultAppliesTo: "offense",
     tags: [
       "Aggressive jumps",
       "Conservative baserunner",
@@ -70,6 +77,7 @@ export const TAG_CATEGORIES: TagCategory[] = [
   {
     id: "coaching",
     label: "Coaching",
+    defaultAppliesTo: "ask",
     tags: [
       "Bunt-heavy coach",
       "Steal-happy",
@@ -81,6 +89,27 @@ export const TAG_CATEGORIES: TagCategory[] = [
     ],
   },
 ];
+
+export function getCategory(id: string): TagCategory | undefined {
+  return TAG_CATEGORIES.find((c) => c.id === id);
+}
+
+/**
+ * Resolves which team a tag belongs to given its category and the current
+ * offense/defense pair. Returns null when the category requires user choice.
+ */
+export function resolveAppliesTo(
+  categoryId: string | null,
+  offenseTeam: string,
+  defenseTeam: string,
+): string | null {
+  if (!categoryId) return offenseTeam;
+  const cat = getCategory(categoryId);
+  if (!cat) return offenseTeam;
+  if (cat.defaultAppliesTo === "offense") return offenseTeam;
+  if (cat.defaultAppliesTo === "defense") return defenseTeam;
+  return null;
+}
 
 export const ASSIGNMENT_OPTIONS = [
   "Pitcher tendencies",
