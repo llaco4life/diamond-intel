@@ -21,13 +21,13 @@ export interface GameRow {
   created_at: string;
 }
 
-export function useActiveGame(orgId: string | null) {
-  const [game, setGame] = useState<GameRow | null>(null);
+export function useActiveGames(orgId: string | null) {
+  const [games, setGames] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     if (!orgId) {
-      setGame(null);
+      setGames([]);
       setLoading(false);
       return;
     }
@@ -37,10 +37,8 @@ export function useActiveGame(orgId: string | null) {
       .select("*")
       .eq("org_id", orgId)
       .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setGame((data as GameRow | null) ?? null);
+      .order("created_at", { ascending: false });
+    setGames((data as GameRow[] | null) ?? []);
     setLoading(false);
   }, [orgId]);
 
@@ -63,5 +61,5 @@ export function useActiveGame(orgId: string | null) {
     };
   }, [orgId, reload]);
 
-  return { game, loading, reload };
+  return { games, loading, reload };
 }
