@@ -78,6 +78,15 @@ export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
 
   return (
     <div className="mx-auto max-w-xl px-4 pt-8 pb-6">
+      {onCancel && (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          ← Back to lobby
+        </button>
+      )}
       <h1 className="mb-1 text-2xl font-bold tracking-tight">New Game</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Set up a scouting game. Your team will see it instantly.
