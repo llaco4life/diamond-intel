@@ -38,11 +38,22 @@ export function ActiveGameHeader({
   };
 
   const endGame = async () => {
+    if (busy) return;
     setBusy(true);
-    const { error } = await supabase.from("games").update({ status: "ended" }).eq("id", game.id);
-    setBusy(false);
+    const { data, error } = await supabase
+      .from("games")
+      .update({ status: "ended" })
+      .eq("id", game.id)
+      .select("id, status")
+      .single();
     if (error) {
+      setBusy(false);
       toast.error(error.message);
+      return;
+    }
+    if (!data || data.status !== "ended") {
+      setBusy(false);
+      toast.error("Could not confirm the game ended. Please try again.");
       return;
     }
     toast.success("Game ended");
