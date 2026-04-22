@@ -85,12 +85,34 @@ export function GameSetup() {
 
       <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
         <div>
-          <Label htmlFor="opp">Opponent</Label>
+          <Label htmlFor="home-team">Home team name</Label>
+          <Input
+            id="home-team"
+            value={homeTeam}
+            onChange={(e) => setHomeTeam(e.target.value)}
+            placeholder="Your team name"
+            className="mt-1.5"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="away-team">Away team name</Label>
+          <Input
+            id="away-team"
+            value={awayTeam}
+            onChange={(e) => setAwayTeam(e.target.value)}
+            placeholder="Opponent team name"
+            className="mt-1.5"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="opp">Opponent (for scouting history, optional)</Label>
           <Input
             id="opp"
             value={opponent}
             onChange={(e) => setOpponent(e.target.value)}
-            placeholder="e.g. Lightning 14U"
+            placeholder="Defaults to away team name"
             className="mt-1.5"
           />
         </div>
@@ -126,13 +148,6 @@ export function GameSetup() {
               Learning
             </Button>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <Label htmlFor="home" className="cursor-pointer">
-            We're home team
-          </Label>
-          <Switch id="home" checked={home} onCheckedChange={setHome} />
         </div>
 
         <div className="flex items-center justify-between">
