@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const QUEUE_KEY = "scout:queue:v1";
 
-export type QueuedTable = "scout_observations" | "pitchers" | "game_assignments";
+export type QueuedTable = "scout_observations" | "pitchers" | "game_assignments" | "at_bats";
 
 export interface QueuedWrite {
   id: string;
