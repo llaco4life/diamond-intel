@@ -30,9 +30,9 @@ export function ActiveGameHeader({
   const [busy, setBusy] = useState(false);
 
   const updateScore = async (side: "home" | "away", delta: number) => {
-    const field = side === "home" ? "home_score" : "away_score";
     const next = Math.max(0, (side === "home" ? game.home_score : game.away_score) + delta);
-    const { error } = await supabase.from("games").update({ [field]: next }).eq("id", game.id);
+    const patch = side === "home" ? { home_score: next } : { away_score: next };
+    const { error } = await supabase.from("games").update(patch).eq("id", game.id);
     if (error) toast.error(error.message);
     else onRefresh();
   };
