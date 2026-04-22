@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import type { GameRow } from "@/hooks/useActiveGame";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -11,9 +11,14 @@ import { toast } from "sonner";
 type Context = "Watching a game" | "Live practice" | "Scrimmage";
 const CONTEXTS: Context[] = ["Watching a game", "Live practice", "Scrimmage"];
 
-export function LearningSetup({ onCancel }: { onCancel?: () => void }) {
+export function LearningSetup({
+  onCancel,
+  onCreated,
+}: {
+  onCancel?: () => void;
+  onCreated?: (game: GameRow) => void;
+}) {
   const { user, org } = useAuth();
-  const navigate = useNavigate();
   const [myTeam, setMyTeam] = useState("");
   const [opponent, setOpponent] = useState("");
   const [context, setContext] = useState<Context>("Watching a game");
@@ -48,12 +53,11 @@ export function LearningSetup({ onCancel }: { onCancel?: () => void }) {
           status: "active",
           created_by: user.id,
         })
-        .select("id")
+        .select("*")
         .single();
       if (error) throw error;
       toast.success("Learning session started");
-      void data;
-      navigate({ to: "/learning", replace: true });
+      onCreated?.(data as GameRow);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to start session");
     } finally {
