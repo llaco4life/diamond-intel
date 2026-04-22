@@ -19,8 +19,8 @@ export function LearningSetup({
   onCreated?: (game: GameRow) => void;
 }) {
   const { user, org } = useAuth();
-  const [myTeam, setMyTeam] = useState("");
-  const [opponent, setOpponent] = useState("");
+  const [homeTeam, setHomeTeam] = useState("");
+  const [awayTeam, setAwayTeam] = useState("");
   const [context, setContext] = useState<Context>("Watching a game");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [isTimed, setIsTimed] = useState(false);
@@ -29,13 +29,12 @@ export function LearningSetup({
 
   const start = async () => {
     if (!user || !org) return;
-    if (!myTeam.trim()) {
-      toast.error("Please add your team name.");
+    if (!homeTeam.trim() || !awayTeam.trim()) {
+      toast.error("Please add both home and away team names.");
       return;
     }
     setSubmitting(true);
     try {
-      const awayLabel = opponent.trim() || context;
       const { data, error } = await supabase
         .from("games")
         .insert({
@@ -43,8 +42,8 @@ export function LearningSetup({
           opponent_id: null,
           game_type: "learning",
           tournament_name: context,
-          home_team: myTeam.trim(),
-          away_team: awayLabel,
+          home_team: homeTeam.trim(),
+          away_team: awayTeam.trim(),
           game_date: date,
           is_timed: isTimed,
           time_limit_minutes: isTimed ? parseInt(minutes, 10) || null : null,
@@ -83,14 +82,28 @@ export function LearningSetup({
 
       <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
         <div>
-          <Label htmlFor="my-team">My team</Label>
+          <Label htmlFor="home-team">Home team</Label>
           <Input
-            id="my-team"
-            value={myTeam}
-            onChange={(e) => setMyTeam(e.target.value)}
+            id="home-team"
+            value={homeTeam}
+            onChange={(e) => setHomeTeam(e.target.value)}
             placeholder="e.g. Unity Perez 14U"
             className="mt-1.5"
           />
+        </div>
+
+        <div>
+          <Label htmlFor="away-team">Away team</Label>
+          <Input
+            id="away-team"
+            value={awayTeam}
+            onChange={(e) => setAwayTeam(e.target.value)}
+            placeholder="e.g. Lightning 14U"
+            className="mt-1.5"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            You can swap home/away later if you got it backwards.
+          </p>
         </div>
 
         <div>
@@ -108,17 +121,6 @@ export function LearningSetup({
               </Button>
             ))}
           </div>
-        </div>
-
-        <div>
-          <Label htmlFor="opp">Opponent / team you're watching (optional)</Label>
-          <Input
-            id="opp"
-            value={opponent}
-            onChange={(e) => setOpponent(e.target.value)}
-            placeholder="Defaults to context"
-            className="mt-1.5"
-          />
         </div>
 
         <div>
