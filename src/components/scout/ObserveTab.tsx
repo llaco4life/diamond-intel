@@ -15,13 +15,18 @@ import { toast } from "sonner";
 export function ObserveTab({
   gameId,
   defaultInning,
+  homeTeam,
+  awayTeam,
 }: {
   gameId: string;
   defaultInning: number;
+  homeTeam: string;
+  awayTeam: string;
 }) {
   const { user } = useAuth();
   const [inning, setInning] = useMyInning(gameId, user?.id ?? null, defaultInning);
   const { write, sync, pending } = useOfflineWriter();
+  const [offensiveTeam, setOffensiveTeam] = useState<string>(awayTeam);
   const [keyPlay, setKeyPlay] = useState("");
   const [pJersey, setPJersey] = useState("");
   const [pTag, setPTag] = useState("");
