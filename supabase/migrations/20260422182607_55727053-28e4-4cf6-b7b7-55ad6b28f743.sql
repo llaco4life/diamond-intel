@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.games_one_active_scout_per_org;
