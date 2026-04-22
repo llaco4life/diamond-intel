@@ -203,7 +203,7 @@ export function ObserveTab({
       toast.error("Jersey + tag or note required");
       return;
     }
-    const appliesTo = pSide === "offense" ? offenseTeam : defenseTeam;
+    const safeTeam = resolveSafePTeam();
     const res = await write("scout_observations", {
       game_id: gameId,
       player_id: user.id,
@@ -213,14 +213,14 @@ export function ObserveTab({
       tags: pTag.trim() ? [pTag.trim()] : [],
       key_play: pNote.trim() || null,
       offensive_team: offenseTeam,
-      applies_to_team: appliesTo,
+      applies_to_team: safeTeam,
     });
     if (res.ok) toast.success(`#${pJersey} logged`);
     else toast.warning("Saved offline");
     setPJersey("");
     setPTag("");
     setPNote("");
-    setPSideTouched(false);
+    setPTeamTouched(false);
     reload();
   };
 
