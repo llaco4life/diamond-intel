@@ -32,36 +32,37 @@ export function ActiveGameCard({
       const tasks: Promise<unknown>[] = [];
       if (game.opponent_id) {
         tasks.push(
-          supabase
-            .from("opponents")
-            .select("team_name")
-            .eq("id", game.opponent_id)
-            .maybeSingle()
-            .then(({ data }) => {
-              if (!cancelled) setOpponentName(data?.team_name ?? null);
-            }),
+          (async () => {
+            const { data } = await supabase
+              .from("opponents")
+              .select("team_name")
+              .eq("id", game.opponent_id!)
+              .maybeSingle();
+            if (!cancelled) setOpponentName(data?.team_name ?? null);
+          })(),
         );
       }
       tasks.push(
-        supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", game.created_by)
-          .maybeSingle()
-          .then(({ data }) => {
-            if (!cancelled) setCreatorName(data?.full_name ?? null);
-          }),
+        (async () => {
+          const { data } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", game.created_by)
+            .maybeSingle();
+          if (!cancelled) setCreatorName(data?.full_name ?? null);
+        })(),
       );
       tasks.push(
-        Promise.all([
-          supabase.from("scout_observations").select("player_id").eq("game_id", game.id),
-          supabase.from("at_bats").select("player_id").eq("game_id", game.id),
-        ]).then(([obs, abs]) => {
+        (async () => {
+          const [obs, abs] = await Promise.all([
+            supabase.from("scout_observations").select("player_id").eq("game_id", game.id),
+            supabase.from("at_bats").select("player_id").eq("game_id", game.id),
+          ]);
           const set = new Set<string>();
           (obs.data ?? []).forEach((r) => r.player_id && set.add(r.player_id));
           (abs.data ?? []).forEach((r) => r.player_id && set.add(r.player_id));
           if (!cancelled) setTrackingCount(set.size);
-        }),
+        })(),
       );
       await Promise.all(tasks);
     })();
