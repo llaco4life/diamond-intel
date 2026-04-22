@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
+import { DeleteGameButton } from "@/components/DeleteGameButton";
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -20,9 +21,11 @@ function relativeTime(iso: string): string {
 interface ActiveGameRowProps {
   game: GameRow;
   onJoin: (g: GameRow) => void;
+  onDelete: (g: GameRow) => void;
+  deleting: boolean;
 }
 
-function ActiveGameRow({ game, onJoin }: ActiveGameRowProps) {
+function ActiveGameRow({ game, onJoin, onDelete, deleting }: ActiveGameRowProps) {
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [trackingCount, setTrackingCount] = useState<number | null>(null);
 
@@ -73,9 +76,17 @@ function ActiveGameRow({ game, onJoin }: ActiveGameRowProps) {
             ? "Tracking…"
             : `${trackingCount} ${trackingCount === 1 ? "person" : "people"} tracking`}
         </p>
-        <Button size="sm" onClick={() => onJoin(game)}>
-          Join Game
-        </Button>
+        <div className="flex items-center gap-2">
+          <DeleteGameButton
+            game={game}
+            busy={deleting}
+            onConfirm={() => onDelete(game)}
+            iconOnly
+          />
+          <Button size="sm" onClick={() => onJoin(game)}>
+            Join Game
+          </Button>
+        </div>
       </div>
     </li>
   );
@@ -93,8 +104,27 @@ export function GameLobby({
   onJoin: (g: GameRow) => void;
 }) {
   const [recent, setRecent] = useState<GameRow[]>([]);
+  const [activeLocal, setActiveLocal] = useState<GameRow[]>(activeGames);
   const [loading, setLoading] = useState(true);
   const [resumingId, setResumingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setActiveLocal(activeGames);
+  }, [activeGames]);
+
+  const handleDelete = async (game: GameRow) => {
+    setDeletingId(game.id);
+    const { error } = await supabase.from("games").delete().eq("id", game.id);
+    setDeletingId(null);
+    if (error) {
+      toast.error("Could not delete game.");
+      return;
+    }
+    setActiveLocal((prev) => prev.filter((g) => g.id !== game.id));
+    setRecent((prev) => prev.filter((g) => g.id !== game.id));
+    toast.success("Game deleted.");
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -149,14 +179,20 @@ export function GameLobby({
         </Button>
       </section>
 
-      {activeGames.length > 0 && (
+      {activeLocal.length > 0 && (
         <section className="mt-6">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Active games ({activeGames.length})
+            Active games ({activeLocal.length})
           </h2>
           <ul className="space-y-3">
-            {activeGames.map((g) => (
-              <ActiveGameRow key={g.id} game={g} onJoin={onJoin} />
+            {activeLocal.map((g) => (
+              <ActiveGameRow
+                key={g.id}
+                game={g}
+                onJoin={onJoin}
+                onDelete={handleDelete}
+                deleting={deletingId === g.id}
+              />
             ))}
           </ul>
         </section>
@@ -201,6 +237,12 @@ export function GameLobby({
                   >
                     {resumingId === g.id ? "Resuming…" : "Resume"}
                   </button>
+                  <DeleteGameButton
+                    game={g}
+                    busy={deletingId === g.id}
+                    onConfirm={() => handleDelete(g)}
+                    iconOnly
+                  />
                 </div>
               </li>
             ))}
