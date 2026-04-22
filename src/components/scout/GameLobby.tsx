@@ -1,18 +1,96 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
 
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+interface ActiveGameRowProps {
+  game: GameRow;
+  onJoin: (g: GameRow) => void;
+}
+
+function ActiveGameRow({ game, onJoin }: ActiveGameRowProps) {
+  const [creatorName, setCreatorName] = useState<string | null>(null);
+  const [trackingCount, setTrackingCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [profile, obs, abs] = await Promise.all([
+        supabase.from("profiles").select("full_name").eq("id", game.created_by).maybeSingle(),
+        supabase.from("scout_observations").select("player_id").eq("game_id", game.id),
+        supabase.from("at_bats").select("player_id").eq("game_id", game.id),
+      ]);
+      if (cancelled) return;
+      setCreatorName(profile.data?.full_name ?? null);
+      const set = new Set<string>();
+      (obs.data ?? []).forEach((r) => r.player_id && set.add(r.player_id));
+      (abs.data ?? []).forEach((r) => r.player_id && set.add(r.player_id));
+      setTrackingCount(set.size);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [game.id, game.created_by]);
+
+  return (
+    <li className="rounded-2xl border bg-card p-4 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold">
+            {game.home_team} <span className="text-muted-foreground">vs</span> {game.away_team}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Started {relativeTime(game.created_at)} by {creatorName ?? "a teammate"}
+          </p>
+          {game.tournament_name && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{game.tournament_name}</p>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Badge>Active</Badge>
+          <Badge variant="secondary" className="capitalize">
+            {game.game_type}
+          </Badge>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {trackingCount === null
+            ? "Tracking…"
+            : `${trackingCount} ${trackingCount === 1 ? "person" : "people"} tracking`}
+        </p>
+        <Button size="sm" onClick={() => onJoin(game)}>
+          Join Game
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 export function GameLobby({
   orgId,
+  activeGames,
   onStart,
-  onResumed,
+  onJoin,
 }: {
   orgId: string;
+  activeGames: GameRow[];
   onStart: () => void;
-  onResumed?: () => void;
+  onJoin: (g: GameRow) => void;
 }) {
   const [recent, setRecent] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,16 +126,10 @@ export function GameLobby({
         .select("id, status")
         .single();
       if (error) {
-        // 23505 = another active scout game already exists
-        if (error.code === "23505" && game.game_type === "scout") {
-          toast.error("Another active game already exists. End it before resuming this one.");
-        } else {
-          toast.error("Could not resume game.");
-        }
+        toast.error("Could not resume game.");
         return;
       }
       toast.success("Game resumed.");
-      onResumed?.();
     } finally {
       setResumingId(null);
     }
@@ -67,8 +139,8 @@ export function GameLobby({
     <div className="mx-auto max-w-xl px-4 pt-8 pb-6">
       <h1 className="mb-1 text-2xl font-bold tracking-tight">Scout</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        When a coach or teammate starts a game, it will appear here automatically for everyone on
-        the team.
+        Multiple games can run at the same time. Join one your team is already tracking, or start a
+        new one.
       </p>
 
       <section className="rounded-2xl border bg-card p-5 shadow-card">
@@ -76,6 +148,19 @@ export function GameLobby({
           Start a New Game
         </Button>
       </section>
+
+      {activeGames.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Active games ({activeGames.length})
+          </h2>
+          <ul className="space-y-3">
+            {activeGames.map((g) => (
+              <ActiveGameRow key={g.id} game={g} onJoin={onJoin} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-6">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
