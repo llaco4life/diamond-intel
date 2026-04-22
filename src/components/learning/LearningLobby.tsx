@@ -2,7 +2,18 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
@@ -20,6 +31,20 @@ export function LearningLobby({
   const [recent, setRecent] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumingId, setResumingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (game: GameRow) => {
+    setDeletingId(game.id);
+    const { error } = await supabase.from("games").delete().eq("id", game.id);
+    setDeletingId(null);
+    if (error) {
+      toast.error("Could not delete session.");
+      return;
+    }
+    setActive((prev) => prev.filter((g) => g.id !== game.id));
+    setRecent((prev) => prev.filter((g) => g.id !== game.id));
+    toast.success("Session deleted.");
+  };
 
 
 
@@ -110,7 +135,13 @@ export function LearningLobby({
                   </div>
                   <Badge>Active</Badge>
                 </div>
-                <div className="mt-3 flex justify-end">
+                <div className="mt-3 flex justify-end gap-2">
+                  <DeleteGameButton
+                    game={g}
+                    busy={deletingId === g.id}
+                    onConfirm={() => handleDelete(g)}
+                    label="Delete session"
+                  />
                   <Button size="sm" onClick={() => onResume(g)}>
                     Resume
                   </Button>
@@ -161,6 +192,13 @@ export function LearningLobby({
                   >
                     {resumingId === g.id ? "Resuming…" : "Resume"}
                   </button>
+                  <DeleteGameButton
+                    game={g}
+                    busy={deletingId === g.id}
+                    onConfirm={() => handleDelete(g)}
+                    label="Delete session"
+                    iconOnly
+                  />
                 </div>
               </li>
             ))}
