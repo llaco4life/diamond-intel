@@ -69,5 +69,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  return <Outlet />;
+  const { AuthProvider } = require("@/hooks/useAuth");
+  return (
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  );
 }
