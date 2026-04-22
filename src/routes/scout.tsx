@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Eye } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGame } from "@/hooks/useActiveGame";
@@ -31,19 +30,5 @@ function ScoutPage() {
     return <ActiveGame game={game} isCoach={isCoach} />;
   }
 
-  if (isCoach) {
-    return <GameSetup />;
-  }
-
-  return (
-    <div className="mx-auto max-w-md px-4 pt-16 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-primary">
-        <Eye className="h-7 w-7" />
-      </div>
-      <h1 className="text-xl font-bold">No active game</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Your coach will start one when the game begins.
-      </p>
-    </div>
-  );
+  return <GameSetup />;
 }
