@@ -17,6 +17,7 @@ import { Route as LearningRouteImport } from './routes/learning'
 import { Route as DevelopmentRouteImport } from './routes/development'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -58,6 +59,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScoutSummaryGameIdRoute = ScoutSummaryGameIdRouteImport.update({
+  id: '/summary/$gameId',
+  path: '/summary/$gameId',
+  getParentRoute: () => ScoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,8 +72,9 @@ export interface FileRoutesByFullPath {
   '/learning': typeof LearningRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/scout': typeof ScoutRoute
+  '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,8 +83,9 @@ export interface FileRoutesByTo {
   '/learning': typeof LearningRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/scout': typeof ScoutRoute
+  '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,8 +95,9 @@ export interface FileRoutesById {
   '/learning': typeof LearningRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/scout': typeof ScoutRoute
+  '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/scout'
     | '/signup'
+    | '/scout/summary/$gameId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/scout'
     | '/signup'
+    | '/scout/summary/$gameId'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/scout'
     | '/signup'
+    | '/scout/summary/$gameId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -130,7 +142,7 @@ export interface RootRouteChildren {
   LearningRoute: typeof LearningRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
-  ScoutRoute: typeof ScoutRoute
+  ScoutRoute: typeof ScoutRouteWithChildren
   SignupRoute: typeof SignupRoute
 }
 
@@ -192,8 +204,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scout/summary/$gameId': {
+      id: '/scout/summary/$gameId'
+      path: '/summary/$gameId'
+      fullPath: '/scout/summary/$gameId'
+      preLoaderRoute: typeof ScoutSummaryGameIdRouteImport
+      parentRoute: typeof ScoutRoute
+    }
   }
 }
+
+interface ScoutRouteChildren {
+  ScoutSummaryGameIdRoute: typeof ScoutSummaryGameIdRoute
+}
+
+const ScoutRouteChildren: ScoutRouteChildren = {
+  ScoutSummaryGameIdRoute: ScoutSummaryGameIdRoute,
+}
+
+const ScoutRouteWithChildren = ScoutRoute._addFileChildren(ScoutRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -202,9 +231,18 @@ const rootRouteChildren: RootRouteChildren = {
   LearningRoute: LearningRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
-  ScoutRoute: ScoutRoute,
+  ScoutRoute: ScoutRouteWithChildren,
   SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
