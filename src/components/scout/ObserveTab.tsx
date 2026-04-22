@@ -361,10 +361,6 @@ export function ObserveTab({
           Log player
         </Button>
       </section>
-        <Button onClick={addPlayerObs} className="mt-2 w-full">
-          Log player
-        </Button>
-      </section>
 
       <section>
         <h3 className="mb-2 text-sm font-semibold">Recent observations</h3>
