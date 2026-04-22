@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useMatches } from "@tanstack/react-router";
 import { ProtectedShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGame } from "@/hooks/useActiveGame";
@@ -9,12 +9,20 @@ import { ActiveGameCard } from "@/components/scout/ActiveGameCard";
 import { GameLobby } from "@/components/scout/GameLobby";
 
 export const Route = createFileRoute("/scout")({
-  component: () => (
-    <ProtectedShell>
-      <ScoutPage />
-    </ProtectedShell>
-  ),
+  component: ScoutLayout,
 });
+
+function ScoutLayout() {
+  const matches = useMatches();
+  // If a child route (e.g. /scout/summary/$gameId) is matched, render it instead of the lobby.
+  const isChildRoute = matches.some((m) => m.routeId !== "__root__" && m.routeId !== "/scout" && m.routeId.startsWith("/scout"));
+
+  return (
+    <ProtectedShell>
+      {isChildRoute ? <Outlet /> : <ScoutPage />}
+    </ProtectedShell>
+  );
+}
 
 function ScoutPage() {
   const { org, role, loading: authLoading } = useAuth();
