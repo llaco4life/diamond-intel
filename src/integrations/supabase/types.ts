@@ -296,6 +296,7 @@ export type Database = {
           jersey_number: string
           name: string | null
           notes: string | null
+          team_side: string | null
         }
         Insert: {
           created_at?: string
@@ -305,6 +306,7 @@ export type Database = {
           jersey_number: string
           name?: string | null
           notes?: string | null
+          team_side?: string | null
         }
         Update: {
           created_at?: string
@@ -314,6 +316,7 @@ export type Database = {
           jersey_number?: string
           name?: string | null
           notes?: string | null
+          team_side?: string | null
         }
         Relationships: [
           {

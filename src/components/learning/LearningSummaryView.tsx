@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow } from "@/hooks/useActiveGame";
 import { pitchLabel, type PitchCounts } from "@/lib/pitchTypes";
+import { PITCHING_TAG_SET } from "@/lib/scoutTags";
 
 interface Obs {
   id: string;
@@ -15,7 +16,14 @@ interface Obs {
   key_play: string | null;
   steal_it: string | null;
   applies_to_team: string | null;
+  pitcher_id: string | null;
   created_at: string;
+}
+
+interface PitcherRow {
+  id: string;
+  jersey_number: string;
+  team_side: "my_team" | "opponent" | null;
 }
 
 interface AtBat {
@@ -37,6 +45,7 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
   const [game, setGame] = useState<GameRow | null>(null);
   const [obs, setObs] = useState<Obs[]>([]);
   const [atBats, setAtBats] = useState<AtBat[]>([]);
+  const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,12 +53,12 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const [{ data: g }, { data: o }, { data: a }] = await Promise.all([
+      const [{ data: g }, { data: o }, { data: a }, { data: p }] = await Promise.all([
         supabase.from("games").select("*").eq("id", sessionId).maybeSingle(),
         supabase
           .from("scout_observations")
           .select(
-            "id, inning, is_team_level, jersey_number, tags, key_play, steal_it, applies_to_team, created_at",
+            "id, inning, is_team_level, jersey_number, tags, key_play, steal_it, applies_to_team, pitcher_id, created_at",
           )
           .eq("game_id", sessionId)
           .eq("player_id", user.id)
@@ -62,11 +71,16 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
           .eq("game_id", sessionId)
           .eq("player_id", user.id)
           .order("inning", { ascending: true }),
+        supabase
+          .from("pitchers")
+          .select("id, jersey_number, team_side")
+          .eq("game_id", sessionId),
       ]);
       if (!cancel) {
         setGame((g as GameRow | null) ?? null);
         setObs((o as Obs[]) ?? []);
         setAtBats((a as unknown as AtBat[]) ?? []);
+        setPitchers((p as PitcherRow[] | null) ?? []);
         setLoading(false);
       }
     })();
@@ -163,6 +177,114 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
           </ul>
         </section>
       )}
+
+      {(() => {
+        // Pitcher Summary — honest grouping only.
+        const teamName = (side: "my_team" | "opponent" | null) =>
+          side === "my_team" ? game.home_team : side === "opponent" ? game.away_team : null;
+
+        // 1. Aggregate observation tag counts per pitcher_id.
+        const tagCounts: Record<string, Record<string, number>> = {};
+        for (const o of obs) {
+          if (!o.pitcher_id || !o.tags) continue;
+          for (const t of o.tags) {
+            if (!PITCHING_TAG_SET.has(t)) continue;
+            tagCounts[o.pitcher_id] ??= {};
+            tagCounts[o.pitcher_id][t] = (tagCounts[o.pitcher_id][t] ?? 0) + 1;
+          }
+        }
+
+        // 2. Attribute at-bat pitch_counts to pitcher only when exactly one pitcher
+        //    exists in this session for the opposing team_side.
+        const pitchCountsByPitcher: Record<string, Record<string, number>> = {};
+        let skippedAtBats = 0;
+        for (const ab of atBats) {
+          if (!ab.batter_team || !ab.pitch_counts) continue;
+          const opposing: "my_team" | "opponent" =
+            ab.batter_team === "my_team" ? "opponent" : "my_team";
+          const candidates = pitchers.filter((p) => p.team_side === opposing);
+          if (candidates.length !== 1) {
+            if (Object.keys(ab.pitch_counts).length > 0) skippedAtBats++;
+            continue;
+          }
+          const pid = candidates[0].id;
+          for (const [slug, v] of Object.entries(ab.pitch_counts)) {
+            if (typeof v !== "number" || v <= 0) continue;
+            pitchCountsByPitcher[pid] ??= {};
+            pitchCountsByPitcher[pid][slug] = (pitchCountsByPitcher[pid][slug] ?? 0) + v;
+          }
+        }
+
+        // 3. Render only pitchers we actually have data or identity for.
+        const visiblePitchers = pitchers.filter((p) => p.team_side !== null);
+
+        return (
+          <section>
+            <h2 className="mb-2 text-sm font-semibold">Pitcher Summary</h2>
+            {visiblePitchers.length === 0 ? (
+              <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+                No pitchers identified this session. Add the current pitcher in Observe to enable
+                pitcher rollups.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {visiblePitchers.map((p) => {
+                  const tags = tagCounts[p.id] ?? {};
+                  const pitchC = pitchCountsByPitcher[p.id] ?? {};
+                  const tagEntries = Object.entries(tags);
+                  const pitchEntries = Object.entries(pitchC);
+                  return (
+                    <li key={p.id} className="rounded-xl border bg-card p-3 text-sm">
+                      <p className="font-semibold">
+                        #{p.jersey_number}
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                          · {teamName(p.team_side)}
+                        </span>
+                      </p>
+                      {tagEntries.length > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {tagEntries.map(([tag, n]) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium"
+                            >
+                              {tag} ×{n}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted-foreground">No pitching tags yet.</p>
+                      )}
+                      {pitchEntries.length > 0 && (
+                        <div className="mt-1.5">
+                          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                            From at-bats
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {pitchEntries.map(([slug, n]) => (
+                              <span
+                                key={slug}
+                                className="rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium"
+                              >
+                                {pitchLabel(slug)} ×{n}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {skippedAtBats > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Some at-bat pitch counts not attributed — multiple pitchers seen for that team.
+              </p>
+            )}
+          </section>
+        );
+      })()}
 
       <section>
         <h2 className="mb-2 text-sm font-semibold">At-bat log ({atBats.length})</h2>

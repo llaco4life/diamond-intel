@@ -94,6 +94,12 @@ export function getCategory(id: string): TagCategory | undefined {
   return TAG_CATEGORIES.find((c) => c.id === id);
 }
 
+/** Set of tag strings belonging to the Pitching category. Used by Learning summary
+ * to filter pitcher-attributed observations without re-walking TAG_CATEGORIES. */
+export const PITCHING_TAG_SET: Set<string> = new Set(
+  TAG_CATEGORIES.find((c) => c.id === "pitching")?.tags ?? [],
+);
+
 /**
  * Resolves which team a tag belongs to given its category and the current
  * offense/defense pair. Returns null when the category requires user choice.
