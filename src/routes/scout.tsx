@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ProtectedShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGame } from "@/hooks/useActiveGame";
 import { GameSetup } from "@/components/scout/GameSetup";
 import { ActiveGame } from "@/components/scout/ActiveGame";
+import { ActiveGameCard } from "@/components/scout/ActiveGameCard";
+import { GameLobby } from "@/components/scout/GameLobby";
 
 export const Route = createFileRoute("/scout")({
   component: () => (
@@ -17,6 +20,8 @@ function ScoutPage() {
   const { org, role, loading: authLoading } = useAuth();
   const { game, loading } = useActiveGame(org?.id ?? null);
   const isCoach = role === "head_coach" || role === "assistant_coach";
+  const [joined, setJoined] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
 
   if (authLoading || loading) {
     return (
@@ -27,8 +32,11 @@ function ScoutPage() {
   }
 
   if (game) {
-    return <ActiveGame game={game} isCoach={isCoach} />;
+    if (joined) return <ActiveGame game={game} isCoach={isCoach} />;
+    return <ActiveGameCard game={game} onJoin={() => setJoined(true)} />;
   }
 
-  return <GameSetup />;
+  if (showSetup) return <GameSetup />;
+  if (!org) return null;
+  return <GameLobby orgId={org.id} onStart={() => setShowSetup(true)} />;
 }

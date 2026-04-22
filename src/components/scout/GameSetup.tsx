@@ -33,6 +33,29 @@ export function GameSetup() {
     const opponentName = opponent.trim() || awayTeam.trim();
     setSubmitting(true);
     try {
+      // Pre-insert recheck: only Scout games are constrained to one-active-per-org.
+      if (gameType === "scout") {
+        const { data: existingActive } = await supabase
+          .from("games")
+          .select("id, created_by")
+          .eq("org_id", org.id)
+          .eq("status", "active")
+          .eq("game_type", "scout")
+          .maybeSingle();
+        if (existingActive?.id) {
+          let starterName = "Someone";
+          const { data: starterProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", existingActive.created_by)
+            .maybeSingle();
+          if (starterProfile?.full_name) starterName = starterProfile.full_name;
+          toast.info(`${starterName} just started a game — joining theirs.`);
+          navigate({ to: "/scout", replace: true });
+          return;
+        }
+      }
+
       let opponentId: string | null = null;
       const { data: existing } = await supabase
         .from("opponents")
@@ -66,7 +89,16 @@ export function GameSetup() {
         status: "active",
         created_by: user.id,
       });
-      if (gErr) throw gErr;
+      if (gErr) {
+        // 23505 = unique_violation on games_one_active_scout_per_org race.
+        const code = (gErr as { code?: string }).code;
+        if (gameType === "scout" && code === "23505") {
+          toast.info("A teammate just started a game — joining theirs.");
+          navigate({ to: "/scout", replace: true });
+          return;
+        }
+        throw gErr;
+      }
       toast.success("Game started");
       navigate({ to: "/scout", replace: true });
     } catch (e) {
