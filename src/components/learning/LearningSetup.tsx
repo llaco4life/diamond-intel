@@ -52,7 +52,8 @@ export function LearningSetup({ onCancel }: { onCancel?: () => void }) {
         .single();
       if (error) throw error;
       toast.success("Learning session started");
-      navigate({ to: "/learning", replace: true, search: { session: data.id } as never });
+      void data;
+      navigate({ to: "/learning", replace: true });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to start session");
     } finally {
