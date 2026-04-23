@@ -1,63 +1,42 @@
 
 
-# Pitcher Intelligence — Final Plan
+# Apply Same Tag Feedback + Edit/Delete to Scout Mode
 
-## Schema migration
+You're right — Scout Mode has the exact same problem (silent chip taps, no undo, no fixing mistakes). Since `TeamTagGrid` and `ObservationList` are already shared between both modes, extending the fix to Scout is mostly wiring, not new components.
 
-```sql
-ALTER TABLE public.pitchers
-  ADD COLUMN team_side text CHECK (team_side IN ('my_team','opponent'));
-```
+## What changes in Scout Mode
 
-Nullable so existing Scout-mode rows remain valid. No RLS changes. `types.ts` regenerates.
+Scout's `ObserveTab` (`src/components/scout/ObserveTab.tsx`) gets the same treatment as Learning's Observe tab:
 
-## New file
+1. **Count badges + green flash on chips** — derive `tagCounts` from the existing `recent` observations filtered by current inning, track `justAddedTag` for the 600ms flash, pass both into `TeamTagGrid`.
+2. **Undo on success toast** — switch the success toast to a sonner action toast: `{ action: { label: "Undo", onClick: () => deleteObservation(id) } }`. Uses the row id returned from `useOfflineWriter`.
+3. **Trash + edit icons on "Recent observations"** — pass `onDelete` and `onEdit` handlers into `ObservationList`. Edit opens an inline prompt for `key_play` rows; trash confirms then deletes.
+4. **Pitching gating** — Scout already requires picking a pitcher in the Pitcher tab, but Observe currently lets you tap Pitching chips with no pitcher context. Add the same 50% opacity + "Pick a pitcher first" inline note when no active pitcher exists for the defense team.
 
-**`src/components/learning/CurrentPitcherBar.tsx`**
-- Slim bar: "Pitching: [#22 · Opponent ▼]  [+ New pitcher]"
-- Dropdown lists pitchers for current `game_id` (label format `#<jersey> · <team name>` using `homeTeam`/`awayTeam` props).
-- "+ New pitcher" opens a sheet:
-  - **Jersey #** numeric input (required)
-  - **Team** segmented toggle: `My Team` / `Opponent` (required)
-  - Save disabled until both set.
-- **Duplicate guard (new):** before insert, query `pitchers` where `game_id = X AND jersey_number = Y AND team_side = Z`. If a match exists, toast `"Pitcher already exists — selected"` and set it as current instead of inserting. Otherwise insert via `useOfflineWriter` and select on success.
-- Offline note: when the writer queues the insert (offline), skip the duplicate check (we cannot trust local state for sync conflicts) and rely on the user to pick from the list once online. The bar shows the queued pitcher optimistically in local state.
+## What does NOT change in Scout Mode
 
-## File edits
+- Coach-only views, scouting reports, game plan editor — untouched.
+- `MyJobTab`, `StealItTab`, `PitcherTab` — untouched.
+- The existing scout observation write payload shape — unchanged.
 
-**`src/components/learning/LearningObserveTab.tsx`**
-- Mount `CurrentPitcherBar` under the offense toggle. Lift `currentPitcher` (id + jersey) into state.
-- In `onPickTag`: when `categoryId === "pitching"`, require `currentPitcher`. If missing, toast `"Pick or add the current pitcher first"` and abort.
-- For pitching writes, include on the `scout_observations` row:
-  - `pitcher_id: currentPitcher.id`
-  - `jersey_number: currentPitcher.jersey_number` (denormalized for fast summary reads)
-  - `is_team_level: false`
-  - `applies_to_team` resolved as today (defense side)
-- Non-pitching tags unchanged.
+## Backend
 
-**`src/lib/scoutTags.ts`**
-- Export `PITCHING_TAG_SET: Set<string>` derived from the existing Pitching category, for the summary filter. No behavior change.
+The DELETE policy on `scout_observations` from the Learning plan already covers Scout — it's keyed on `player_id = auth.uid()`, which applies to whoever logged the row regardless of mode. **No additional migration needed.**
 
-**`src/components/learning/LearningSummaryView.tsx`** — add Pitcher Summary section between "Steal It" and "At-bat log":
-- Extend the `scout_observations` select to include `pitcher_id, jersey_number`.
-- Fetch `pitchers` where `game_id = sessionId` (parallel with existing queries).
-- Build per-pitcher rollup:
-  1. Filter observations where `pitcher_id IS NOT NULL` AND tag ∈ `PITCHING_TAG_SET`.
-  2. Aggregate tag counts per `pitcher_id`.
-  3. For at-bat pitch counts: opposing `team_side` = `'opponent'` if `batter_team === 'my_team'` else `'my_team'`. If exactly one pitcher in this session has that `team_side`, attribute `pitch_counts` to them. Otherwise skip and show disclaimer.
-  4. Render one card per pitcher: `#22 · {team name}` + observation tag chips + at-bat pitch chips (labeled "from at-bats").
-- Disclaimer line if any at-bats were skipped: "Some at-bat pitch counts not attributed — multiple pitchers seen for that team."
-- Empty state if no pitchers: "No pitchers identified this session. Add the current pitcher in Observe to enable pitcher rollups."
+The UPDATE policy already exists for `player_id = auth.uid()`, so editing `key_play` works in Scout too.
 
-## Untouched
+## Files touched (delta on top of the Learning plan)
 
-Scout Mode (PitcherTab keeps working — `team_side` is nullable), Steal It, At-Bat modal, RLS, observation flow outside pitching tags, offline queue (`pitchers` already in `QueuedTable`).
+- `src/components/scout/ObserveTab.tsx` — derive `tagCounts`/`justAddedTag`, implement `deleteObservation`/`editKeyPlay`, wire Undo into the toast, pass handlers + counts into `TeamTagGrid` and `ObservationList`, gate Pitching chips when no active pitcher.
+- No new components. No new migration. No changes to `TeamTagGrid` / `ObservationList` / `useOfflineWriter` beyond what the Learning plan already specifies (the props are optional and shared).
 
-## Files
+## Build order
 
-- migration: 1 column on `pitchers`
-- new: `src/components/learning/CurrentPitcherBar.tsx`
-- edit: `src/components/learning/LearningObserveTab.tsx`
-- edit: `src/components/learning/LearningSummaryView.tsx`
-- edit: `src/lib/scoutTags.ts`
+1. Apply the Learning Mode changes (TeamTagGrid + ObservationList + useOfflineWriter + DELETE migration + LearningObserveTab).
+2. In the same pass, wire the same handlers into `ObserveTab.tsx` for Scout. Because the shared components already accept the optional props, Scout just needs to pass them.
+
+## Out of scope
+
+- Bulk delete, per-tag analytics, undo for queued/offline writes (Undo only shows when the insert succeeded online and we have a row id).
+- Editing tags on a row (only `key_play` text is editable; to fix a wrong tag, delete and re-tap).
 
