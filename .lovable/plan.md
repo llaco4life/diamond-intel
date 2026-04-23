@@ -1,42 +1,43 @@
 
 
-# Apply Same Tag Feedback + Edit/Delete to Scout Mode
+# Learning Mode V2 — Approved, Ready to Build
 
-You're right — Scout Mode has the exact same problem (silent chip taps, no undo, no fixing mistakes). Since `TeamTagGrid` and `ObservationList` are already shared between both modes, extending the fix to Scout is mostly wiring, not new components.
+Plan is locked. Build proceeds in the next (default-mode) turn. Two approved refinements folded in:
 
-## What changes in Scout Mode
+## Refinement 1 — Suggest (don't auto-select) top active goal in PrepView
 
-Scout's `ObserveTab` (`src/components/scout/ObserveTab.tsx`) gets the same treatment as Learning's Observe tab:
+`PrepView` loads the player's most recent `development_items` row where `status = 'working_on'` (ordered by `updated_at desc`, limit 1). Its `source_note` is rendered as a **"Suggested from your active goal"** chip above the preset focus list. Tapping it adds it to the focus selection (subject to the max-2 cap). It is **not pre-checked** — the player chooses.
 
-1. **Count badges + green flash on chips** — derive `tagCounts` from the existing `recent` observations filtered by current inning, track `justAddedTag` for the 600ms flash, pass both into `TeamTagGrid`.
-2. **Undo on success toast** — switch the success toast to a sonner action toast: `{ action: { label: "Undo", onClick: () => deleteObservation(id) } }`. Uses the row id returned from `useOfflineWriter`.
-3. **Trash + edit icons on "Recent observations"** — pass `onDelete` and `onEdit` handlers into `ObservationList`. Edit opens an inline prompt for `key_play` rows; trash confirms then deletes.
-4. **Pitching gating** — Scout already requires picking a pitcher in the Pitcher tab, but Observe currently lets you tap Pitching chips with no pitcher context. Add the same 50% opacity + "Pick a pitcher first" inline note when no active pitcher exists for the defense team.
+If no active goal exists, the suggestion slot is hidden entirely.
 
-## What does NOT change in Scout Mode
+## Refinement 2 — Rename discussion (post-build)
 
-- Coach-only views, scouting reports, game plan editor — untouched.
-- `MyJobTab`, `StealItTab`, `PitcherTab` — untouched.
-- The existing scout observation write payload shape — unchanged.
+"Learning Mode" → "Player Development" / "Development Mode" is captured as a **follow-up task after this build ships**, not part of this build. Rationale: the rename touches lobby, nav, route paths (`/learning` → `/development-mode`?), summary route, and copy across ~8 files, and it would collide with the existing `/development` stub route. Worth a dedicated pass so we can think through the route naming (e.g. merge `/development` into the new mode, or keep them separate) instead of bolting it onto the V2 build.
 
-## Backend
+I'll open a separate plan for the rename once V2 is live and you've used it for a session or two.
 
-The DELETE policy on `scout_observations` from the Learning plan already covers Scout — it's keyed on `player_id = auth.uid()`, which applies to whoever logged the row regardless of mode. **No additional migration needed.**
+## Build scope (unchanged from approved plan)
 
-The UPDATE policy already exists for `player_id = auth.uid()`, so editing `key_play` works in Scout too.
+- **Migration**: add `learning_phase text` + `learning_focuses text[]` to `games`; backfill existing learning sessions to `learning_phase = 'live'`.
+- **Phase router** in `ActiveLearningSession`: `prep | live | reflect | develop | ended`.
+- **New views** under `src/components/learning/v2/`: `PrepView`, `LiveQuickView`, `ReflectView`, `DevelopView`.
+- **PrepView**: focus picker (max 2, preset + custom), suggested-goal chip (see Refinement 1), pre-game Diamond Decisions at `inning = 0`, optional pitcher-tracking toggle.
+- **LiveQuickView**: slimmed Observe — focus banner, Quick Tags, Steal It, small inning dropdown, "End game → Reflect" CTA. No MissionCard, no in-game Diamond Decisions, no floating AtBat button.
+- **ReflectView**: at-bat reflection form (reusing `at_bats`), "What should I steal?" writes to `scout_observations.steal_it`, post-game Diamond Decisions at `inning = 99`.
+- **DevelopView**: surface reflection answers as suggested goals → one-tap insert into `development_items` with `source_game_id`, `source_note`, `status = 'working_on'`.
+- **Lobby updates**: CTA → "Start Pre-Game Prep"; new "Awaiting reflection" and "Active development goals" sections.
+- **LearningSetup**: creates session with `learning_phase = 'prep'` and empty `learning_focuses`.
+- **LearningSummaryView**: relabel inning `0` as "Pre-game", `99` as "Post-game reflection"; show focuses.
+- **`src/lib/diamondDecisions.ts`**: add `prep:*` and `reflect:*` prompt sets.
 
-## Files touched (delta on top of the Learning plan)
+## Untouched
 
-- `src/components/scout/ObserveTab.tsx` — derive `tagCounts`/`justAddedTag`, implement `deleteObservation`/`editKeyPlay`, wire Undo into the toast, pass handlers + counts into `TeamTagGrid` and `ObservationList`, gate Pitching chips when no active pitcher.
-- No new components. No new migration. No changes to `TeamTagGrid` / `ObservationList` / `useOfflineWriter` beyond what the Learning plan already specifies (the props are optional and shared).
+Scout Mode, `scout_observations` / `at_bats` / `diamond_decision_responses` / `development_items` schemas, forgot-password, swap home/away, delete-game, shared `TeamTagGrid` / `ObservationList`.
 
-## Build order
+## Out of scope for this build
 
-1. Apply the Learning Mode changes (TeamTagGrid + ObservationList + useOfflineWriter + DELETE migration + LearningObserveTab).
-2. In the same pass, wire the same handlers into `ObserveTab.tsx` for Scout. Because the shared components already accept the optional props, Scout just needs to pass them.
-
-## Out of scope
-
-- Bulk delete, per-tag analytics, undo for queued/offline writes (Undo only shows when the insert succeeded online and we have a row id).
-- Editing tags on a row (only `key_play` text is editable; to fix a wrong tag, delete and re-tap).
+- Rename to "Player Development" (follow-up plan).
+- Coach review of reflections.
+- Goal analytics / streaks.
+- Auto-ML focus suggestions (we surface the most recent active goal only, per Refinement 1).
 
