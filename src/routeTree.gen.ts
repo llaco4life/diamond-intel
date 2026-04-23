@@ -11,9 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ScoutRouteImport } from './routes/scout'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LearningRouteImport } from './routes/learning'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DevelopmentRouteImport } from './routes/development'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
@@ -30,6 +32,11 @@ const ScoutRoute = ScoutRouteImport.update({
   path: '/scout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -43,6 +50,11 @@ const LoginRoute = LoginRouteImport.update({
 const LearningRoute = LearningRouteImport.update({
   id: '/learning',
   path: '/learning',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevelopmentRoute = DevelopmentRouteImport.update({
@@ -76,9 +88,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
@@ -88,9 +102,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
@@ -101,9 +117,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
@@ -115,9 +133,11 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/development'
+    | '/forgot-password'
     | '/learning'
     | '/login'
     | '/profile'
+    | '/reset-password'
     | '/scout'
     | '/signup'
     | '/learning/summary/$sessionId'
@@ -127,9 +147,11 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/development'
+    | '/forgot-password'
     | '/learning'
     | '/login'
     | '/profile'
+    | '/reset-password'
     | '/scout'
     | '/signup'
     | '/learning/summary/$sessionId'
@@ -139,9 +161,11 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/development'
+    | '/forgot-password'
     | '/learning'
     | '/login'
     | '/profile'
+    | '/reset-password'
     | '/scout'
     | '/signup'
     | '/learning/summary/$sessionId'
@@ -152,9 +176,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   DevelopmentRoute: typeof DevelopmentRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LearningRoute: typeof LearningRouteWithChildren
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ScoutRoute: typeof ScoutRouteWithChildren
   SignupRoute: typeof SignupRoute
 }
@@ -173,6 +199,13 @@ declare module '@tanstack/react-router' {
       path: '/scout'
       fullPath: '/scout'
       preLoaderRoute: typeof ScoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -194,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/learning'
       fullPath: '/learning'
       preLoaderRoute: typeof LearningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/development': {
@@ -260,9 +300,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   DevelopmentRoute: DevelopmentRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LearningRoute: LearningRouteWithChildren,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ScoutRoute: ScoutRouteWithChildren,
   SignupRoute: SignupRoute,
 }
