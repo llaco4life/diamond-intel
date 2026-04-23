@@ -250,8 +250,6 @@ export function LearningObserveTab({
           onPick={onPickTag}
           tagCounts={tagCounts}
           justAddedTag={justAddedTag}
-          pitchingDisabled={!currentPitcher}
-          pitchingDisabledReason="Pick a pitcher above first"
         />
       </section>
 

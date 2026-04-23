@@ -366,8 +366,6 @@ export function ObserveTab({
           onPick={onPickTag}
           tagCounts={tagCounts}
           justAddedTag={justAddedTag}
-          pitchingDisabled={!hasActivePitcher}
-          pitchingDisabledReason="Mark an active pitcher in the Pitcher tab first"
         />
       </section>
 
