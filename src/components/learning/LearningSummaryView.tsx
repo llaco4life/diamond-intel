@@ -142,6 +142,12 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
         {game.tournament_name && (
           <p className="text-sm text-muted-foreground">{game.tournament_name}</p>
         )}
+        {game.learning_focuses && game.learning_focuses.length > 0 && (
+          <p className="mt-2 text-sm">
+            <span className="text-muted-foreground">Today's focus: </span>
+            <span className="font-medium">{game.learning_focuses.join(" · ")}</span>
+          </p>
+        )}
       </div>
 
       <section>
@@ -156,10 +162,12 @@ export function LearningSummaryView({ sessionId }: { sessionId: string }) {
               const rows = notes.filter((o) => o.inning === i);
               const dRows = diamond.filter((d) => d.inning === i);
               if (rows.length === 0 && dRows.length === 0) return null;
+              const inningLabel =
+                i === 0 ? "Pre-game" : i === 99 ? "Post-game reflection" : `Inning ${i}`;
               return (
                 <div key={i} className="rounded-xl border bg-card p-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Inning {i}
+                    {inningLabel}
                   </p>
                   {rows.length > 0 && (
                     <ul className="space-y-1 text-sm">
