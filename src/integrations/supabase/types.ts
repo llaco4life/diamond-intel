@@ -216,6 +216,8 @@ export type Database = {
           home_team: string
           id: string
           is_timed: boolean
+          learning_focuses: string[] | null
+          learning_phase: string | null
           opponent_id: string | null
           org_id: string
           status: Database["public"]["Enums"]["game_status"]
@@ -235,6 +237,8 @@ export type Database = {
           home_team: string
           id?: string
           is_timed?: boolean
+          learning_focuses?: string[] | null
+          learning_phase?: string | null
           opponent_id?: string | null
           org_id: string
           status?: Database["public"]["Enums"]["game_status"]
@@ -254,6 +258,8 @@ export type Database = {
           home_team?: string
           id?: string
           is_timed?: boolean
+          learning_focuses?: string[] | null
+          learning_phase?: string | null
           opponent_id?: string | null
           org_id?: string
           status?: Database["public"]["Enums"]["game_status"]

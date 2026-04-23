@@ -19,6 +19,8 @@ export interface GameRow {
   status: "active" | "ended";
   created_by: string;
   created_at: string;
+  learning_phase: string | null;
+  learning_focuses: string[] | null;
 }
 
 export function useActiveGames(orgId: string | null) {

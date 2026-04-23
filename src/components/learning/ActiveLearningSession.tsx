@@ -1,19 +1,26 @@
 import { useState, useEffect, useCallback } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
-import { useMyInning } from "@/hooks/useMyInning";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow } from "@/hooks/useActiveGame";
 import { LearningSessionHeader } from "./LearningSessionHeader";
-import { LearningObserveTab } from "./LearningObserveTab";
-import { LearningStealTab } from "./LearningStealTab";
-import { AtBatLogButton } from "./AtBatLogButton";
+import { PrepView } from "./v2/PrepView";
+import { LiveQuickView } from "./v2/LiveQuickView";
+import { ReflectView } from "./v2/ReflectView";
+import { DevelopView } from "./v2/DevelopView";
+import { useNavigate } from "@tanstack/react-router";
 
+/**
+ * Phase router for V2 learning sessions.
+ *   prep    → PrepView      (focus picker + pre-game Diamond Decisions)
+ *   live    → LiveQuickView (slimmed quick tags + Steal It)
+ *   reflect → ReflectView   (at-bat reflection + post-game Diamond Decisions)
+ *   develop → DevelopView   (suggested goals → development_items)
+ *   ended   → redirect to summary
+ */
 export function ActiveLearningSession({ game: initial }: { game: GameRow }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [game, setGame] = useState<GameRow>(initial);
-  const [tab, setTab] = useState("observe");
-  const [inning, setInning] = useMyInning(initial.id, user?.id ?? null, initial.current_inning);
 
   const reload = useCallback(async () => {
     const { data } = await supabase.from("games").select("*").eq("id", initial.id).maybeSingle();
@@ -38,41 +45,23 @@ export function ActiveLearningSession({ game: initial }: { game: GameRow }) {
     };
   }, [initial.id, reload]);
 
+  useEffect(() => {
+    if (game.learning_phase === "ended" || game.status === "ended") {
+      navigate({ to: "/learning/summary/$sessionId", params: { sessionId: game.id } });
+    }
+  }, [game.learning_phase, game.status, game.id, navigate]);
+
   if (!user) return null;
+
+  const phase = game.learning_phase ?? "live";
 
   return (
     <div className="min-h-[calc(100vh-5rem)]">
-      <LearningSessionHeader game={game} inning={inning} />
-      <div className="mx-auto max-w-2xl px-4 pt-4 pb-24">
-        <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-auto">
-            <TabsTrigger value="observe" className="py-2">
-              Observe
-            </TabsTrigger>
-            <TabsTrigger value="steal" className="py-2">
-              Steal It
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="observe" className="mt-4">
-            <LearningObserveTab
-              gameId={game.id}
-              inning={inning}
-              onInningChange={setInning}
-              homeTeam={game.home_team}
-              awayTeam={game.away_team}
-            />
-          </TabsContent>
-          <TabsContent value="steal" className="mt-4">
-            <LearningStealTab gameId={game.id} inning={inning} />
-          </TabsContent>
-        </Tabs>
-      </div>
-      <AtBatLogButton
-        gameId={game.id}
-        inning={inning}
-        homeTeam={game.home_team}
-        awayTeam={game.away_team}
-      />
+      <LearningSessionHeader game={game} inning={game.current_inning ?? 1} />
+      {phase === "prep" && <PrepView game={game} onAdvance={setGame} />}
+      {phase === "live" && <LiveQuickView game={game} onAdvance={setGame} />}
+      {phase === "reflect" && <ReflectView game={game} onAdvance={setGame} />}
+      {phase === "develop" && <DevelopView game={game} />}
     </div>
   );
 }
