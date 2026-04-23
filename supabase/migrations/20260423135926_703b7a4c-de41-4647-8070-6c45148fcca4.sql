@@ -1,0 +1,1 @@
+CREATE POLICY "Players delete own observations" ON public.scout_observations FOR DELETE TO authenticated USING (player_id = auth.uid());
