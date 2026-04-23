@@ -312,7 +312,7 @@ export function LearningSetup({
           size="lg"
           className="w-full"
         >
-          {submitting ? "Starting…" : "Start Prep →"}
+          {submitting ? "Starting…" : "Begin Pre-Game Prep →"}
         </Button>
         <div className="flex justify-center">
           <button
