@@ -75,6 +75,7 @@ function LoginPage() {
           <p className="text-center text-sm">
             <Link
               to="/forgot-password"
+              search={{}}
               className="font-medium text-primary hover:underline"
             >
               Forgot password?

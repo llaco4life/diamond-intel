@@ -58,7 +58,7 @@ function ResetPasswordPage() {
       return;
     }
     toast.success("Password updated");
-    navigate({ to: "/" });
+    navigate({ to: "/", search: {} });
   };
 
   return (
@@ -79,6 +79,7 @@ function ResetPasswordPage() {
             </p>
             <Link
               to="/forgot-password"
+              search={{}}
               className="inline-block text-sm font-medium text-primary hover:underline"
             >
               Request a new link

@@ -52,6 +52,7 @@ function ForgotPasswordPage() {
             </p>
             <Link
               to="/login"
+              search={{}}
               className="inline-block text-sm font-medium text-primary hover:underline"
             >
               Back to sign in
@@ -78,7 +79,7 @@ function ForgotPasswordPage() {
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Remembered it?{" "}
-              <Link to="/login" className="font-medium text-primary hover:underline">
+              <Link to="/login" search={{}} className="font-medium text-primary hover:underline">
                 Sign in
               </Link>
             </p>
