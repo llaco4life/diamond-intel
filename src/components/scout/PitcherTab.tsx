@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Minus, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useOfflineWriter } from "@/hooks/useOfflineWriter";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useMyInning } from "@/hooks/useMyInning";
 import { PITCHER_QUICK_TAGS } from "@/lib/scoutTags";
@@ -54,6 +64,9 @@ export function PitcherTab({
   const [jersey, setJersey] = useState("");
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
+  const [removeMode, setRemoveMode] = useState(false);
+  const [editingPitcher, setEditingPitcher] = useState<Pitcher | null>(null);
+  const [deletingPitcher, setDeletingPitcher] = useState<Pitcher | null>(null);
 
   const reloadPitchers = useCallback(async () => {
     const { data } = await supabase
@@ -185,8 +198,29 @@ export function PitcherTab({
     reloadObs();
   };
 
+  const decrementTag = async (p: Pitcher, tag: string) => {
+    // Find most recent observation for this pitcher containing this tag.
+    const list = obsByPitcher.get(p.id) ?? [];
+    const match = [...list].reverse().find((r) => r.tags.includes(tag));
+    if (!match) {
+      toast.info(`No "${tag}" tags to remove for #${p.jersey_number}`);
+      return;
+    }
+    const { error } = await supabase.from("scout_observations").delete().eq("id", match.id);
+    if (error) {
+      toast.error("Could not remove");
+      return;
+    }
+    toast.success(`Removed ${tag} · #${p.jersey_number}`);
+    reloadObs();
+  };
+
   const quickTag = async (p: Pitcher, tag: string) => {
     if (!user) return;
+    if (removeMode) {
+      await decrementTag(p, tag);
+      return;
+    }
     const appliesTo = p.team_side === "home" ? homeTeam : p.team_side === "away" ? awayTeam : null;
     const res = await write("scout_observations", {
       game_id: gameId,
@@ -208,12 +242,75 @@ export function PitcherTab({
     }
   };
 
+  const savePitcherEdit = async (id: string, patch: { jersey_number: string; name: string | null; notes: string | null }) => {
+    if (!patch.jersey_number.trim()) {
+      toast.error("Jersey number required");
+      return;
+    }
+    const { error } = await supabase
+      .from("pitchers")
+      .update({
+        jersey_number: patch.jersey_number.trim(),
+        name: patch.name?.trim() || null,
+        notes: patch.notes?.trim() || null,
+      })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Pitcher updated");
+    setEditingPitcher(null);
+    reloadPitchers();
+  };
+
+  const confirmDeletePitcher = async () => {
+    const p = deletingPitcher;
+    if (!p) return;
+    // Delete pitcher-attributed observations first, then the pitcher.
+    const { error: obsErr } = await supabase
+      .from("scout_observations")
+      .delete()
+      .eq("game_id", gameId)
+      .eq("pitcher_id", p.id);
+    if (obsErr) {
+      toast.error(obsErr.message);
+      return;
+    }
+    const { error: pErr } = await supabase.from("pitchers").delete().eq("id", p.id);
+    if (pErr) {
+      toast.error(pErr.message);
+      return;
+    }
+    toast.success(`Deleted #${p.jersey_number}`);
+    setDeletingPitcher(null);
+    reloadPitchers();
+    reloadObs();
+  };
+
   const homePitchers = pitchers.filter((p) => p.team_side === "home");
   const awayPitchers = pitchers.filter((p) => p.team_side === "away");
   const legacyPitchers = pitchers.filter((p) => p.team_side == null);
 
   return (
     <div className="space-y-6">
+      {/* Mode toggle */}
+      <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+        <p className="text-xs text-muted-foreground">
+          {removeMode
+            ? "Remove mode: tap a chip to subtract one tag."
+            : "Tap a chip to log a tag. Switch to Remove to fix mistakes."}
+        </p>
+        <Button
+          size="sm"
+          variant={removeMode ? "destructive" : "outline"}
+          onClick={() => setRemoveMode((v) => !v)}
+        >
+          <Minus className="mr-1 h-3.5 w-3.5" />
+          {removeMode ? "Done" : "Remove"}
+        </Button>
+      </div>
+
       <TeamSection
         side="away"
         teamName={awayTeam}
@@ -226,6 +323,9 @@ export function PitcherTab({
         onSubmitAdd={submitAdd}
         onMakeActive={makeActive}
         onQuickTag={quickTag}
+        onEditPitcher={setEditingPitcher}
+        onDeletePitcher={setDeletingPitcher}
+        removeMode={removeMode}
         jersey={jersey}
         setJersey={setJersey}
         name={name}
@@ -245,6 +345,9 @@ export function PitcherTab({
         onSubmitAdd={submitAdd}
         onMakeActive={makeActive}
         onQuickTag={quickTag}
+        onEditPitcher={setEditingPitcher}
+        onDeletePitcher={setDeletingPitcher}
+        removeMode={removeMode}
         jersey={jersey}
         setJersey={setJersey}
         name={name}
@@ -261,10 +364,20 @@ export function PitcherTab({
               const pObs = obsByPitcher.get(p.id) ?? [];
               return (
                 <div key={p.id} className="rounded-xl border bg-card p-4">
-                  <p className="font-semibold">
-                    #{p.jersey_number}
-                    {p.name && <span className="ml-1 text-muted-foreground">— {p.name}</span>}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold">
+                      #{p.jersey_number}
+                      {p.name && <span className="ml-1 text-muted-foreground">— {p.name}</span>}
+                    </p>
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => setEditingPitcher(p)} aria-label="Edit pitcher">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => setDeletingPitcher(p)} aria-label="Delete pitcher">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
                   {pObs.length > 0 && (
                     <p className="mt-1 text-xs text-muted-foreground">{pObs.length} tags logged</p>
                   )}
@@ -282,6 +395,37 @@ export function PitcherTab({
           </div>
         </section>
       )}
+
+      <EditPitcherDialog
+        pitcher={editingPitcher}
+        onClose={() => setEditingPitcher(null)}
+        onSave={savePitcherEdit}
+      />
+
+      <AlertDialog open={!!deletingPitcher} onOpenChange={(o) => !o && setDeletingPitcher(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete pitcher #{deletingPitcher?.jersey_number}
+              {deletingPitcher?.name ? ` — ${deletingPitcher.name}` : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the pitcher and all{" "}
+              {deletingPitcher ? (obsByPitcher.get(deletingPitcher.id)?.length ?? 0) : 0} tag(s)
+              logged against them. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeletePitcher}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -298,6 +442,9 @@ function TeamSection({
   onSubmitAdd,
   onMakeActive,
   onQuickTag,
+  onEditPitcher,
+  onDeletePitcher,
+  removeMode,
   jersey,
   setJersey,
   name,
@@ -316,6 +463,9 @@ function TeamSection({
   onSubmitAdd: () => void;
   onMakeActive: (p: Pitcher) => void;
   onQuickTag: (p: Pitcher, tag: string) => void;
+  onEditPitcher: (p: Pitcher) => void;
+  onDeletePitcher: (p: Pitcher) => void;
+  removeMode: boolean;
   jersey: string;
   setJersey: (v: string) => void;
   name: string;
@@ -388,6 +538,9 @@ function TeamSection({
             pObs={obsByPitcher.get(active.id) ?? []}
             currentInning={currentInning}
             onTag={(t) => onQuickTag(active, t)}
+            onEdit={() => onEditPitcher(active)}
+            onDelete={() => onDeletePitcher(active)}
+            removeMode={removeMode}
           />
         ) : (
           <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
@@ -408,6 +561,8 @@ function TeamSection({
                   pitcher={p}
                   pObs={obsByPitcher.get(p.id) ?? []}
                   onMakeActive={() => onMakeActive(p)}
+                  onEdit={() => onEditPitcher(p)}
+                  onDelete={() => onDeletePitcher(p)}
                 />
               ))}
             </CollapsibleContent>
@@ -443,11 +598,17 @@ function ActivePitcherCard({
   pObs,
   currentInning,
   onTag,
+  onEdit,
+  onDelete,
+  removeMode,
 }: {
   pitcher: Pitcher;
   pObs: PitcherObs[];
   currentInning: number;
   onTag: (tag: string) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  removeMode: boolean;
 }) {
   const counts = summarizeCounts(pObs);
   const tagCount = (tag: string) => counts.find((c) => c.tag === tag)?.count ?? 0;
@@ -474,6 +635,14 @@ function ActivePitcherCard({
           </p>
           {pitcher.notes && <p className="mt-1 text-xs text-muted-foreground">{pitcher.notes}</p>}
         </div>
+        <div className="flex gap-1">
+          <Button size="icon" variant="ghost" onClick={onEdit} aria-label="Edit pitcher">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={onDelete} aria-label="Delete pitcher">
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
       </div>
 
       {counts.length > 0 && (
@@ -490,17 +659,30 @@ function ActivePitcherCard({
       <div className="mt-3 flex flex-wrap gap-2">
         {PITCHER_QUICK_TAGS.map((t) => {
           const count = tagCount(t);
+          const disabled = removeMode && count === 0;
           return (
             <button
               key={t}
               onClick={() => onTag(t)}
+              disabled={disabled}
               className={cn(
-                "min-h-11 rounded-full border border-primary/30 bg-background px-3 text-sm font-medium text-primary transition active:scale-95 hover:bg-primary-soft",
+                "min-h-11 rounded-full border px-3 text-sm font-medium transition active:scale-95",
+                removeMode
+                  ? "border-destructive/40 bg-background text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  : "border-primary/30 bg-background text-primary hover:bg-primary-soft",
               )}
             >
+              {removeMode && <Minus className="mr-1 inline h-3 w-3" />}
               {t}
               {count > 0 && (
-                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                <span
+                  className={cn(
+                    "ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
+                    removeMode
+                      ? "bg-destructive text-destructive-foreground"
+                      : "bg-primary text-primary-foreground",
+                  )}
+                >
                   {count}
                 </span>
               )}
@@ -516,10 +698,14 @@ function EarlierPitcherRow({
   pitcher,
   pObs,
   onMakeActive,
+  onEdit,
+  onDelete,
 }: {
   pitcher: Pitcher;
   pObs: PitcherObs[];
   onMakeActive: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const counts = summarizeCounts(pObs);
   const firstSeen = firstSeenInning(pObs);
@@ -536,9 +722,17 @@ function EarlierPitcherRow({
             <p className="text-[11px] text-muted-foreground">First seen Inning {firstSeen}</p>
           )}
         </div>
-        <Button size="sm" variant="outline" onClick={onMakeActive}>
-          Make Active
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          <Button size="sm" variant="outline" onClick={onMakeActive}>
+            Make Active
+          </Button>
+          <Button size="icon" variant="ghost" onClick={onEdit} aria-label="Edit pitcher">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={onDelete} aria-label="Delete pitcher">
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
       </div>
       {counts.length > 0 ? (
         <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -553,5 +747,70 @@ function EarlierPitcherRow({
         <p className="mt-2 text-xs italic text-muted-foreground">No tags logged.</p>
       )}
     </div>
+  );
+}
+
+function EditPitcherDialog({
+  pitcher,
+  onClose,
+  onSave,
+}: {
+  pitcher: Pitcher | null;
+  onClose: () => void;
+  onSave: (
+    id: string,
+    patch: { jersey_number: string; name: string | null; notes: string | null },
+  ) => void;
+}) {
+  const [j, setJ] = useState("");
+  const [n, setN] = useState("");
+  const [no, setNo] = useState("");
+
+  useEffect(() => {
+    if (pitcher) {
+      setJ(pitcher.jersey_number);
+      setN(pitcher.name ?? "");
+      setNo(pitcher.notes ?? "");
+    }
+  }, [pitcher]);
+
+  return (
+    <AlertDialog open={!!pitcher} onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Edit pitcher</AlertDialogTitle>
+          <AlertDialogDescription>
+            Update jersey, name, or notes. Tag history is preserved.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="edit-pj">Jersey #</Label>
+            <Input id="edit-pj" value={j} onChange={(e) => setJ(e.target.value)} className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="edit-pn">Name (optional)</Label>
+            <Input id="edit-pn" value={n} onChange={(e) => setN(e.target.value)} className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="edit-pno">Notes (optional)</Label>
+            <Textarea
+              id="edit-pno"
+              value={no}
+              onChange={(e) => setNo(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => pitcher && onSave(pitcher.id, { jersey_number: j, name: n, notes: no })}
+          >
+            Save
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
