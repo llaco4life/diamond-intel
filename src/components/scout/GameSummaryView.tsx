@@ -91,7 +91,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     return (
       <div className="mx-auto max-w-2xl px-4 pt-8 text-center">
         <p>Game not found.</p>
-        <Link to="/" className="mt-4 inline-block text-primary underline">
+        <Link to="/" search={{ restricted: undefined }} className="mt-4 inline-block text-primary underline">
           Go home
         </Link>
       </div>
@@ -276,7 +276,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
         </section>
       )}
 
-      <Link to="/">
+      <Link to="/" search={{ restricted: undefined }}>
         <Button variant="outline" className="w-full">
           Back to Home
         </Button>
