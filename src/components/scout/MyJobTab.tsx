@@ -33,24 +33,35 @@ export function MyJobTab({
     reload();
   }, [reload]);
 
+  const [picking, setPicking] = useState(false);
+
   const pick = async (a: string) => {
     if (!user) return;
-    const { error } = await supabase
-      .from("game_assignments")
-      .insert({ game_id: gameId, player_id: user.id, assignment: a });
+    // If we already have an assignment, update it; otherwise insert.
+    // (game_assignments has no DELETE policy, so we change in place.)
+    const { error } = assignment
+      ? await supabase
+          .from("game_assignments")
+          .update({ assignment: a })
+          .eq("game_id", gameId)
+          .eq("player_id", user.id)
+      : await supabase
+          .from("game_assignments")
+          .insert({ game_id: gameId, player_id: user.id, assignment: a });
     if (error) {
       toast.error(error.message);
       return;
     }
     toast.success(`Assigned: ${a}`);
     setAssignment(a);
+    setPicking(false);
   };
 
   if (loading) {
     return <div className="h-32 animate-pulse rounded-xl bg-muted/50" />;
   }
 
-  if (assignment) {
+  if (assignment && !picking) {
     return (
       <div className="space-y-4">
         <div className="rounded-2xl border-2 border-primary/30 bg-primary-soft p-5">
@@ -65,6 +76,13 @@ export function MyJobTab({
         <Button onClick={onGoToObserve} className="w-full" size="lg">
           Go to Observe
         </Button>
+        <Button
+          onClick={() => setPicking(true)}
+          variant="ghost"
+          className="w-full text-muted-foreground"
+        >
+          Change job
+        </Button>
       </div>
     );
   }
@@ -72,18 +90,40 @@ export function MyJobTab({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Pick what you'll watch this game. Each assignment helps the team build a complete picture.
+        {picking
+          ? "Pick a different assignment. Your previous one will be replaced."
+          : "Pick what you'll watch this game. Each assignment helps the team build a complete picture."}
       </p>
-      {ASSIGNMENT_OPTIONS.map((a) => (
-        <button
-          key={a}
-          onClick={() => pick(a)}
-          className="flex w-full items-center justify-between rounded-xl border bg-card p-4 text-left active:scale-[0.99] transition-transform"
+      {ASSIGNMENT_OPTIONS.map((a) => {
+        const isCurrent = a === assignment;
+        return (
+          <button
+            key={a}
+            onClick={() => pick(a)}
+            disabled={isCurrent}
+            className="flex w-full items-center justify-between rounded-xl border bg-card p-4 text-left transition-transform active:scale-[0.99] disabled:opacity-50"
+          >
+            <span className="font-medium">
+              {a}
+              {isCurrent && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  (current)
+                </span>
+              )}
+            </span>
+            <span className="text-muted-foreground">→</span>
+          </button>
+        );
+      })}
+      {picking && (
+        <Button
+          variant="ghost"
+          className="w-full text-muted-foreground"
+          onClick={() => setPicking(false)}
         >
-          <span className="font-medium">{a}</span>
-          <span className="text-muted-foreground">→</span>
-        </button>
-      ))}
+          Cancel
+        </Button>
+      )}
     </div>
   );
 }
