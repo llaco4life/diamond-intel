@@ -13,12 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -29,36 +23,36 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { TeamTagGrid } from "@/components/scout/TeamTagGrid";
 import { ObservationList } from "@/components/scout/ObservationList";
-import { resolveAppliesTo } from "@/lib/scoutTags";
+import { FocusTagPicker } from "./FocusTagPicker";
+import { SELF_EVAL_SENTINEL } from "@/lib/learningFocusTags";
 import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
 import { Target } from "lucide-react";
-
-type Side = "offense" | "defense";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ObsRow = any;
 
 const INNINGS = [1, 2, 3, 4, 5, 6, 7];
 
-export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (g: GameRow) => void }) {
+export function LiveQuickView({
+  game,
+  onAdvance,
+}: {
+  game: GameRow;
+  onAdvance: (g: GameRow) => void;
+}) {
   const { user } = useAuth();
   const { write, sync, pending } = useOfflineWriter();
   const [inning, setInning] = useState(game.current_inning ?? 1);
-  const [offenseTeam, setOffenseTeam] = useState<string>(game.away_team);
-  const defenseTeam = useMemo(
-    () => (offenseTeam === game.home_team ? game.away_team : game.home_team),
-    [offenseTeam, game.home_team, game.away_team],
-  );
 
-  const [pendingCoaching, setPendingCoaching] = useState<{ tag: string } | null>(null);
   const [keyPlay, setKeyPlay] = useState("");
   const [recent, setRecent] = useState<ObsRow[]>([]);
   const [justAddedTag, setJustAddedTag] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const focuses = useMemo(() => game.learning_focuses ?? [], [game.learning_focuses]);
 
   const reload = useCallback(async () => {
     if (!user) return;
@@ -125,22 +119,24 @@ export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (
     [reload],
   );
 
-  const writeTag = async (tag: string, appliesTo: string) => {
+  // Self-evaluation write — uses the documented `"self"` sentinel for applies_to_team
+  // so downstream views can distinguish Learning self-eval from Scout team rows.
+  const writeTag = async (tag: string) => {
     if (!user) return;
     const payload: Record<string, unknown> = {
       game_id: game.id,
       player_id: user.id,
       inning,
-      is_team_level: true,
+      is_team_level: false,
       tags: [tag],
-      offensive_team: offenseTeam,
-      applies_to_team: appliesTo,
+      offensive_team: null,
+      applies_to_team: SELF_EVAL_SENTINEL,
     };
     const res = await write("scout_observations", payload);
     if (res.ok) {
       flashTag(tag);
       const insertedId = res.id;
-      toast.success(`${tag} · ${appliesTo}`, {
+      toast.success(tag, {
         action: insertedId
           ? { label: "Undo", onClick: () => deleteObservation(insertedId) }
           : undefined,
@@ -151,44 +147,22 @@ export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (
     }
   };
 
-  const onPickTag = async (tag: string, categoryId: string) => {
-    if (categoryId === "pitching") {
-      toast.message("Pitcher tracking is off in V2 live", {
-        description: "Tag it in Reflect, or enable pitcher tracking in Prep next session.",
-      });
-      return;
-    }
-    const resolved = resolveAppliesTo(categoryId, offenseTeam, defenseTeam);
-    if (resolved === null) {
-      setPendingCoaching({ tag });
-      return;
-    }
-    await writeTag(tag, resolved);
-  };
-
   const addKeyPlay = async () => {
     if (!user || !keyPlay.trim()) return;
     const res = await write("scout_observations", {
       game_id: game.id,
       player_id: user.id,
       inning,
-      is_team_level: true,
+      is_team_level: false,
       tags: [],
       key_play: keyPlay.trim(),
-      offensive_team: offenseTeam,
-      applies_to_team: offenseTeam,
+      offensive_team: null,
+      applies_to_team: SELF_EVAL_SENTINEL,
     });
-    if (res.ok) toast.success("Key play saved");
+    if (res.ok) toast.success("Note saved");
     else toast.warning("Saved offline");
     setKeyPlay("");
     reload();
-  };
-
-  const resolveCoaching = async (side: Side) => {
-    if (!pendingCoaching) return;
-    const team = side === "offense" ? offenseTeam : defenseTeam;
-    await writeTag(pendingCoaching.tag, team);
-    setPendingCoaching(null);
   };
 
   const endLive = async () => {
@@ -208,8 +182,6 @@ export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (
     onAdvance(data as GameRow);
   };
 
-  const focuses = game.learning_focuses ?? [];
-
   return (
     <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4 pb-24">
       {focuses.length > 0 && (
@@ -227,7 +199,7 @@ export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (
       <div className="flex items-center gap-3">
         <Label className="shrink-0 text-sm font-semibold">Inning</Label>
         <Select value={String(inning)} onValueChange={(v) => setInning(parseInt(v, 10))}>
-          <SelectTrigger className="w-28">
+          <SelectTrigger className="w-32">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -238,27 +210,6 @@ export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (
             ))}
           </SelectContent>
         </Select>
-
-        <div className="ml-auto grid grid-cols-2 gap-1 rounded-xl border bg-card p-1">
-          <Button
-            type="button"
-            size="sm"
-            variant={offenseTeam === game.away_team ? "default" : "ghost"}
-            onClick={() => setOffenseTeam(game.away_team)}
-            className="h-8 px-2 text-xs"
-          >
-            {game.away_team}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={offenseTeam === game.home_team ? "default" : "ghost"}
-            onClick={() => setOffenseTeam(game.home_team)}
-            className="h-8 px-2 text-xs"
-          >
-            {game.home_team}
-          </Button>
-        </div>
       </div>
 
       {pending > 0 && (
@@ -271,18 +222,16 @@ export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (
       )}
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold">Quick tags</h3>
-        <p className="mb-2 text-xs text-muted-foreground">
-          Light touch — only tag what matters. Reflect after the game.
+        <h3 className="mb-1 text-sm font-semibold">How are you doing?</h3>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Tap what you noticed about <span className="font-medium">your</span> play. Light touch —
+          deeper reflection comes after the game.
         </p>
-        <TeamTagGrid
-          offenseTeam={offenseTeam}
-          defenseTeam={defenseTeam}
-          onPick={onPickTag}
+        <FocusTagPicker
+          focuses={focuses}
           tagCounts={tagCounts}
           justAddedTag={justAddedTag}
-          pitchingDisabled={true}
-          pitchingDisabledReason="Pitcher tracking off in V2 live"
+          onPick={writeTag}
         />
       </section>
 
@@ -306,7 +255,6 @@ export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (
         <h3 className="mb-2 text-sm font-semibold">Your recent notes</h3>
         <ObservationList
           rows={recent.slice(0, 10)}
-          offenseTeam={offenseTeam}
           onDelete={deleteObservation}
           onEdit={editKeyPlay}
         />
@@ -332,38 +280,6 @@ export function LiveQuickView({ game, onAdvance }: { game: GameRow; onAdvance: (
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Sheet
-        open={pendingCoaching !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingCoaching(null);
-        }}
-      >
-        <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle>Whose coaching are you tagging?</SheetTitle>
-          </SheetHeader>
-          <div className="mt-4 grid grid-cols-1 gap-3 pb-4">
-            <Button
-              size="lg"
-              className="h-16 flex-col gap-0.5"
-              onClick={() => resolveCoaching("offense")}
-            >
-              <span className="text-base font-semibold">Offensive Coaching</span>
-              <span className="text-xs opacity-90">{offenseTeam}</span>
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="h-16 flex-col gap-0.5"
-              onClick={() => resolveCoaching("defense")}
-            >
-              <span className="text-base font-semibold">Defensive Coaching</span>
-              <span className="text-xs opacity-90">{defenseTeam}</span>
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
