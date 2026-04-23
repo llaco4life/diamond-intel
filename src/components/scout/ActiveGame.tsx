@@ -69,6 +69,8 @@ export function ActiveGame({
               gameId={game.id}
               defaultInning={game.current_inning}
               defenseTeam={game.home_team}
+              homeTeam={game.home_team}
+              awayTeam={game.away_team}
             />
           </TabsContent>
           <TabsContent value="myjob" className="mt-4">
