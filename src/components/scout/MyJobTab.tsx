@@ -90,18 +90,40 @@ export function MyJobTab({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Pick what you'll watch this game. Each assignment helps the team build a complete picture.
+        {picking
+          ? "Pick a different assignment. Your previous one will be replaced."
+          : "Pick what you'll watch this game. Each assignment helps the team build a complete picture."}
       </p>
-      {ASSIGNMENT_OPTIONS.map((a) => (
-        <button
-          key={a}
-          onClick={() => pick(a)}
-          className="flex w-full items-center justify-between rounded-xl border bg-card p-4 text-left active:scale-[0.99] transition-transform"
+      {ASSIGNMENT_OPTIONS.map((a) => {
+        const isCurrent = a === assignment;
+        return (
+          <button
+            key={a}
+            onClick={() => pick(a)}
+            disabled={isCurrent}
+            className="flex w-full items-center justify-between rounded-xl border bg-card p-4 text-left transition-transform active:scale-[0.99] disabled:opacity-50"
+          >
+            <span className="font-medium">
+              {a}
+              {isCurrent && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  (current)
+                </span>
+              )}
+            </span>
+            <span className="text-muted-foreground">→</span>
+          </button>
+        );
+      })}
+      {picking && (
+        <Button
+          variant="ghost"
+          className="w-full text-muted-foreground"
+          onClick={() => setPicking(false)}
         >
-          <span className="font-medium">{a}</span>
-          <span className="text-muted-foreground">→</span>
-        </button>
-      ))}
+          Cancel
+        </Button>
+      )}
     </div>
   );
 }
