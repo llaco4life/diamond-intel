@@ -108,11 +108,11 @@ export function PrepView({ game, onAdvance }: { game: GameRow; onAdvance: (g: Ga
 
       <section className="rounded-2xl border bg-card p-4">
         <div className="flex items-baseline justify-between">
-          <Label className="text-base font-semibold">Today's focus</Label>
+          <Label className="text-base font-semibold">Confirm or adjust your focus</Label>
           <span className="text-xs text-muted-foreground">{focuses.length}/{MAX_FOCUSES}</span>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Pick up to 2 things you want to lock in today.
+          You picked these at setup — swap them now if your head's in a different place.
         </p>
 
         {suggestion && !focuses.includes(suggestion) && (
