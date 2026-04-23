@@ -71,3 +71,17 @@ export function getPromptsForInning(inning: number): DiamondPrompt[] {
   const texts = PROMPTS_BY_MISSION[mission] ?? [];
   return texts.map((text, i) => ({ key: `${slug}:${i}`, text }));
 }
+
+// V2: Pre-game priming prompts (rendered in PrepView, stored at inning=0).
+export const PREP_PROMPTS: DiamondPrompt[] = [
+  { key: "prep:focus_why", text: "Why is your focus important for today's game?" },
+  { key: "prep:matchup_read", text: "What do you know about today's opponent or matchup?" },
+  { key: "prep:mindset", text: "How do you want to feel in the box / on the field today?" },
+];
+
+// V2: Post-game reflection prompts (rendered in ReflectView, stored at inning=99).
+export const REFLECT_PROMPTS: DiamondPrompt[] = [
+  { key: "reflect:steal", text: "What's the one read or habit you'll steal from today?" },
+  { key: "reflect:focus_break", text: "Where did your focus break — and what triggered it?" },
+  { key: "reflect:next_game", text: "What would you do differently in your next game?" },
+];

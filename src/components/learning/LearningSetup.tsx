@@ -51,6 +51,8 @@ export function LearningSetup({
           current_inning: 1,
           status: "active",
           created_by: user.id,
+          learning_phase: "prep",
+          learning_focuses: [],
         })
         .select("*")
         .single();
