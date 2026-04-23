@@ -24,6 +24,7 @@ interface Pitcher {
   jersey_number: string;
   name: string | null;
   notes: string | null;
+  team_side: string | null;
 }
 
 export function GameSummaryView({ gameId }: { gameId: string }) {
@@ -42,7 +43,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
       setLoading(true);
       const [{ data: g }, { data: p }] = await Promise.all([
         supabase.from("games").select("*").eq("id", gameId).maybeSingle(),
-        supabase.from("pitchers").select("id, jersey_number, name, notes").eq("game_id", gameId),
+        supabase.from("pitchers").select("id, jersey_number, name, notes, team_side").eq("game_id", gameId),
       ]);
       let obsQuery = supabase
         .from("scout_observations")
@@ -240,25 +241,77 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
       {pitchers.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-semibold">Pitchers</h2>
-          <ul className="space-y-2">
-            {pitchers.map((p) => {
-              const pObs = obs.filter((o) => o.pitcher_id === p.id);
-              return (
-                <li key={p.id} className="rounded-xl border bg-card p-3 text-sm">
-                  <p className="font-semibold">
-                    #{p.jersey_number}
-                    {p.name && <span className="text-muted-foreground"> — {p.name}</span>}
-                  </p>
-                  {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
-                  {pObs.length > 0 && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {pObs.map((o) => o.tags?.join(", ")).filter(Boolean).join(" · ")}
+          {(() => {
+            const groups: { label: string; list: Pitcher[] }[] = [
+              { label: game.away_team, list: pitchers.filter((p) => p.team_side === "away") },
+              { label: game.home_team, list: pitchers.filter((p) => p.team_side === "home") },
+              { label: "Unassigned", list: pitchers.filter((p) => p.team_side == null) },
+            ].filter((g) => g.list.length > 0);
+            return (
+              <div className="space-y-3">
+                {groups.map((g) => (
+                  <div key={g.label}>
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {g.label}
                     </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    <ul className="space-y-2">
+                      {g.list.map((p) => {
+                        const pObs = obs.filter((o) => o.pitcher_id === p.id);
+                        const counts = new Map<string, { c: number; last: number }>();
+                        for (const o of pObs) {
+                          for (const t of o.tags ?? []) {
+                            const cur = counts.get(t) ?? { c: 0, last: o.inning };
+                            cur.c += 1;
+                            if (o.inning > cur.last) cur.last = o.inning;
+                            counts.set(t, cur);
+                          }
+                        }
+                        const sorted = Array.from(counts.entries()).sort(
+                          (a, b) => b[1].c - a[1].c,
+                        );
+                        const firstSeen =
+                          pObs.length > 0
+                            ? pObs.reduce(
+                                (min, o) => (o.inning < min ? o.inning : min),
+                                pObs[0].inning,
+                              )
+                            : null;
+                        return (
+                          <li key={p.id} className="rounded-xl border bg-card p-3 text-sm">
+                            <p className="font-semibold">
+                              #{p.jersey_number}
+                              {p.name && (
+                                <span className="text-muted-foreground"> — {p.name}</span>
+                              )}
+                            </p>
+                            {firstSeen !== null && (
+                              <p className="text-[11px] text-muted-foreground">
+                                First seen Inning {firstSeen}
+                              </p>
+                            )}
+                            {p.notes && (
+                              <p className="text-xs text-muted-foreground">{p.notes}</p>
+                            )}
+                            {sorted.length > 0 && (
+                              <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                                {sorted.map(([tag, v]) => (
+                                  <li key={tag} className="text-muted-foreground">
+                                    <span className="font-medium text-foreground">{tag}</span> ×
+                                    {v.c}
+                                    <span className="ml-1 opacity-70">(last I{v.last})</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </section>
       )}
 
