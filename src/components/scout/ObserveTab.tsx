@@ -40,8 +40,7 @@ export function ObserveTab({
     [offenseTeam, homeTeam, awayTeam],
   );
 
-  // Active pitcher present for this game? (gates Pitching chips)
-  const [hasActivePitcher, setHasActivePitcher] = useState(false);
+  // Pitching tags now live in the Pitcher tab; nothing to gate here.
 
   // Last category context (from a tag chip pick) — drives default side for the
   // Key Play and By-player segmented controls.
@@ -127,19 +126,8 @@ export function ObserveTab({
     setRecent(data ?? []);
   }, [gameId]);
 
-  const reloadActivePitcher = useCallback(async () => {
-    const { data } = await supabase
-      .from("pitchers")
-      .select("id")
-      .eq("game_id", gameId)
-      .eq("is_active", true)
-      .limit(1);
-    setHasActivePitcher((data?.length ?? 0) > 0);
-  }, [gameId]);
-
   useEffect(() => {
     reload();
-    reloadActivePitcher();
     const channel = supabase
       .channel(`obs-${gameId}`)
       .on(
@@ -152,16 +140,11 @@ export function ObserveTab({
         },
         () => reload(),
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "pitchers", filter: `game_id=eq.${gameId}` },
-        () => reloadActivePitcher(),
-      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [gameId, reload, reloadActivePitcher]);
+  }, [gameId, reload]);
 
   // Per-inning tag counts for chip badges
   const tagCounts = useMemo(() => {
