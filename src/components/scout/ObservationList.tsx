@@ -50,11 +50,13 @@ export function ObservationList({
           <ul className="space-y-1.5">
             {byInning.get(inning)!.map((r) => {
               const team = r.applies_to_team ?? null;
+              // "self" is the Learning Mode self-evaluation sentinel — hide the team badge.
+              const isSelf = team === "self";
               const isOffense =
                 team && offenseTeam ? team === offenseTeam : null;
               return (
                 <li key={r.id} className="flex flex-wrap items-center gap-1.5 text-sm">
-                  {team ? (
+                  {isSelf ? null : team ? (
                     <span
                       className={
                         isOffense === false
