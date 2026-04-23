@@ -31,7 +31,7 @@ function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/" });
+    if (!loading && user) navigate({ to: "/", search: { restricted: undefined } });
   }, [user, loading, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -72,7 +72,7 @@ function SignupPage() {
     }
 
     toast.success("Account created! Check your email to confirm.");
-    navigate({ to: "/login" });
+    navigate({ to: "/login", search: { redirect: undefined } });
   };
 
   return (
@@ -167,7 +167,7 @@ function SignupPage() {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="font-medium text-primary hover:underline">
+            <Link to="/login" search={{ redirect: undefined }} className="font-medium text-primary hover:underline">
               Sign in
             </Link>
           </p>

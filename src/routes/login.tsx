@@ -23,7 +23,7 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/" });
+    if (!loading && user) navigate({ to: "/", search: { restricted: undefined } });
   }, [user, loading, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -36,7 +36,7 @@ function LoginPage() {
       return;
     }
     toast.success("Welcome back");
-    navigate({ to: "/" });
+    navigate({ to: "/", search: { restricted: undefined } });
   };
 
   return (
@@ -75,7 +75,7 @@ function LoginPage() {
           <p className="text-center text-sm">
             <Link
               to="/forgot-password"
-              search={{}}
+              search={{ redirect: undefined }}
               className="font-medium text-primary hover:underline"
             >
               Forgot password?
