@@ -29,7 +29,6 @@ export function TeamTagGrid({
             : cat.defaultAppliesTo === "defense"
               ? defenseTeam
               : null;
-        const disabled = cat.id === "pitching" && !!pitchingDisabled;
         return (
           <div key={cat.id} className="rounded-xl border bg-card overflow-hidden">
             <button
@@ -49,12 +48,7 @@ export function TeamTagGrid({
             </button>
             {isOpen && (
               <div className="border-t border-border bg-background/40 p-3">
-                {disabled && (
-                  <p className="mb-2 text-xs italic text-muted-foreground">
-                    {pitchingDisabledReason ?? "Pick a pitcher first"}
-                  </p>
-                )}
-                <div className={cn("flex flex-wrap gap-2", disabled && "opacity-50")}>
+                <div className="flex flex-wrap gap-2">
                   {cat.tags.map((tag) => {
                     const count = tagCounts?.[tag] ?? 0;
                     const flash = justAddedTag === tag;
@@ -62,13 +56,10 @@ export function TeamTagGrid({
                       <button
                         key={tag}
                         type="button"
-                        disabled={disabled}
-                        onClick={() => !disabled && onPick(tag, cat.id)}
+                        onClick={() => onPick(tag, cat.id)}
                         className={cn(
-                          "min-h-11 rounded-full border px-4 text-sm font-medium transition-all",
+                          "min-h-11 rounded-full border px-4 text-sm font-medium transition-all active:scale-95",
                           "border-primary/30 bg-primary-soft text-primary",
-                          !disabled && "active:scale-95",
-                          disabled && "cursor-not-allowed",
                           flash && "ring-2 ring-success bg-success/20 text-success-foreground",
                         )}
                       >
