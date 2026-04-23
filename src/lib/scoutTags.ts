@@ -101,6 +101,21 @@ export const PITCHING_TAG_SET: Set<string> = new Set(
   TAG_CATEGORIES.find((c) => c.id === "pitching")?.tags ?? [],
 );
 
+/** Quick-tap tags rendered on the active pitcher card in Pitcher tab. */
+export const PITCHER_QUICK_TAGS: string[] = [
+  "Strong command",
+  "Lost command",
+  "Wild pitch",
+  "Tipping pitches",
+  "Same motion all pitches",
+  "Fastball heavy",
+  "Works high",
+  "Works low",
+  "Off-speed used",
+  "Slow to plate",
+  "Weak first move",
+];
+
 /**
  * Resolves which team a tag belongs to given its category and the current
  * offense/defense pair. Returns null when the category requires user choice.
