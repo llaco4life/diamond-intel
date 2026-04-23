@@ -9,22 +9,19 @@ export function TeamTagGrid({
   onPick,
   tagCounts,
   justAddedTag,
-  pitchingDisabled,
-  pitchingDisabledReason,
 }: {
   offenseTeam: string;
   defenseTeam: string;
   onPick: (tag: string, categoryId: string) => void;
   tagCounts?: Record<string, number>;
   justAddedTag?: string | null;
-  pitchingDisabled?: boolean;
-  pitchingDisabledReason?: string;
 }) {
-  const [open, setOpen] = useState<string | null>("pitching");
+  const categories = TAG_CATEGORIES.filter((c) => c.id !== "pitching");
+  const [open, setOpen] = useState<string | null>(categories[0]?.id ?? null);
 
   return (
     <div className="space-y-2">
-      {TAG_CATEGORIES.map((cat) => {
+      {categories.map((cat) => {
         const isOpen = open === cat.id;
         const evaluating =
           cat.defaultAppliesTo === "offense"
