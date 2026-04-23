@@ -134,6 +134,7 @@ export function GameLobby({
         .select("*")
         .eq("org_id", orgId)
         .eq("status", "ended")
+        .eq("game_type", "scout")
         .order("created_at", { ascending: false })
         .limit(3);
       if (!cancelled) {
