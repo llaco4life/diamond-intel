@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Outlet, useMatches } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { ProtectedShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGames, type GameRow } from "@/hooks/useActiveGame";
@@ -22,7 +23,7 @@ function ScoutLayout() {
 
 function ScoutPage() {
   const { org, role, loading: authLoading } = useAuth();
-  const { games, loading } = useActiveGames(org?.id ?? null);
+  const { games, loading } = useActiveGames(org?.id ?? null, "scout");
   const isCoach = role === "head_coach" || role === "assistant_coach";
   const [joinedGame, setJoinedGame] = useState<GameRow | null>(null);
   const [showSetup, setShowSetup] = useState(false);
@@ -41,7 +42,18 @@ function ScoutPage() {
     return <ActiveGame game={fresh} isCoach={isCoach} />;
   }
 
-  if (showSetup) return <GameSetup onCancel={() => setShowSetup(false)} />;
+  if (showSetup)
+    return (
+      <GameSetup
+        onCancel={() => setShowSetup(false)}
+        onCreated={(g) => {
+          setShowSetup(false);
+          setJoinedGame(g);
+          // Toast after the transition so feedback matches the visible state.
+          toast.success("Game started");
+        }}
+      />
+    );
   if (!org) return null;
   return (
     <GameLobby

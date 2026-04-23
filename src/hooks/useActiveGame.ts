@@ -23,7 +23,10 @@ export interface GameRow {
   learning_focuses: string[] | null;
 }
 
-export function useActiveGames(orgId: string | null) {
+export function useActiveGames(
+  orgId: string | null,
+  gameType?: "scout" | "learning",
+) {
   const [games, setGames] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,15 +37,16 @@ export function useActiveGames(orgId: string | null) {
       return;
     }
     setLoading(true);
-    const { data } = await supabase
+    let q = supabase
       .from("games")
       .select("*")
       .eq("org_id", orgId)
-      .eq("status", "active")
-      .order("created_at", { ascending: false });
+      .eq("status", "active");
+    if (gameType) q = q.eq("game_type", gameType);
+    const { data } = await q.order("created_at", { ascending: false });
     setGames((data as GameRow[] | null) ?? []);
     setLoading(false);
-  }, [orgId]);
+  }, [orgId, gameType]);
 
   useEffect(() => {
     reload();

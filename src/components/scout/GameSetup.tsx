@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,15 +6,16 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { GameRow } from "@/hooks/useActiveGame";
 
-export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
+export function GameSetup({
+  onCancel,
+  onCreated,
+}: { onCancel?: () => void; onCreated?: (game: GameRow) => void } = {}) {
   const { user, org } = useAuth();
-  const navigate = useNavigate();
-  const [opponent, setOpponent] = useState("");
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [tournament, setTournament] = useState("");
-  const [gameType, setGameType] = useState<"scout" | "learning">("scout");
   const [isTimed, setIsTimed] = useState(false);
   const [minutes, setMinutes] = useState("90");
   const [submitting, setSubmitting] = useState(false);
@@ -30,7 +30,8 @@ export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
       toast.error("Home and away team names are required");
       return;
     }
-    const opponentName = opponent.trim() || awayTeam.trim();
+    // Away Team is the canonical opponent identity for scouting history.
+    const opponentName = awayTeam.trim();
     setSubmitting(true);
     try {
       let opponentId: string | null = null;
@@ -52,23 +53,29 @@ export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
         opponentId = created.id;
       }
 
-      const { error: gErr } = await supabase.from("games").insert({
-        org_id: org.id,
-        opponent_id: opponentId,
-        game_type: gameType,
-        tournament_name: tournament.trim() || null,
-        home_team: homeTeam.trim(),
-        away_team: awayTeam.trim(),
-        is_timed: isTimed,
-        time_limit_minutes: isTimed ? parseInt(minutes, 10) || null : null,
-        timer_started_at: isTimed ? new Date().toISOString() : null,
-        current_inning: 1,
-        status: "active",
-        created_by: user.id,
-      });
+      const { data: createdGame, error: gErr } = await supabase
+        .from("games")
+        .insert({
+          org_id: org.id,
+          opponent_id: opponentId,
+          game_type: "scout",
+          tournament_name: tournament.trim() || null,
+          home_team: homeTeam.trim(),
+          away_team: awayTeam.trim(),
+          is_timed: isTimed,
+          time_limit_minutes: isTimed ? parseInt(minutes, 10) || null : null,
+          timer_started_at: isTimed ? new Date().toISOString() : null,
+          current_inning: 1,
+          status: "active",
+          created_by: user.id,
+        })
+        .select("*")
+        .single();
       if (gErr) throw gErr;
-      toast.success("Game started");
-      navigate({ to: "/scout", replace: true });
+      // Hand the row back so the parent can enter ActiveGame immediately.
+      // Toast is fired by the parent after the transition so feedback
+      // matches the visible state change.
+      onCreated?.(createdGame as GameRow);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to start game");
     } finally {
@@ -87,7 +94,7 @@ export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
           ← Back to lobby
         </button>
       )}
-      <h1 className="mb-1 text-2xl font-bold tracking-tight">New Game</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight">New Scout Game</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Set up a scouting game. Your team will see it instantly.
       </p>
@@ -116,17 +123,6 @@ export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
         </div>
 
         <div>
-          <Label htmlFor="opp">Opponent (for scouting history, optional)</Label>
-          <Input
-            id="opp"
-            value={opponent}
-            onChange={(e) => setOpponent(e.target.value)}
-            placeholder="Defaults to away team name"
-            className="mt-1.5"
-          />
-        </div>
-
-        <div>
           <Label htmlFor="tourney">Tournament name (optional)</Label>
           <Input
             id="tourney"
@@ -135,28 +131,6 @@ export function GameSetup({ onCancel }: { onCancel?: () => void } = {}) {
             placeholder="e.g. Summer Showcase"
             className="mt-1.5"
           />
-        </div>
-
-        <div>
-          <Label>Game type</Label>
-          <div className="mt-1.5 flex gap-2">
-            <Button
-              type="button"
-              variant={gameType === "scout" ? "default" : "outline"}
-              onClick={() => setGameType("scout")}
-              className="flex-1"
-            >
-              Scout
-            </Button>
-            <Button
-              type="button"
-              variant={gameType === "learning" ? "default" : "outline"}
-              onClick={() => setGameType("learning")}
-              className="flex-1"
-            >
-              Learning
-            </Button>
-          </div>
         </div>
 
         <div className="flex items-center justify-between">
