@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyInning } from "@/hooks/useMyInning";
 import { useOfflineWriter } from "@/hooks/useOfflineWriter";
@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type Side = "offense" | "defense";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ObsRow = any;
 
 export function ObserveTab({
   gameId,
@@ -36,6 +39,9 @@ export function ObserveTab({
     () => (offenseTeam === homeTeam ? awayTeam : homeTeam),
     [offenseTeam, homeTeam, awayTeam],
   );
+
+  // Active pitcher present for this game? (gates Pitching chips)
+  const [hasActivePitcher, setHasActivePitcher] = useState(false);
 
   // Last category context (from a tag chip pick) — drives default side for the
   // Key Play and By-player segmented controls.
@@ -59,8 +65,9 @@ export function ObserveTab({
   const [pTeam, setPTeam] = useState<string>(awayTeam);
   const [pTeamTouched, setPTeamTouched] = useState(false);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [recent, setRecent] = useState<any[]>([]);
+  const [recent, setRecent] = useState<ObsRow[]>([]);
+  const [justAddedTag, setJustAddedTag] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Derive default side from last category context.
   const defaultSideFromContext = useCallback((): Side => {
@@ -71,30 +78,22 @@ export function ObserveTab({
     return "offense";
   }, [lastContext]);
 
-  // Resolve a safe team for the by-player form. Falls back gracefully if pTeam
-  // is empty or no longer matches either current team name.
   const resolveSafePTeam = useCallback((): string => {
     if (pTeam === homeTeam || pTeam === awayTeam) return pTeam;
-    // 1. resolve from current context
     const fromCtx = resolveAppliesTo(lastContext, offenseTeam, defenseTeam);
     if (fromCtx === homeTeam || fromCtx === awayTeam) return fromCtx;
-    // 2. offense or defense based on context category
     const side = defaultSideFromContext();
     const fromSide = side === "defense" ? defenseTeam : offenseTeam;
     if (fromSide === homeTeam || fromSide === awayTeam) return fromSide;
-    // 3. final fallback
     return homeTeam;
   }, [pTeam, homeTeam, awayTeam, lastContext, offenseTeam, defenseTeam, defaultSideFromContext]);
 
   const isPlayerFormPristine = !pJersey && !pTag && !pNote && !pTeamTouched;
 
-  // Auto-update Key Play side default from context (until touched).
   useEffect(() => {
     if (!keyPlaySideTouched) setKeyPlaySide(defaultSideFromContext());
   }, [defaultSideFromContext, keyPlaySideTouched]);
 
-  // Auto-update By-player team default while pristine; also re-resolve if
-  // pTeam ever becomes invalid.
   useEffect(() => {
     if (isPlayerFormPristine) {
       const side = defaultSideFromContext();
@@ -128,8 +127,19 @@ export function ObserveTab({
     setRecent(data ?? []);
   }, [gameId]);
 
+  const reloadActivePitcher = useCallback(async () => {
+    const { data } = await supabase
+      .from("pitchers")
+      .select("id")
+      .eq("game_id", gameId)
+      .eq("is_active", true)
+      .limit(1);
+    setHasActivePitcher((data?.length ?? 0) > 0);
+  }, [gameId]);
+
   useEffect(() => {
     reload();
+    reloadActivePitcher();
     const channel = supabase
       .channel(`obs-${gameId}`)
       .on(
@@ -142,11 +152,64 @@ export function ObserveTab({
         },
         () => reload(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pitchers", filter: `game_id=eq.${gameId}` },
+        () => reloadActivePitcher(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [gameId, reload]);
+  }, [gameId, reload, reloadActivePitcher]);
+
+  // Per-inning tag counts for chip badges
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of recent) {
+      if (r.inning !== inning) continue;
+      const tags: string[] = Array.isArray(r.tags) ? r.tags : [];
+      for (const t of tags) counts[t] = (counts[t] ?? 0) + 1;
+    }
+    return counts;
+  }, [recent, inning]);
+
+  const flashTag = (tag: string) => {
+    setJustAddedTag(tag);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setJustAddedTag(null), 600);
+  };
+
+  const deleteObservation = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from("scout_observations").delete().eq("id", id);
+      if (error) {
+        toast.error("Could not delete");
+        return;
+      }
+      reload();
+    },
+    [reload],
+  );
+
+  const editKeyPlay = useCallback(
+    async (row: ObsRow) => {
+      const next = window.prompt("Edit note", row.key_play ?? "");
+      if (next === null) return;
+      const trimmed = next.trim();
+      if (!trimmed) return;
+      const { error } = await supabase
+        .from("scout_observations")
+        .update({ key_play: trimmed })
+        .eq("id", row.id);
+      if (error) {
+        toast.error("Could not update");
+        return;
+      }
+      reload();
+    },
+    [reload],
+  );
 
   const writeTag = async (tag: string, appliesTo: string) => {
     if (!user) return;
@@ -160,7 +223,13 @@ export function ObserveTab({
       applies_to_team: appliesTo,
     });
     if (res.ok) {
-      toast.success(`${tag} · ${appliesTo}`);
+      flashTag(tag);
+      const insertedId = res.id;
+      toast.success(`${tag} · ${appliesTo}`, {
+        action: insertedId
+          ? { label: "Undo", onClick: () => deleteObservation(insertedId) }
+          : undefined,
+      });
       reload();
     } else {
       toast.warning(`${tag} (queued)`);
@@ -224,7 +293,6 @@ export function ObserveTab({
     reload();
   };
 
-  // Resolve pending coaching prompt with chosen side.
   const resolveCoaching = async (side: Side) => {
     const team = side === "offense" ? offenseTeam : defenseTeam;
     if (!pendingCoaching) return;
@@ -289,10 +357,17 @@ export function ObserveTab({
 
       <section>
         <h3 className="mb-2 text-sm font-semibold">Quick tags</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Tap to log for inning {inning}. Tap again to log another. Use the trash icon below to remove.
+        </p>
         <TeamTagGrid
           offenseTeam={offenseTeam}
           defenseTeam={defenseTeam}
           onPick={onPickTag}
+          tagCounts={tagCounts}
+          justAddedTag={justAddedTag}
+          pitchingDisabled={!hasActivePitcher}
+          pitchingDisabledReason="Mark an active pitcher in the Pitcher tab first"
         />
       </section>
 
@@ -364,7 +439,12 @@ export function ObserveTab({
 
       <section>
         <h3 className="mb-2 text-sm font-semibold">Recent observations</h3>
-        <ObservationList rows={recent.slice(0, 10)} offenseTeam={offenseTeam} />
+        <ObservationList
+          rows={recent.slice(0, 10)}
+          offenseTeam={offenseTeam}
+          onDelete={deleteObservation}
+          onEdit={editKeyPlay}
+        />
       </section>
 
       {/* Coaching prompt sheet */}

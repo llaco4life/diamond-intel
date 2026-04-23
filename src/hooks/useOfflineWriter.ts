@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { enqueue, flushQueue, readQueue, type QueuedTable } from "@/lib/offlineQueue";
 
+export type WriteResult = { ok: true; id: string | null } | { ok: false };
+
 export function useOfflineWriter() {
   const [pending, setPending] = useState(0);
 
@@ -21,12 +23,15 @@ export function useOfflineWriter() {
   }, [refresh]);
 
   const write = useCallback(
-    async (table: QueuedTable, payload: Record<string, unknown>): Promise<{ ok: boolean }> => {
+    async (table: QueuedTable, payload: Record<string, unknown>): Promise<WriteResult> => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from(table) as any).insert(payload);
+        const { data, error } = await (supabase.from(table) as any)
+          .insert(payload)
+          .select("id")
+          .single();
         if (error) throw error;
-        return { ok: true };
+        return { ok: true, id: (data?.id as string) ?? null };
       } catch {
         await enqueue({
           id: crypto.randomUUID(),

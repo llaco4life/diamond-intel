@@ -1,3 +1,5 @@
+import { Pencil, Trash2 } from "lucide-react";
+
 interface ObsRow {
   id: string;
   inning: number;
@@ -14,9 +16,13 @@ interface ObsRow {
 export function ObservationList({
   rows,
   offenseTeam,
+  onDelete,
+  onEdit,
 }: {
   rows: ObsRow[];
   offenseTeam?: string;
+  onDelete?: (id: string) => void;
+  onEdit?: (row: ObsRow) => void;
 }) {
   if (rows.length === 0) {
     return (
@@ -71,6 +77,32 @@ export function ObservationList({
                   {r.steal_it && <span className="font-semibold text-pink-foreground">🔥 {r.steal_it}</span>}
                   {r.key_play && <span className="italic">"{r.key_play}"</span>}
                   {r.tags && r.tags.length > 0 && <span>{r.tags.join(", ")}</span>}
+                  {(onEdit || onDelete) && (
+                    <span className="ml-auto flex items-center gap-1">
+                      {onEdit && r.key_play && (
+                        <button
+                          type="button"
+                          aria-label="Edit note"
+                          onClick={() => onEdit(r)}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          type="button"
+                          aria-label="Delete observation"
+                          onClick={() => {
+                            if (confirm("Delete this observation?")) onDelete(r.id);
+                          }}
+                          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </li>
               );
             })}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useOfflineWriter } from "@/hooks/useOfflineWriter";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,9 @@ import { CurrentPitcherBar, type CurrentPitcher } from "./CurrentPitcherBar";
 import { DiamondDecisionsCard } from "./DiamondDecisionsCard";
 
 type Side = "offense" | "defense";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ObsRow = any;
 
 export function LearningObserveTab({
   gameId,
@@ -41,8 +44,9 @@ export function LearningObserveTab({
   const [pendingCoaching, setPendingCoaching] = useState<{ tag: string } | null>(null);
   const [currentPitcher, setCurrentPitcher] = useState<CurrentPitcher | null>(null);
   const [keyPlay, setKeyPlay] = useState("");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [recent, setRecent] = useState<any[]>([]);
+  const [recent, setRecent] = useState<ObsRow[]>([]);
+  const [justAddedTag, setJustAddedTag] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reload = useCallback(async () => {
     if (!user) return;
@@ -61,6 +65,54 @@ export function LearningObserveTab({
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Tag counts for current inning
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of recent) {
+      if (r.inning !== inning) continue;
+      const tags: string[] = Array.isArray(r.tags) ? r.tags : [];
+      for (const t of tags) counts[t] = (counts[t] ?? 0) + 1;
+    }
+    return counts;
+  }, [recent, inning]);
+
+  const flashTag = (tag: string) => {
+    setJustAddedTag(tag);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setJustAddedTag(null), 600);
+  };
+
+  const deleteObservation = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from("scout_observations").delete().eq("id", id);
+      if (error) {
+        toast.error("Could not delete");
+        return;
+      }
+      reload();
+    },
+    [reload],
+  );
+
+  const editKeyPlay = useCallback(
+    async (row: ObsRow) => {
+      const next = window.prompt("Edit note", row.key_play ?? "");
+      if (next === null) return;
+      const trimmed = next.trim();
+      if (!trimmed) return;
+      const { error } = await supabase
+        .from("scout_observations")
+        .update({ key_play: trimmed })
+        .eq("id", row.id);
+      if (error) {
+        toast.error("Could not update");
+        return;
+      }
+      reload();
+    },
+    [reload],
+  );
 
   const writeTag = async (
     tag: string,
@@ -83,7 +135,13 @@ export function LearningObserveTab({
     }
     const res = await write("scout_observations", payload);
     if (res.ok) {
-      toast.success(`${tag} · ${appliesTo}`);
+      flashTag(tag);
+      const insertedId = res.id;
+      toast.success(`${tag} · ${appliesTo}`, {
+        action: insertedId
+          ? { label: "Undo", onClick: () => deleteObservation(insertedId) }
+          : undefined,
+      });
       reload();
     } else {
       toast.warning(`${tag} (queued)`);
@@ -183,7 +241,18 @@ export function LearningObserveTab({
 
       <section>
         <h3 className="mb-2 text-sm font-semibold">Quick tags</h3>
-        <TeamTagGrid offenseTeam={offenseTeam} defenseTeam={defenseTeam} onPick={onPickTag} />
+        <p className="mb-2 text-xs text-muted-foreground">
+          Tap to log for inning {inning}. Tap again to log another. Use the trash icon below to remove.
+        </p>
+        <TeamTagGrid
+          offenseTeam={offenseTeam}
+          defenseTeam={defenseTeam}
+          onPick={onPickTag}
+          tagCounts={tagCounts}
+          justAddedTag={justAddedTag}
+          pitchingDisabled={!currentPitcher}
+          pitchingDisabledReason="Pick a pitcher above first"
+        />
       </section>
 
       <section className="rounded-xl border bg-card p-4">
@@ -204,7 +273,12 @@ export function LearningObserveTab({
 
       <section>
         <h3 className="mb-2 text-sm font-semibold">Your recent notes</h3>
-        <ObservationList rows={recent.slice(0, 10)} offenseTeam={offenseTeam} />
+        <ObservationList
+          rows={recent.slice(0, 10)}
+          offenseTeam={offenseTeam}
+          onDelete={deleteObservation}
+          onEdit={editKeyPlay}
+        />
       </section>
 
       <Sheet

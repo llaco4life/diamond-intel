@@ -7,10 +7,18 @@ export function TeamTagGrid({
   offenseTeam,
   defenseTeam,
   onPick,
+  tagCounts,
+  justAddedTag,
+  pitchingDisabled,
+  pitchingDisabledReason,
 }: {
   offenseTeam: string;
   defenseTeam: string;
   onPick: (tag: string, categoryId: string) => void;
+  tagCounts?: Record<string, number>;
+  justAddedTag?: string | null;
+  pitchingDisabled?: boolean;
+  pitchingDisabledReason?: string;
 }) {
   const [open, setOpen] = useState<string | null>("pitching");
 
@@ -24,6 +32,7 @@ export function TeamTagGrid({
             : cat.defaultAppliesTo === "defense"
               ? defenseTeam
               : null;
+        const disabled = cat.id === "pitching" && !!pitchingDisabled;
         return (
           <div key={cat.id} className="rounded-xl border bg-card overflow-hidden">
             <button
@@ -42,17 +51,40 @@ export function TeamTagGrid({
               />
             </button>
             {isOpen && (
-              <div className="flex flex-wrap gap-2 border-t border-border bg-background/40 p-3">
-                {cat.tags.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => onPick(tag, cat.id)}
-                    className="min-h-11 rounded-full border border-primary/30 bg-primary-soft px-4 text-sm font-medium text-primary active:scale-95 transition-transform"
-                  >
-                    {tag}
-                  </button>
-                ))}
+              <div className="border-t border-border bg-background/40 p-3">
+                {disabled && (
+                  <p className="mb-2 text-xs italic text-muted-foreground">
+                    {pitchingDisabledReason ?? "Pick a pitcher first"}
+                  </p>
+                )}
+                <div className={cn("flex flex-wrap gap-2", disabled && "opacity-50")}>
+                  {cat.tags.map((tag) => {
+                    const count = tagCounts?.[tag] ?? 0;
+                    const flash = justAddedTag === tag;
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => !disabled && onPick(tag, cat.id)}
+                        className={cn(
+                          "min-h-11 rounded-full border px-4 text-sm font-medium transition-all",
+                          "border-primary/30 bg-primary-soft text-primary",
+                          !disabled && "active:scale-95",
+                          disabled && "cursor-not-allowed",
+                          flash && "ring-2 ring-success bg-success/20 text-success-foreground",
+                        )}
+                      >
+                        {tag}
+                        {count > 0 && (
+                          <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
