@@ -18,7 +18,7 @@ export const TAG_CATEGORIES: TagCategory[] = [
       "Wild pitch",
       "Tipping pitches",
       "Same motion all pitches",
-      "Fastball only",
+      "Fastball heavy",
       "Works high",
       "Works low",
       "Off-speed used",
