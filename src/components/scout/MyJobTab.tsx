@@ -33,24 +33,35 @@ export function MyJobTab({
     reload();
   }, [reload]);
 
+  const [picking, setPicking] = useState(false);
+
   const pick = async (a: string) => {
     if (!user) return;
-    const { error } = await supabase
-      .from("game_assignments")
-      .insert({ game_id: gameId, player_id: user.id, assignment: a });
+    // If we already have an assignment, update it; otherwise insert.
+    // (game_assignments has no DELETE policy, so we change in place.)
+    const { error } = assignment
+      ? await supabase
+          .from("game_assignments")
+          .update({ assignment: a })
+          .eq("game_id", gameId)
+          .eq("player_id", user.id)
+      : await supabase
+          .from("game_assignments")
+          .insert({ game_id: gameId, player_id: user.id, assignment: a });
     if (error) {
       toast.error(error.message);
       return;
     }
     toast.success(`Assigned: ${a}`);
     setAssignment(a);
+    setPicking(false);
   };
 
   if (loading) {
     return <div className="h-32 animate-pulse rounded-xl bg-muted/50" />;
   }
 
-  if (assignment) {
+  if (assignment && !picking) {
     return (
       <div className="space-y-4">
         <div className="rounded-2xl border-2 border-primary/30 bg-primary-soft p-5">
@@ -64,6 +75,13 @@ export function MyJobTab({
         </div>
         <Button onClick={onGoToObserve} className="w-full" size="lg">
           Go to Observe
+        </Button>
+        <Button
+          onClick={() => setPicking(true)}
+          variant="ghost"
+          className="w-full text-muted-foreground"
+        >
+          Change job
         </Button>
       </div>
     );
