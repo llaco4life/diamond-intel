@@ -186,7 +186,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
         ) : (
           <div className="space-y-3">
             {innings.map((i) => {
-              const rows = obs.filter((o) => o.inning === i);
+              const rows = teamObs.filter((o) => o.inning === i);
               const counts = tagCountsByTeam(rows);
               const players = rows.filter((r) => !r.is_team_level);
               return (
