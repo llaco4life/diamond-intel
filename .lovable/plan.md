@@ -1,27 +1,53 @@
-# My Job Tab — Assignment-Specific Tracking Center (SHIPPED)
+## Make Diamond Intel installable (Add to Home Screen)
 
-Approved with refinements:
-- Removed "Pitcher tendencies" entirely from `ASSIGNMENT_OPTIONS` — pitching lives in Pitcher tab only.
-- Strengthened "Batting order" chip set: leadoff aggressive, auto-take first pitch, free swinger, power pocket 3-5, bottom weak, lineup flipped.
-- Future: optional "Must Know" priority marker for top assignment notes.
+Adds a web app manifest and proper icons so coaches and players can tap
+"Add to Home Screen" on iOS/Android and launch Diamond Intel like a native
+app — fullscreen, with its own icon, no browser chrome.
 
-# Coach Dashboard V1 — War Room (SHIPPED)
+**No service worker, no offline mode, no `vite-plugin-pwa`.** This avoids
+all the preview/caching headaches while delivering the "feels like an app"
+experience.
 
-Approved with refinements:
-- Pin to Top 5 included in V1 (manual coach override; pinned items always rank first; visually marked with amber border + 📌 badge).
-- "Pitching" Attack Plan bucket renamed to "Our Pitching Plan".
-- Confidence labels (High / Medium) on every Must Know card.
-- Pins are scoped to `game_id` only — opponent-level pinning deferred.
+### What gets added
 
-## Sections (top → bottom)
-1. Top 5 Must Know (pinned-first, scored, confidence chip, pin/unpin)
-2. Attack Plan — Offense / Our Pitching Plan / Defense / Baserunning
-3. Pitcher Breakdown — auto-generated Coach Call line per pitcher
-4. Role Intel — `applies_to_team = job:*` grouped by assignment
-5. Steal It Wall — top 3 + View all toggle
-6. All raw observations — collapsed `<details>`
+1. **`public/manifest.webmanifest`** — declares the app name, icons,
+   theme color (brand green `#1D9E75`), background color, and
+   `display: "standalone"` so it launches without browser chrome.
 
-## Implementation
-- Migration: `pinned_must_know` table (game-scoped, RLS coach-only insert/delete).
-- `src/lib/dashboardIntel.ts` — `computeMustKnow`, `computeAttackPlan`, `computePitcherCall`, `computeRoleIntel`, `TAG_TO_ACTION`, `HIGH_VALUE_TAGS`.
-- `src/components/dashboard/ScoutingReportView.tsx` — full rewrite as War Room.
+2. **App icons in `public/icons/`** — generated from the existing Logo:
+   - `icon-192.png` (Android home screen)
+   - `icon-512.png` (Android splash / app switcher)
+   - `icon-maskable-512.png` (Android adaptive icon, safe-zone padded)
+   - `apple-touch-icon.png` 180×180 (iOS home screen)
+
+3. **`src/routes/__root.tsx`** — add three head links/meta tags:
+   - `<link rel="manifest" href="/manifest.webmanifest">`
+   - `<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">`
+   - `<meta name="theme-color" content="#1D9E75">` (status bar tint on Android Chrome)
+   - `<meta name="apple-mobile-web-app-capable" content="yes">` and `apple-mobile-web-app-status-bar-style` for iOS standalone mode
+
+### What this gets you
+
+- **iOS**: Safari → Share → Add to Home Screen → launches fullscreen
+  with the Diamond Intel icon and name.
+- **Android**: Chrome shows an "Install app" prompt automatically; once
+  installed it appears in the app drawer and launches standalone.
+- **Desktop Chrome/Edge**: Install icon in the address bar.
+
+### What this does NOT do
+
+- No offline support (the app still requires internet).
+- No background sync, push notifications, or service worker caching.
+- No `vite-plugin-pwa` dependency added.
+
+If offline support is ever needed later, we can layer a full PWA on top —
+but most softball coaches at the field have at least cellular signal, so
+the simple route is the right call now.
+
+### Files changed
+
+- **Add** `public/manifest.webmanifest`
+- **Add** `public/icons/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`
+- **Edit** `src/routes/__root.tsx` (add manifest link, apple-touch-icon, theme-color, iOS meta tags)
+
+No new dependencies. No code changes outside the root route.
