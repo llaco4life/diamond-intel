@@ -99,8 +99,12 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     );
   }
 
+  // Split job-scoped observations from regular team observations
+  const jobObs = obs.filter((o) => o.applies_to_team?.startsWith("job:"));
+  const teamObs = obs.filter((o) => !o.applies_to_team?.startsWith("job:"));
+
   // Group team tags into counts per inning, split by applies_to_team
-  const innings = Array.from(new Set(obs.map((o) => o.inning))).sort((a, b) => a - b);
+  const innings = Array.from(new Set(teamObs.map((o) => o.inning))).sort((a, b) => a - b);
   const tagCountsByTeam = (rows: Obs[]) => {
     // Map<tag, Map<team-or-unspecified, count>>
     const map = new Map<string, Map<string, number>>();
@@ -120,12 +124,20 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     );
   };
 
-  const keyPlays = obs.filter((o) => o.key_play);
+  const keyPlays = teamObs.filter((o) => o.key_play);
   const steals = obs.filter((o) => o.steal_it);
   const playerInning = new Map<string, number>();
   for (const o of obs) {
     const cur = playerInning.get(o.player_id) ?? 0;
     if (o.inning > cur) playerInning.set(o.player_id, o.inning);
+  }
+
+  // Group job observations by assignment
+  const jobGroups = new Map<string, Obs[]>();
+  for (const o of jobObs) {
+    const key = o.applies_to_team!.slice(4); // strip "job:"
+    if (!jobGroups.has(key)) jobGroups.set(key, []);
+    jobGroups.get(key)!.push(o);
   }
 
   return (
@@ -174,7 +186,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
         ) : (
           <div className="space-y-3">
             {innings.map((i) => {
-              const rows = obs.filter((o) => o.inning === i);
+              const rows = teamObs.filter((o) => o.inning === i);
               const counts = tagCountsByTeam(rows);
               const players = rows.filter((r) => !r.is_team_level);
               return (
@@ -223,6 +235,54 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
           </div>
         )}
       </section>
+
+      {jobGroups.size > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">Assignment notes</h2>
+          <div className="space-y-3">
+            {Array.from(jobGroups.entries()).map(([assignment, rows]) => {
+              const counts = new Map<string, number>();
+              for (const r of rows) {
+                for (const t of r.tags ?? []) {
+                  counts.set(t, (counts.get(t) ?? 0) + 1);
+                }
+              }
+              const sortedCounts = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+              const notes = rows
+                .filter((r) => r.key_play)
+                .sort((a, b) => a.inning - b.inning);
+              return (
+                <div key={assignment} className="rounded-xl border bg-card p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {assignment}
+                  </p>
+                  {sortedCounts.length > 0 && (
+                    <ul className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      {sortedCounts.map(([tag, c]) => (
+                        <li key={tag} className="text-muted-foreground">
+                          <span className="font-medium text-foreground">{tag}</span> ×{c}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {notes.length > 0 && (
+                    <ul className="space-y-1 text-sm">
+                      {notes.map((n) => (
+                        <li key={n.id}>
+                          <span className="mr-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+                            I{n.inning}
+                          </span>
+                          <span className="italic">"{n.key_play}"</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {keyPlays.length > 0 && (
         <section>
