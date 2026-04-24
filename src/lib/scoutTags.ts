@@ -134,12 +134,79 @@ export function resolveAppliesTo(
 }
 
 export const ASSIGNMENT_OPTIONS = [
-  "Pitcher tendencies",
   "1B coach signs",
   "3B coach signs",
   "Catcher pop time",
-  "Batting order",
-  "Defensive shifts",
-  "Bench chatter",
   "Outfield arms",
+  "Defensive shifts",
+  "Batting order",
+  "Bench chatter",
 ];
+
+/** Role-specific quick-tap chips for each My Job assignment. */
+export const ASSIGNMENT_TAG_CATALOG: Record<string, string[]> = {
+  "1B coach signs": [
+    "steal sign",
+    "bunt sign",
+    "fake bunt",
+    "delayed steal",
+    "hit and run",
+    "straight steal",
+    "take sign",
+    "slash",
+  ],
+  "3B coach signs": [
+    "squeeze",
+    "bunt",
+    "hold runner",
+    "green light",
+    "delay",
+    "steal",
+    "hit and run",
+  ],
+  "Catcher pop time": [
+    "steal attempt",
+    "runner safe",
+    "runner out",
+    "slow exchange",
+    "weak arm",
+    "strong throw",
+    "high throw",
+    "tailing throw",
+  ],
+  "Outfield arms": [
+    "weak arm LF",
+    "weak arm CF",
+    "weak arm RF",
+    "strong arm",
+    "slow transfer",
+    "accurate throw",
+    "overthrow tendency",
+  ],
+  "Defensive shifts": [
+    "middle shaded",
+    "corners up",
+    "left side heavy",
+    "right side heavy",
+    "slap defense",
+    "bunt defense weak",
+  ],
+  "Batting order": [
+    "leadoff aggressive",
+    "auto-take first pitch",
+    "free swinger",
+    "power pocket 3-5",
+    "bottom weak",
+    "lineup flipped",
+  ],
+  "Bench chatter": [
+    "sign-stealing chatter",
+    "coach yelling location",
+    "decoy calls",
+  ],
+};
+
+export function getAssignmentChips(assignment: string | null): string[] {
+  if (!assignment) return [];
+  return ASSIGNMENT_TAG_CATALOG[assignment] ?? [];
+}
