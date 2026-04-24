@@ -41,8 +41,21 @@ function generateToken(): string {
     .replace(/=+$/, "");
 }
 
+// Always use the published app domain for invite links so they work for
+// recipients (not the Lovable editor preview URL the coach happens to be on).
+const PUBLISHED_APP_ORIGIN = "https://diamond-intel.lovable.app";
+
 function inviteUrl(token: string): string {
-  return `${window.location.origin}/invite/${token}`;
+  if (typeof window === "undefined") return `${PUBLISHED_APP_ORIGIN}/invite/${token}`;
+  const origin = window.location.origin;
+  // If the coach is viewing the app inside the Lovable editor/preview, those
+  // hosts redirect strangers into Lovable's own auth. Force the published URL.
+  const isLovableInternal =
+    origin.includes("id-preview--") ||
+    origin.includes("lovableproject.com") ||
+    origin.includes("lovable.dev");
+  const base = isLovableInternal ? PUBLISHED_APP_ORIGIN : origin;
+  return `${base}/invite/${token}`;
 }
 
 function statusFor(link: InviteLink): { label: string; tone: "active" | "revoked" | "exhausted" | "expired" } {
