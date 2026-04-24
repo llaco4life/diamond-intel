@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { GamePlanEditor } from "./GamePlanEditor";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,7 +13,9 @@ import {
   type MustKnowItem,
   type AttackBucket,
 } from "@/lib/dashboardIntel";
-import { Pin, PinOff } from "lucide-react";
+import { useAiCoachCall } from "@/hooks/useAiCoachCall";
+import type { PitcherCoachCallInput } from "@/server/pitcherCoachCall.functions";
+import { Pin, PinOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface GameRow {
@@ -419,59 +421,14 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
           </p>
         ) : (
           <ul className="space-y-2">
-            {pitchers.map((p) => {
-              const call = computePitcherCall(p.id, obs);
-              return (
-                <li key={p.id} className="rounded-xl border bg-card p-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">
-                      #{p.jersey_number}
-                      {p.name && (
-                        <span className="text-muted-foreground">
-                          {" "}
-                          — {p.name}
-                        </span>
-                      )}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                        p.is_active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {p.is_active ? "Active" : "Finished"}
-                    </span>
-                  </div>
-                  {call.topReads.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {call.topReads.map((r) => (
-                        <span
-                          key={r.tag}
-                          className="rounded-full border bg-background px-2 py-0.5 text-[11px]"
-                        >
-                          {r.tag}
-                          {r.count > 1 && (
-                            <span className="ml-1 text-muted-foreground">
-                              ×{r.count}
-                            </span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <p className="mt-2 rounded-lg bg-primary-soft px-2 py-1.5 text-sm font-medium text-primary">
-                    📣 Coach Call: {call.call}
-                  </p>
-                  {p.notes && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {p.notes}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
+            {pitchers.map((p) => (
+              <PitcherCard
+                key={p.id}
+                pitcher={p}
+                obs={obs}
+                opponentName={opponentName}
+              />
+            ))}
           </ul>
         )}
       </section>
@@ -605,5 +562,130 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
         </details>
       )}
     </div>
+  );
+}
+
+interface PitcherCardProps {
+  pitcher: Pitcher;
+  obs: RawObs[];
+  opponentName: string | null;
+}
+
+function PitcherCard({ pitcher, obs, opponentName }: PitcherCardProps) {
+  const ruleCall = useMemo(
+    () => computePitcherCall(pitcher.id, obs),
+    [pitcher.id, obs],
+  );
+
+  const aiInput = useMemo<PitcherCoachCallInput | null>(() => {
+    const tagCounts = ruleCall.topReads.length
+      ? // include all (not just top 3) for the AI
+        Object.entries(
+          obs
+            .filter((o) => o.pitcher_id === pitcher.id)
+            .flatMap((o) => o.tags ?? [])
+            .reduce<Record<string, number>>((acc, t) => {
+              acc[t] = (acc[t] ?? 0) + 1;
+              return acc;
+            }, {}),
+        ).map(([tag, count]) => ({ tag, count }))
+      : [];
+
+    const innings = obs
+      .filter((o) => o.pitcher_id === pitcher.id)
+      .map((o) => o.inning);
+    const lastInning = innings.length ? Math.max(...innings) : 0;
+
+    return {
+      pitcher_number: pitcher.jersey_number,
+      team: opponentName,
+      tag_counts: tagCounts,
+      last_inning_seen: lastInning,
+      status: pitcher.is_active ? "active" : "finished",
+    };
+  }, [pitcher, obs, opponentName, ruleCall.topReads.length]);
+
+  const ai = useAiCoachCall(pitcher.id, aiInput);
+
+  const useAi =
+    ai.result && ai.result.source === "ai" && ai.result.coach_call.length > 0;
+  const displayedCall = useAi ? ai.result!.coach_call : ruleCall.call;
+  const sourceLabel: "AI" | "Rule" = useAi ? "AI" : "Rule";
+  const isLoading = ai.loading;
+
+  return (
+    <li className="rounded-xl border bg-card p-3">
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">
+          #{pitcher.jersey_number}
+          {pitcher.name && (
+            <span className="text-muted-foreground"> — {pitcher.name}</span>
+          )}
+        </span>
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+            pitcher.is_active
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {pitcher.is_active ? "Active" : "Finished"}
+        </span>
+      </div>
+      {ruleCall.topReads.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {ruleCall.topReads.map((r) => (
+            <span
+              key={r.tag}
+              className="rounded-full border bg-background px-2 py-0.5 text-[11px]"
+            >
+              {r.tag}
+              {r.count > 1 && (
+                <span className="ml-1 text-muted-foreground">×{r.count}</span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 flex items-start gap-2 rounded-lg bg-primary-soft px-2 py-1.5 text-sm font-medium text-primary">
+        <span className="flex-1">📣 Coach Call: {displayedCall}</span>
+        <span
+          className={cn(
+            "shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider",
+            isLoading
+              ? "bg-muted text-muted-foreground"
+              : sourceLabel === "AI"
+                ? "bg-purple-600 text-white"
+                : "bg-muted text-muted-foreground",
+          )}
+          title={
+            isLoading
+              ? "AI thinking…"
+              : sourceLabel === "AI"
+                ? "Generated by AI"
+                : "Rule-based fallback"
+          }
+        >
+          {isLoading ? (
+            "…"
+          ) : sourceLabel === "AI" ? (
+            <>
+              <Sparkles className="h-2.5 w-2.5" /> AI
+            </>
+          ) : (
+            "Rule"
+          )}
+        </span>
+      </p>
+      {ai.result?.confidence && useAi && (
+        <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+          AI confidence: {ai.result.confidence}
+        </p>
+      )}
+      {pitcher.notes && (
+        <p className="mt-1 text-xs text-muted-foreground">{pitcher.notes}</p>
+      )}
+    </li>
   );
 }
