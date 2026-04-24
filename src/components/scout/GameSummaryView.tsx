@@ -99,8 +99,12 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     );
   }
 
+  // Split job-scoped observations from regular team observations
+  const jobObs = obs.filter((o) => o.applies_to_team?.startsWith("job:"));
+  const teamObs = obs.filter((o) => !o.applies_to_team?.startsWith("job:"));
+
   // Group team tags into counts per inning, split by applies_to_team
-  const innings = Array.from(new Set(obs.map((o) => o.inning))).sort((a, b) => a - b);
+  const innings = Array.from(new Set(teamObs.map((o) => o.inning))).sort((a, b) => a - b);
   const tagCountsByTeam = (rows: Obs[]) => {
     // Map<tag, Map<team-or-unspecified, count>>
     const map = new Map<string, Map<string, number>>();
@@ -120,12 +124,20 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     );
   };
 
-  const keyPlays = obs.filter((o) => o.key_play);
+  const keyPlays = teamObs.filter((o) => o.key_play);
   const steals = obs.filter((o) => o.steal_it);
   const playerInning = new Map<string, number>();
   for (const o of obs) {
     const cur = playerInning.get(o.player_id) ?? 0;
     if (o.inning > cur) playerInning.set(o.player_id, o.inning);
+  }
+
+  // Group job observations by assignment
+  const jobGroups = new Map<string, Obs[]>();
+  for (const o of jobObs) {
+    const key = o.applies_to_team!.slice(4); // strip "job:"
+    if (!jobGroups.has(key)) jobGroups.set(key, []);
+    jobGroups.get(key)!.push(o);
   }
 
   return (
