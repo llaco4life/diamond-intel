@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { GamePlanEditor } from "./GamePlanEditor";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,7 +13,9 @@ import {
   type MustKnowItem,
   type AttackBucket,
 } from "@/lib/dashboardIntel";
-import { Pin, PinOff } from "lucide-react";
+import { useAiCoachCall } from "@/hooks/useAiCoachCall";
+import type { PitcherCoachCallInput } from "@/server/pitcherCoachCall.functions";
+import { Pin, PinOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface GameRow {
