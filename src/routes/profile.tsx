@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { InviteLinksSection } from "@/components/profile/InviteLinksSection";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/profile")({
@@ -115,6 +116,8 @@ function ProfilePage() {
           </div>
         </section>
       )}
+
+      {isHeadCoach && org && <InviteLinksSection orgId={org.id} />}
 
       {(role === "head_coach" || role === "assistant_coach") && org && (
         <RosterSection orgId={org.id} />

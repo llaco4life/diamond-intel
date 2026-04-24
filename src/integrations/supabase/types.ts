@@ -313,6 +313,48 @@ export type Database = {
           },
         ]
       }
+      org_invite_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          max_uses: number | null
+          org_id: string
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+          updated_at: string
+          uses_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          org_id: string
+          revoked_at?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+          updated_at?: string
+          uses_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          org_id?: string
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+          updated_at?: string
+          uses_count?: number
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           created_at: string
@@ -571,6 +613,15 @@ export type Database = {
     }
     Functions: {
       generate_join_code: { Args: never; Returns: string }
+      get_invite_preview: {
+        Args: { _token: string }
+        Returns: {
+          is_valid: boolean
+          org_name: string
+          reason: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       get_my_org_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -578,6 +629,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      redeem_invite: {
+        Args: { _token: string }
+        Returns: {
+          org_id: string
+          reason: string
+          role: Database["public"]["Enums"]["app_role"]
+          success: boolean
+        }[]
       }
     }
     Enums: {
