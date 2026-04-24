@@ -98,7 +98,7 @@ function InvitePage() {
       ? "https://diamond-intel.lovable.app"
       : window.location.origin;
     const redirectUrl = `${baseOrigin}/invite/${token}`;
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -110,11 +110,34 @@ function InvitePage() {
         },
       },
     });
-    setSubmitting(false);
     if (error) {
+      setSubmitting(false);
       toast.error(error.message);
       return;
     }
+
+    // If a session was issued immediately (auto-confirm on), redeem the invite
+    // right now instead of waiting for the auth state effect to catch up.
+    if (signUpData.session) {
+      const { data: redeemData, error: redeemErr } = await supabase.rpc("redeem_invite", { _token: token });
+      setSubmitting(false);
+      if (redeemErr) {
+        toast.error(redeemErr.message);
+        return;
+      }
+      const row = (redeemData ?? [])[0] as { success: boolean; reason: string | null } | undefined;
+      if (row?.success) {
+        setRedeemed(true);
+        toast.success(`You've joined ${preview.org_name}!`);
+        await refreshProfile();
+        setTimeout(() => navigate({ to: "/", search: { restricted: undefined } }), 600);
+        return;
+      }
+      toast.error(REASON_MESSAGE[row?.reason ?? ""] ?? "Couldn't redeem invite.");
+      return;
+    }
+
+    setSubmitting(false);
     toast.success("Account created! Check your email to confirm, then return to this link.");
   };
 
