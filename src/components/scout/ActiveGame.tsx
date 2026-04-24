@@ -74,7 +74,7 @@ export function ActiveGame({
             />
           </TabsContent>
           <TabsContent value="myjob" className="mt-4">
-            <MyJobTab gameId={game.id} onGoToObserve={() => setTab("observe")} />
+            <MyJobTab gameId={game.id} defaultInning={game.current_inning} />
           </TabsContent>
           <TabsContent value="steal" className="mt-4">
             <StealItTab
