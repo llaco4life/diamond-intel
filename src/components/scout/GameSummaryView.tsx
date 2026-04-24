@@ -236,6 +236,54 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
         )}
       </section>
 
+      {jobGroups.size > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">Assignment notes</h2>
+          <div className="space-y-3">
+            {Array.from(jobGroups.entries()).map(([assignment, rows]) => {
+              const counts = new Map<string, number>();
+              for (const r of rows) {
+                for (const t of r.tags ?? []) {
+                  counts.set(t, (counts.get(t) ?? 0) + 1);
+                }
+              }
+              const sortedCounts = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+              const notes = rows
+                .filter((r) => r.key_play)
+                .sort((a, b) => a.inning - b.inning);
+              return (
+                <div key={assignment} className="rounded-xl border bg-card p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {assignment}
+                  </p>
+                  {sortedCounts.length > 0 && (
+                    <ul className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      {sortedCounts.map(([tag, c]) => (
+                        <li key={tag} className="text-muted-foreground">
+                          <span className="font-medium text-foreground">{tag}</span> ×{c}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {notes.length > 0 && (
+                    <ul className="space-y-1 text-sm">
+                      {notes.map((n) => (
+                        <li key={n.id}>
+                          <span className="mr-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+                            I{n.inning}
+                          </span>
+                          <span className="italic">"{n.key_play}"</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {keyPlays.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-semibold">Key plays</h2>
