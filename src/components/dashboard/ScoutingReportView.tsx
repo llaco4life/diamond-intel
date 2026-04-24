@@ -419,59 +419,14 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
           </p>
         ) : (
           <ul className="space-y-2">
-            {pitchers.map((p) => {
-              const call = computePitcherCall(p.id, obs);
-              return (
-                <li key={p.id} className="rounded-xl border bg-card p-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">
-                      #{p.jersey_number}
-                      {p.name && (
-                        <span className="text-muted-foreground">
-                          {" "}
-                          — {p.name}
-                        </span>
-                      )}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                        p.is_active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {p.is_active ? "Active" : "Finished"}
-                    </span>
-                  </div>
-                  {call.topReads.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {call.topReads.map((r) => (
-                        <span
-                          key={r.tag}
-                          className="rounded-full border bg-background px-2 py-0.5 text-[11px]"
-                        >
-                          {r.tag}
-                          {r.count > 1 && (
-                            <span className="ml-1 text-muted-foreground">
-                              ×{r.count}
-                            </span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <p className="mt-2 rounded-lg bg-primary-soft px-2 py-1.5 text-sm font-medium text-primary">
-                    📣 Coach Call: {call.call}
-                  </p>
-                  {p.notes && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {p.notes}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
+            {pitchers.map((p) => (
+              <PitcherCard
+                key={p.id}
+                pitcher={p}
+                obs={obs}
+                opponentName={opponentName}
+              />
+            ))}
           </ul>
         )}
       </section>
