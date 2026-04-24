@@ -90,7 +90,14 @@ function InvitePage() {
     e.preventDefault();
     if (!preview?.is_valid) return;
     setSubmitting(true);
-    const redirectUrl = `${window.location.origin}/invite/${token}`;
+    const isLovableInternal =
+      window.location.origin.includes("id-preview--") ||
+      window.location.origin.includes("lovableproject.com") ||
+      window.location.origin.includes("lovable.dev");
+    const baseOrigin = isLovableInternal
+      ? "https://diamond-intel.lovable.app"
+      : window.location.origin;
+    const redirectUrl = `${baseOrigin}/invite/${token}`;
     const { error } = await supabase.auth.signUp({
       email,
       password,
