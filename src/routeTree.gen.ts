@@ -19,6 +19,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DevelopmentRouteImport } from './routes/development'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
 import { Route as LearningSummarySessionIdRouteImport } from './routes/learning.summary.$sessionId'
 
@@ -72,6 +73,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ScoutSummaryGameIdRoute = ScoutSummaryGameIdRouteImport.update({
   id: '/summary/$gameId',
   path: '/summary/$gameId',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
 }
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/invite/$token'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
   fileRoutesByTo: FileRoutesByTo
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/invite/$token'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
   id:
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/invite/$token'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
   fileRoutesById: FileRoutesById
@@ -183,6 +195,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   ScoutRoute: typeof ScoutRouteWithChildren
   SignupRoute: typeof SignupRoute
+  InviteTokenRoute: typeof InviteTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -257,6 +270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/scout/summary/$gameId': {
       id: '/scout/summary/$gameId'
       path: '/summary/$gameId'
@@ -307,6 +327,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ScoutRoute: ScoutRouteWithChildren,
   SignupRoute: SignupRoute,
+  InviteTokenRoute: InviteTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
