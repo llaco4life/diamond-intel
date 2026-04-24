@@ -1,9 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { TAG_CATEGORIES } from "@/lib/scoutTags";
 import { GamePlanEditor } from "./GamePlanEditor";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import {
+  computeMustKnow,
+  computeAttackPlan,
+  computePitcherCall,
+  computeRoleIntel,
+  type RawObs,
+  type PinnedItem,
+  type MustKnowItem,
+  type AttackBucket,
+} from "@/lib/dashboardIntel";
+import { Pin, PinOff } from "lucide-react";
+import { toast } from "sonner";
 
 interface GameRow {
   id: string;
@@ -17,30 +28,12 @@ interface GameRow {
   opponent_id: string | null;
 }
 
-interface Obs {
-  id: string;
-  player_id: string;
-  inning: number;
-  is_team_level: boolean;
-  jersey_number: string | null;
-  tags: string[] | null;
-  key_play: string | null;
-  steal_it: string | null;
-  pitcher_id: string | null;
-  applies_to_team: string | null;
-  created_at: string;
-}
-
 interface Pitcher {
   id: string;
   jersey_number: string;
   name: string | null;
   notes: string | null;
-}
-
-const TAG_TO_CATEGORY = new Map<string, string>();
-for (const c of TAG_CATEGORIES) {
-  for (const t of c.tags) TAG_TO_CATEGORY.set(t, c.label);
+  is_active: boolean;
 }
 
 function TeamChip({ team }: { team: string | null }) {
@@ -49,7 +42,9 @@ function TeamChip({ team }: { team: string | null }) {
     <span
       className={cn(
         "rounded-full px-2 py-0.5 text-[10px] font-medium",
-        team ? "bg-primary-soft text-primary" : "bg-muted text-muted-foreground italic",
+        team
+          ? "bg-primary-soft text-primary"
+          : "bg-muted text-muted-foreground italic",
       )}
     >
       {label}
@@ -57,48 +52,87 @@ function TeamChip({ team }: { team: string | null }) {
   );
 }
 
-function TagChip({ tag }: { tag: string }) {
+function ConfidenceChip({ level }: { level: "High" | "Medium" }) {
   return (
-    <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px]">
-      {tag}
+    <span
+      className={cn(
+        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+        level === "High"
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted text-muted-foreground",
+      )}
+    >
+      {level} confidence
     </span>
   );
 }
+
+const ATTACK_BUCKET_ORDER: AttackBucket[] = [
+  "Offense",
+  "Our Pitching Plan",
+  "Defense",
+  "Baserunning",
+];
+
+const ATTACK_BUCKET_ICON: Record<AttackBucket, string> = {
+  Offense: "🏏",
+  "Our Pitching Plan": "🎯",
+  Defense: "🛡️",
+  Baserunning: "🏃",
+};
 
 export function ScoutingReportView({ gameId }: { gameId: string }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<GameRow | null>(null);
   const [opponentName, setOpponentName] = useState<string | null>(null);
-  const [obs, setObs] = useState<Obs[]>([]);
+  const [obs, setObs] = useState<RawObs[]>([]);
   const [pitchers, setPitchers] = useState<Pitcher[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [pins, setPins] = useState<PinnedItem[]>([]);
+  const [isCoach, setIsCoach] = useState(false);
+  const [showAllSteal, setShowAllSteal] = useState(false);
+
+  const loadPins = useCallback(async () => {
+    const { data } = await supabase
+      .from("pinned_must_know")
+      .select("id, pin_key, label, detail, observation_id")
+      .eq("game_id", gameId)
+      .order("created_at", { ascending: true });
+    setPins((data as PinnedItem[]) ?? []);
+  }, [gameId]);
 
   useEffect(() => {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const [{ data: g }, { data: o }, { data: p }] = await Promise.all([
-        supabase
-          .from("games")
-          .select(
-            "id, game_date, tournament_name, home_team, away_team, home_score, away_score, status, opponent_id",
-          )
-          .eq("id", gameId)
-          .maybeSingle(),
-        supabase
-          .from("scout_observations")
-          .select(
-            "id, player_id, inning, is_team_level, jersey_number, tags, key_play, steal_it, pitcher_id, applies_to_team, created_at",
-          )
-          .eq("game_id", gameId)
-          .order("inning", { ascending: true })
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("pitchers")
-          .select("id, jersey_number, name, notes")
-          .eq("game_id", gameId),
-      ]);
+      const [{ data: g }, { data: o }, { data: p }, { data: pinData }] =
+        await Promise.all([
+          supabase
+            .from("games")
+            .select(
+              "id, game_date, tournament_name, home_team, away_team, home_score, away_score, status, opponent_id",
+            )
+            .eq("id", gameId)
+            .maybeSingle(),
+          supabase
+            .from("scout_observations")
+            .select(
+              "id, player_id, inning, is_team_level, jersey_number, tags, key_play, steal_it, pitcher_id, applies_to_team, created_at",
+            )
+            .eq("game_id", gameId)
+            .order("inning", { ascending: true })
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("pitchers")
+            .select("id, jersey_number, name, notes, is_active")
+            .eq("game_id", gameId),
+          supabase
+            .from("pinned_must_know")
+            .select("id, pin_key, label, detail, observation_id")
+            .eq("game_id", gameId)
+            .order("created_at", { ascending: true }),
+        ]);
 
       let oppName: string | null = null;
       if (g?.opponent_id) {
@@ -117,21 +151,73 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
           .from("profiles")
           .select("id, full_name")
           .in("id", ids);
-        profMap = Object.fromEntries((profs ?? []).map((pr) => [pr.id, pr.full_name]));
+        profMap = Object.fromEntries(
+          (profs ?? []).map((pr) => [pr.id, pr.full_name]),
+        );
+      }
+
+      let coach = false;
+      if (user) {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
+        coach = (roles ?? []).some(
+          (r) => r.role === "head_coach" || r.role === "assistant_coach",
+        );
       }
 
       if (cancel) return;
       setGame((g as GameRow | null) ?? null);
       setOpponentName(oppName);
-      setObs((o as Obs[]) ?? []);
+      setObs((o as RawObs[]) ?? []);
       setPitchers((p as Pitcher[]) ?? []);
       setProfiles(profMap);
+      setPins((pinData as PinnedItem[]) ?? []);
+      setIsCoach(coach);
       setLoading(false);
     })();
     return () => {
       cancel = true;
     };
-  }, [gameId]);
+  }, [gameId, user]);
+
+  const togglePin = useCallback(
+    async (item: MustKnowItem) => {
+      if (!user) return;
+      if (item.pinned && item.pinId) {
+        const { error } = await supabase
+          .from("pinned_must_know")
+          .delete()
+          .eq("id", item.pinId);
+        if (error) {
+          toast.error("Could not unpin");
+          return;
+        }
+        toast.success("Unpinned");
+      } else {
+        const label = item.jersey
+          ? `#${item.jersey} — ${item.tag}`
+          : item.tag;
+        const detail = item.sampleNote ?? null;
+        const { error } = await supabase.from("pinned_must_know").insert({
+          game_id: gameId,
+          pin_key: item.key,
+          label,
+          detail,
+          pinned_by: user.id,
+          observation_id: item.observationIds[0] ?? null,
+        });
+        if (error) {
+          toast.error("Could not pin");
+          return;
+        }
+        toast.success("Pinned to Top 5");
+      }
+      await loadPins();
+    },
+    [user, gameId, loadPins],
+  );
 
   if (loading) {
     return <div className="h-48 animate-pulse rounded-xl bg-muted/50" />;
@@ -144,26 +230,24 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
     );
   }
 
-  const teamObs = obs.filter((o) => o.is_team_level);
-  const playerObs = obs.filter((o) => !o.is_team_level && o.jersey_number);
+  // Split obs into team intel vs role-intel (My Job)
+  const roleObs = obs.filter((o) =>
+    (o.applies_to_team ?? "").startsWith("job:"),
+  );
+  const teamObs = obs.filter(
+    (o) => !(o.applies_to_team ?? "").startsWith("job:"),
+  );
+
+  const mustKnow = computeMustKnow(teamObs, pins, 5);
+  const attackPlan = computeAttackPlan(teamObs);
+  const roleIntel = computeRoleIntel(roleObs);
   const stealObs = obs.filter((o) => !!o.steal_it);
+  const visibleSteal = showAllSteal ? stealObs : stealObs.slice(0, 3);
 
-  // Team observations grouped by inning
-  const teamInnings = Array.from(new Set(teamObs.map((o) => o.inning))).sort((a, b) => a - b);
-
-  // Player observations grouped by jersey, then team
-  const playerByJersey = new Map<string, Obs[]>();
-  for (const o of playerObs) {
-    const j = o.jersey_number!;
-    if (!playerByJersey.has(j)) playerByJersey.set(j, []);
-    playerByJersey.get(j)!.push(o);
-  }
-  const sortedJerseys = Array.from(playerByJersey.keys()).sort((a, b) => {
-    const na = parseInt(a, 10);
-    const nb = parseInt(b, 10);
-    if (!isNaN(na) && !isNaN(nb)) return na - nb;
-    return a.localeCompare(b);
-  });
+  // Existing inning view (collapsed, raw)
+  const teamInnings = Array.from(
+    new Set(teamObs.filter((o) => o.is_team_level).map((o) => o.inning)),
+  ).sort((a, b) => a - b);
 
   return (
     <div className="space-y-5">
@@ -175,7 +259,8 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
           </p>
         )}
         <h1 className="mt-1 text-xl font-bold leading-tight">
-          {game.home_team} <span className="text-muted-foreground">vs</span> {game.away_team}
+          {game.home_team}{" "}
+          <span className="text-muted-foreground">vs</span> {game.away_team}
         </h1>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
           <span className="font-bold tabular-nums">
@@ -195,82 +280,129 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
             {new Date(game.game_date).toLocaleDateString()}
           </span>
           {game.tournament_name && (
-            <span className="text-xs text-muted-foreground">· {game.tournament_name}</span>
+            <span className="text-xs text-muted-foreground">
+              · {game.tournament_name}
+            </span>
           )}
         </div>
       </section>
 
-      {/* Team Observations by Inning */}
+      {/* Top 5 Must Know */}
       <section>
-        <h2 className="mb-2 text-sm font-semibold">Team observations by inning</h2>
-        {teamInnings.length === 0 ? (
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">⚡ Top 5 Must Know</h2>
+          {isCoach && (
+            <span className="text-[10px] text-muted-foreground">
+              Tap pin to promote
+            </span>
+          )}
+        </div>
+        {mustKnow.length === 0 ? (
           <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            No team-level notes yet.
+            No intel logged yet.
           </p>
         ) : (
-          <div className="space-y-3">
-            {teamInnings.map((inn) => {
-              const rows = teamObs.filter((o) => o.inning === inn);
-              const tagsByCategory = new Map<string, Map<string, Set<string>>>(); // category -> tag -> teams
-              for (const r of rows) {
-                if (!r.tags) continue;
-                const teamKey = r.applies_to_team ?? "Unspecified";
-                for (const t of r.tags) {
-                  const cat = TAG_TO_CATEGORY.get(t) ?? "Other";
-                  if (!tagsByCategory.has(cat)) tagsByCategory.set(cat, new Map());
-                  const inner = tagsByCategory.get(cat)!;
-                  if (!inner.has(t)) inner.set(t, new Set());
-                  inner.get(t)!.add(teamKey);
-                }
-              }
-              const keyPlays = rows.filter((r) => r.key_play);
-              return (
-                <div key={inn} className="rounded-xl border bg-card p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Inning {inn}
-                  </p>
-                  {tagsByCategory.size > 0 && (
-                    <div className="space-y-2">
-                      {Array.from(tagsByCategory.entries()).map(([cat, tagMap]) => (
-                        <div key={cat}>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            {cat}
-                          </p>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            {Array.from(tagMap.entries()).map(([tag, teams]) => (
-                              <span
-                                key={tag}
-                                className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[11px]"
-                              >
-                                <span className="font-medium">{tag}</span>
-                                {Array.from(teams).map((t) => (
-                                  <TeamChip key={t} team={t === "Unspecified" ? null : t} />
-                                ))}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+          <ul className="space-y-2">
+            {mustKnow.map((m) => (
+              <li
+                key={m.key}
+                className={cn(
+                  "rounded-xl border-2 bg-card p-3 shadow-card",
+                  m.pinned
+                    ? "border-amber-500/70 bg-amber-50/50 dark:bg-amber-950/20"
+                    : "border-border",
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {m.pinned && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                          <Pin className="h-3 w-3" /> Pinned
+                        </span>
+                      )}
+                      {m.jersey && (
+                        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">
+                          #{m.jersey}
+                        </span>
+                      )}
+                      <span className="font-semibold">{m.tag}</span>
+                      <TeamChip team={m.appliesTo} />
                     </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                      {m.count > 0 && (
+                        <span>
+                          Seen {m.count}× · innings {m.innings.join(", ")}
+                        </span>
+                      )}
+                      {m.observers.size > 1 && (
+                        <span>· {m.observers.size} observers</span>
+                      )}
+                      <ConfidenceChip level={m.confidence} />
+                    </div>
+                    {m.sampleNote && (
+                      <p className="mt-1.5 text-xs italic text-muted-foreground">
+                        "{m.sampleNote}"
+                      </p>
+                    )}
+                  </div>
+                  {isCoach && (
+                    <button
+                      type="button"
+                      onClick={() => togglePin(m)}
+                      className={cn(
+                        "shrink-0 rounded-lg border p-2 transition-colors",
+                        m.pinned
+                          ? "border-amber-500/70 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                          : "border-border bg-background hover:bg-muted",
+                      )}
+                      aria-label={m.pinned ? "Unpin" : "Pin to Top 5"}
+                    >
+                      {m.pinned ? (
+                        <PinOff className="h-4 w-4" />
+                      ) : (
+                        <Pin className="h-4 w-4" />
+                      )}
+                    </button>
                   )}
-                  {keyPlays.length > 0 && (
-                    <ul className="mt-2 space-y-1.5">
-                      {keyPlays.map((k) => (
-                        <li
-                          key={k.id}
-                          className="rounded-lg border border-dashed bg-muted/20 p-2 text-xs"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-muted-foreground">
-                              {profiles[k.player_id] ?? "Unknown"}
-                            </span>
-                            <TeamChip team={k.applies_to_team} />
-                          </div>
-                          <p className="mt-0.5 italic">"{k.key_play}"</p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Attack Plan */}
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">🎯 Attack Plan</h2>
+        {ATTACK_BUCKET_ORDER.every((b) => attackPlan[b].length === 0) ? (
+          <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+            No actionable reads yet.
+          </p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {ATTACK_BUCKET_ORDER.map((bucket) => {
+              const actions = attackPlan[bucket];
+              if (actions.length === 0) return null;
+              return (
+                <div key={bucket} className="rounded-xl border bg-card p-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {ATTACK_BUCKET_ICON[bucket]} {bucket}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {actions.slice(0, 5).map((a) => (
+                      <li
+                        key={`${a.tag}-${a.appliesTo ?? ""}`}
+                        className="text-sm leading-snug"
+                      >
+                        <span className="font-medium">{a.action}</span>
+                        <span className="ml-1 text-[11px] text-muted-foreground">
+                          ({a.tag}
+                          {a.count > 1 ? ` ×${a.count}` : ""})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               );
             })}
@@ -278,79 +410,9 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
         )}
       </section>
 
-      {/* Player-Level Intel */}
+      {/* Pitcher Breakdown */}
       <section>
-        <h2 className="mb-2 text-sm font-semibold">Player-level intel</h2>
-        {sortedJerseys.length === 0 ? (
-          <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            No player-level notes yet.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {sortedJerseys.map((j) => {
-              const rows = playerByJersey.get(j)!;
-              const byTeam = new Map<string, Obs[]>();
-              for (const r of rows) {
-                const k = r.applies_to_team ?? "Unspecified";
-                if (!byTeam.has(k)) byTeam.set(k, []);
-                byTeam.get(k)!.push(r);
-              }
-              return (
-                <li key={j} className="rounded-xl border bg-card p-3">
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="rounded bg-muted px-2 py-0.5 font-mono text-sm font-semibold">
-                      #{j}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {Array.from(byTeam.entries()).map(([team, rs]) => {
-                      const tagSet = new Set<string>();
-                      for (const r of rs) for (const t of r.tags ?? []) tagSet.add(t);
-                      const notes = rs.filter((r) => r.key_play);
-                      const innings = Array.from(new Set(rs.map((r) => r.inning))).sort(
-                        (a, b) => a - b,
-                      );
-                      return (
-                        <div
-                          key={team}
-                          className="rounded-lg border border-border/60 bg-background/40 p-2"
-                        >
-                          <div className="mb-1 flex items-center gap-1.5">
-                            <TeamChip team={team === "Unspecified" ? null : team} />
-                            <span className="text-[10px] text-muted-foreground">
-                              Inning{innings.length > 1 ? "s" : ""} {innings.join(", ")}
-                            </span>
-                          </div>
-                          {tagSet.size > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {Array.from(tagSet).map((t) => (
-                                <TagChip key={t} tag={t} />
-                              ))}
-                            </div>
-                          )}
-                          {notes.length > 0 && (
-                            <ul className="mt-1.5 space-y-0.5">
-                              {notes.map((n) => (
-                                <li key={n.id} className="text-xs italic text-muted-foreground">
-                                  "{n.key_play}"
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      {/* Pitcher Intel */}
-      <section>
-        <h2 className="mb-2 text-sm font-semibold">Pitcher intel</h2>
+        <h2 className="mb-2 text-sm font-semibold">⚾ Pitcher Breakdown</h2>
         {pitchers.length === 0 ? (
           <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
             No pitchers tracked.
@@ -358,42 +420,54 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
         ) : (
           <ul className="space-y-2">
             {pitchers.map((p) => {
-              const pObs = obs.filter((o) => o.pitcher_id === p.id);
-              const tagSet = new Set<string>();
-              for (const r of pObs) for (const t of r.tags ?? []) tagSet.add(t);
-              const notes = pObs.filter((r) => r.key_play);
-              const innings = Array.from(new Set(pObs.map((r) => r.inning))).sort(
-                (a, b) => a - b,
-              );
+              const call = computePitcherCall(p.id, obs);
               return (
                 <li key={p.id} className="rounded-xl border bg-card p-3">
-                  <p className="font-semibold">
-                    #{p.jersey_number}
-                    {p.name && <span className="text-muted-foreground"> — {p.name}</span>}
-                  </p>
-                  {p.notes && (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{p.notes}</p>
-                  )}
-                  {innings.length > 0 && (
-                    <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Inning{innings.length > 1 ? "s" : ""} {innings.join(", ")}
-                    </p>
-                  )}
-                  {tagSet.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">
+                      #{p.jersey_number}
+                      {p.name && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          — {p.name}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                        p.is_active
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {p.is_active ? "Active" : "Finished"}
+                    </span>
+                  </div>
+                  {call.topReads.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
-                      {Array.from(tagSet).map((t) => (
-                        <TagChip key={t} tag={t} />
+                      {call.topReads.map((r) => (
+                        <span
+                          key={r.tag}
+                          className="rounded-full border bg-background px-2 py-0.5 text-[11px]"
+                        >
+                          {r.tag}
+                          {r.count > 1 && (
+                            <span className="ml-1 text-muted-foreground">
+                              ×{r.count}
+                            </span>
+                          )}
+                        </span>
                       ))}
                     </div>
                   )}
-                  {notes.length > 0 && (
-                    <ul className="mt-1.5 space-y-0.5">
-                      {notes.map((n) => (
-                        <li key={n.id} className="text-xs italic text-muted-foreground">
-                          "{n.key_play}"
-                        </li>
-                      ))}
-                    </ul>
+                  <p className="mt-2 rounded-lg bg-primary-soft px-2 py-1.5 text-sm font-medium text-primary">
+                    📣 Coach Call: {call.call}
+                  </p>
+                  {p.notes && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {p.notes}
+                    </p>
                   )}
                 </li>
               );
@@ -402,38 +476,133 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
         )}
       </section>
 
+      {/* Role Intel */}
+      {roleIntel.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">🧠 Role Intel</h2>
+          <ul className="space-y-2">
+            {roleIntel.map((r) => (
+              <li key={r.assignment} className="rounded-xl border bg-card p-3">
+                <p className="text-sm font-semibold">{r.assignment}</p>
+                {r.tagCounts.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {r.tagCounts.map((t) => (
+                      <span
+                        key={t.tag}
+                        className="rounded-full border bg-background px-2 py-0.5 text-[11px]"
+                      >
+                        {t.tag}
+                        {t.count > 1 && (
+                          <span className="ml-1 text-muted-foreground">
+                            ×{t.count}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {r.notes.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {r.notes.map((n) => (
+                      <li
+                        key={n.id}
+                        className="rounded-lg border border-dashed bg-muted/20 p-2 text-xs italic"
+                      >
+                        <span className="not-italic text-muted-foreground">
+                          Inn {n.inning}:
+                        </span>{" "}
+                        "{n.text}"
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Steal It Wall */}
       <section>
-        <h2 className="mb-2 text-sm font-semibold">🔥 Steal It wall</h2>
+        <h2 className="mb-2 text-sm font-semibold">🔥 Steal It Wall</h2>
         {stealObs.length === 0 ? (
           <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
             No Steal It notes.
           </p>
         ) : (
-          <ul className="space-y-2">
-            {stealObs.map((s) => (
-              <li
-                key={s.id}
-                className="rounded-xl border-2 border-pink/60 bg-pink p-3 text-sm"
+          <>
+            <ul className="space-y-2">
+              {visibleSteal.map((s) => (
+                <li
+                  key={s.id}
+                  className="rounded-xl border-2 border-pink/60 bg-pink p-3 text-sm"
+                >
+                  <div className="flex items-center gap-1.5 text-xs text-pink-foreground/70">
+                    <span>Inning {s.inning}</span>
+                    <span>·</span>
+                    <span>{profiles[s.player_id] ?? "Unknown"}</span>
+                  </div>
+                  <p className="mt-0.5">{s.steal_it}</p>
+                </li>
+              ))}
+            </ul>
+            {stealObs.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllSteal((v) => !v)}
+                className="mt-2 text-xs font-medium text-primary hover:underline"
               >
-                <div className="flex items-center gap-1.5 text-xs text-pink-foreground/70">
-                  <span>Inning {s.inning}</span>
-                  <span>·</span>
-                  <span>{profiles[s.player_id] ?? "Unknown"}</span>
-                </div>
-                <p className="mt-0.5">{s.steal_it}</p>
-              </li>
-            ))}
-          </ul>
+                {showAllSteal
+                  ? "Show top 3 only"
+                  : `View all ${stealObs.length}`}
+              </button>
+            )}
+          </>
         )}
       </section>
 
       {/* Coach Game Plan */}
-      {user && (
+      {user && isCoach && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold">Coach game plan</h2>
+          <h2 className="mb-2 text-sm font-semibold">Coach Game Plan</h2>
           <GamePlanEditor gameId={gameId} coachId={user.id} />
         </section>
+      )}
+
+      {/* Raw observations (collapsed) */}
+      {teamInnings.length > 0 && (
+        <details className="rounded-xl border bg-card p-3">
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+            All raw observations ({teamObs.length})
+          </summary>
+          <div className="mt-3 space-y-3">
+            {teamInnings.map((inn) => {
+              const rows = teamObs.filter(
+                (o) => o.is_team_level && o.inning === inn,
+              );
+              return (
+                <div key={inn} className="rounded-lg border bg-background p-2">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Inning {inn}
+                  </p>
+                  <ul className="space-y-1">
+                    {rows.map((r) => (
+                      <li key={r.id} className="text-xs">
+                        <span className="text-muted-foreground">
+                          {profiles[r.player_id] ?? "Unknown"}:
+                        </span>{" "}
+                        {r.tags?.join(", ")}
+                        {r.key_play && (
+                          <span className="italic"> — "{r.key_play}"</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </details>
       )}
     </div>
   );
