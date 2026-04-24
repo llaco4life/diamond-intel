@@ -337,6 +337,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pinned_must_know: {
+        Row: {
+          created_at: string
+          detail: string | null
+          game_id: string
+          id: string
+          label: string
+          observation_id: string | null
+          pin_key: string
+          pinned_by: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          game_id: string
+          id?: string
+          label: string
+          observation_id?: string | null
+          pin_key: string
+          pinned_by: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          game_id?: string
+          id?: string
+          label?: string
+          observation_id?: string | null
+          pin_key?: string
+          pinned_by?: string
+        }
+        Relationships: []
+      }
       pitchers: {
         Row: {
           created_at: string
