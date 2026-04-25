@@ -686,6 +686,32 @@ function PitcherCard({ pitcher, obs, opponentName }: PitcherCardProps) {
       {pitcher.notes && (
         <p className="mt-1 text-xs text-muted-foreground">{pitcher.notes}</p>
       )}
+      {(() => {
+        const notes = obs
+          .filter((o) => o.pitcher_id === pitcher.id && o.key_play && o.key_play.trim().length > 0)
+          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+        if (notes.length === 0) return null;
+        return (
+          <div className="mt-2">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Scout Notes ({notes.length})
+            </p>
+            <ul className="space-y-1">
+              {notes.map((n) => (
+                <li
+                  key={n.id}
+                  className="rounded-md border bg-background/60 px-2 py-1 text-xs"
+                >
+                  <p className="whitespace-pre-wrap text-foreground">{n.key_play}</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    Inning {n.inning}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
     </li>
   );
 }
