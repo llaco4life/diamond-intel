@@ -654,15 +654,19 @@ function TeamSection({
           <ActivePitcherCard
             pitcher={active}
             pObs={obsByPitcher.get(active.id) ?? []}
+            pNotes={notesByPitcher.get(active.id) ?? []}
+            currentUserId={currentUserId}
             currentInning={currentInning}
             onTag={(t) => onQuickTag(active, t)}
+            onAddNote={(text) => onAddNote(active, text)}
+            onDeleteNote={onDeleteNote}
             onEdit={() => onEditPitcher(active)}
             onDelete={() => onDeletePitcher(active)}
             removeMode={removeMode}
           />
         ) : (
           <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            No active {teamName} pitcher. Tap “+ Add / Sub Pitcher”.
+            No active {teamName} pitcher. Tap "+ Add / Sub Pitcher".
           </div>
         )}
 
@@ -678,6 +682,10 @@ function TeamSection({
                   key={p.id}
                   pitcher={p}
                   pObs={obsByPitcher.get(p.id) ?? []}
+                  pNotes={notesByPitcher.get(p.id) ?? []}
+                  currentUserId={currentUserId}
+                  onAddNote={(text) => onAddNote(p, text)}
+                  onDeleteNote={onDeleteNote}
                   onMakeActive={() => onMakeActive(p)}
                   onEdit={() => onEditPitcher(p)}
                   onDelete={() => onDeletePitcher(p)}
