@@ -722,16 +722,24 @@ function firstSeenInning(pObs: PitcherObs[]): number | null {
 function ActivePitcherCard({
   pitcher,
   pObs,
+  pNotes,
+  currentUserId,
   currentInning,
   onTag,
+  onAddNote,
+  onDeleteNote,
   onEdit,
   onDelete,
   removeMode,
 }: {
   pitcher: Pitcher;
   pObs: PitcherObs[];
+  pNotes: PitcherNote[];
+  currentUserId: string | null;
   currentInning: number;
   onTag: (tag: string) => void;
+  onAddNote: (text: string) => Promise<boolean>;
+  onDeleteNote: (id: string) => void;
   onEdit: () => void;
   onDelete: () => void;
   removeMode: boolean;
