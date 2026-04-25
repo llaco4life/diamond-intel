@@ -47,15 +47,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loadUserData = async (userId: string) => {
-    const [profileRes, roleRes] = await Promise.all([
+  const loadUserData = async (userId: string, allowSelfHeal = true) => {
+    const [profileRes, roleRes, userRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+      supabase.auth.getUser(),
     ]);
 
-    const p = profileRes.data as Profile | null;
+    let p = profileRes.data as Profile | null;
+    let roleVal = (roleRes.data?.role as AppRole | undefined) ?? null;
+
+    // Self-heal: invited user landed here without a profile because redeem_invite
+    // never ran on signup (e.g. confirmed email outside the /invite/<token> page).
+    // The token sits in user_metadata.invite_token — redeem it now.
+    const inviteToken = userRes.data.user?.user_metadata?.invite_token as
+      | string
+      | undefined;
+    if (allowSelfHeal && !p && inviteToken) {
+      const { error: redeemErr } = await supabase.rpc("redeem_invite", {
+        _token: inviteToken,
+      });
+      if (!redeemErr) {
+        // Reload once after redemption; do not loop.
+        return loadUserData(userId, false);
+      }
+    }
+
     setProfile(p);
-    setRole((roleRes.data?.role as AppRole | undefined) ?? null);
+    setRole(roleVal);
 
     if (p?.org_id) {
       const { data: orgData } = await supabase
