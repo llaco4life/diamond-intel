@@ -896,6 +896,100 @@ function EarlierPitcherRow({
       ) : (
         <p className="mt-2 text-xs italic text-muted-foreground">No tags logged.</p>
       )}
+
+      <NotesSection
+        pNotes={pNotes}
+        currentUserId={currentUserId}
+        currentInning={null}
+        onAddNote={onAddNote}
+        onDeleteNote={onDeleteNote}
+      />
+    </div>
+  );
+}
+
+function NotesSection({
+  pNotes,
+  currentUserId,
+  currentInning,
+  onAddNote,
+  onDeleteNote,
+}: {
+  pNotes: PitcherNote[];
+  currentUserId: string | null;
+  currentInning: number | null;
+  onAddNote: (text: string) => Promise<boolean>;
+  onDeleteNote: (id: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const submit = async () => {
+    if (!draft.trim() || saving) return;
+    setSaving(true);
+    const ok = await onAddNote(draft);
+    setSaving(false);
+    if (ok) setDraft("");
+  };
+
+  return (
+    <div className="mt-3 border-t border-border/50 pt-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Notes ({pNotes.length})
+        </p>
+        <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
+          {open ? "Cancel" : "+ Add note"}
+        </Button>
+      </div>
+
+      {open && (
+        <div className="mb-2 space-y-2">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={
+              currentInning !== null
+                ? `Note for Inning ${currentInning} — visible to your whole team`
+                : "Add a note — visible to your whole team"
+            }
+            className="min-h-20"
+          />
+          <Button size="sm" onClick={submit} disabled={!draft.trim() || saving} className="w-full">
+            {saving ? "Saving…" : "Save note"}
+          </Button>
+        </div>
+      )}
+
+      {pNotes.length === 0 ? (
+        <p className="text-xs italic text-muted-foreground">No notes yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {pNotes.map((n) => (
+            <li
+              key={n.id}
+              className="rounded-lg border bg-background/60 p-2 text-xs"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="whitespace-pre-wrap text-foreground">{n.text}</p>
+                {currentUserId === n.player_id && (
+                  <button
+                    onClick={() => onDeleteNote(n.id)}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label="Delete note"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                {n.author_name} · Inning {n.inning}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
