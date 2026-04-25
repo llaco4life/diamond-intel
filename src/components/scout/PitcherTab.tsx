@@ -343,6 +343,8 @@ export function PitcherTab({
     toast.success("Note deleted");
     reloadObs();
   };
+
+  const savePitcherEdit = async (id: string, patch: { jersey_number: string; name: string | null; notes: string | null }) => {
     if (!patch.jersey_number.trim()) {
       toast.error("Jersey number required");
       return;
