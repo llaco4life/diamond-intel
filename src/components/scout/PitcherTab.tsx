@@ -41,6 +41,18 @@ interface PitcherObs {
   inning: number;
   tags: string[];
   created_at: string;
+  key_play: string | null;
+  player_id: string;
+}
+
+interface PitcherNote {
+  id: string;
+  pitcher_id: string;
+  inning: number;
+  text: string;
+  player_id: string;
+  author_name: string;
+  created_at: string;
 }
 
 export function PitcherTab({
@@ -60,6 +72,7 @@ export function PitcherTab({
   const { write } = useOfflineWriter();
   const [pitchers, setPitchers] = useState<Pitcher[]>([]);
   const [obs, setObs] = useState<PitcherObs[]>([]);
+  const [authorNames, setAuthorNames] = useState<Map<string, string>>(new Map());
   const [addingForSide, setAddingForSide] = useState<TeamSide | null>(null);
   const [jersey, setJersey] = useState("");
   const [name, setName] = useState("");
@@ -80,7 +93,7 @@ export function PitcherTab({
   const reloadObs = useCallback(async () => {
     const { data } = await supabase
       .from("scout_observations")
-      .select("id, pitcher_id, inning, tags, created_at")
+      .select("id, pitcher_id, inning, tags, created_at, key_play, player_id")
       .eq("game_id", gameId)
       .not("pitcher_id", "is", null)
       .order("created_at", { ascending: true });
@@ -90,6 +103,8 @@ export function PitcherTab({
       inning: r.inning as number,
       tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
       created_at: r.created_at as string,
+      key_play: (r.key_play as string | null) ?? null,
+      player_id: r.player_id as string,
     }));
     setObs(rows);
   }, [gameId]);
@@ -124,6 +139,59 @@ export function PitcherTab({
     }
     return m;
   }, [obs]);
+
+  const notesByPitcher = useMemo(() => {
+    const m = new Map<string, PitcherNote[]>();
+    for (const r of obs) {
+      const text = r.key_play?.trim();
+      if (!text) continue;
+      const list = m.get(r.pitcher_id) ?? [];
+      list.push({
+        id: r.id,
+        pitcher_id: r.pitcher_id,
+        inning: r.inning,
+        text,
+        player_id: r.player_id,
+        author_name: authorNames.get(r.player_id) ?? "Teammate",
+        created_at: r.created_at,
+      });
+      m.set(r.pitcher_id, list);
+    }
+    // newest first
+    for (const list of m.values()) {
+      list.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    }
+    return m;
+  }, [obs, authorNames]);
+
+  // Load author display names for any new authors seen in observations.
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const r of obs) {
+      if (r.key_play && r.key_play.trim() && !authorNames.has(r.player_id)) {
+        ids.add(r.player_id);
+      }
+    }
+    if (ids.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", Array.from(ids));
+      if (cancelled || !data) return;
+      setAuthorNames((prev) => {
+        const next = new Map(prev);
+        for (const p of data) {
+          next.set(p.id as string, (p.full_name as string) ?? "Teammate");
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [obs, authorNames]);
 
   const teamNameFor = (side: TeamSide) => (side === "home" ? homeTeam : awayTeam);
 
@@ -242,6 +310,40 @@ export function PitcherTab({
     }
   };
 
+  const addNote = async (p: Pitcher, text: string): Promise<boolean> => {
+    if (!user) return false;
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    const appliesTo = p.team_side === "home" ? homeTeam : p.team_side === "away" ? awayTeam : null;
+    const res = await write("scout_observations", {
+      game_id: gameId,
+      player_id: user.id,
+      pitcher_id: p.id,
+      inning,
+      is_team_level: true,
+      tags: [],
+      key_play: trimmed,
+      applies_to_team: appliesTo,
+    });
+    if (res.ok) {
+      toast.success(`Note added · #${p.jersey_number}`);
+      reloadObs();
+      return true;
+    }
+    toast.warning("Note queued (offline)");
+    return true;
+  };
+
+  const deleteNote = async (id: string) => {
+    const { error } = await supabase.from("scout_observations").delete().eq("id", id);
+    if (error) {
+      toast.error("Could not delete note");
+      return;
+    }
+    toast.success("Note deleted");
+    reloadObs();
+  };
+
   const savePitcherEdit = async (id: string, patch: { jersey_number: string; name: string | null; notes: string | null }) => {
     if (!patch.jersey_number.trim()) {
       toast.error("Jersey number required");
@@ -316,6 +418,8 @@ export function PitcherTab({
         teamName={awayTeam}
         pitchers={awayPitchers}
         obsByPitcher={obsByPitcher}
+        notesByPitcher={notesByPitcher}
+        currentUserId={user?.id ?? null}
         currentInning={inning}
         addingOpen={addingForSide === "away"}
         onOpenAdd={() => openAdd("away")}
@@ -323,6 +427,8 @@ export function PitcherTab({
         onSubmitAdd={submitAdd}
         onMakeActive={makeActive}
         onQuickTag={quickTag}
+        onAddNote={addNote}
+        onDeleteNote={deleteNote}
         onEditPitcher={setEditingPitcher}
         onDeletePitcher={setDeletingPitcher}
         removeMode={removeMode}
@@ -338,6 +444,8 @@ export function PitcherTab({
         teamName={homeTeam}
         pitchers={homePitchers}
         obsByPitcher={obsByPitcher}
+        notesByPitcher={notesByPitcher}
+        currentUserId={user?.id ?? null}
         currentInning={inning}
         addingOpen={addingForSide === "home"}
         onOpenAdd={() => openAdd("home")}
@@ -345,6 +453,8 @@ export function PitcherTab({
         onSubmitAdd={submitAdd}
         onMakeActive={makeActive}
         onQuickTag={quickTag}
+        onAddNote={addNote}
+        onDeleteNote={deleteNote}
         onEditPitcher={setEditingPitcher}
         onDeletePitcher={setDeletingPitcher}
         removeMode={removeMode}
@@ -435,6 +545,8 @@ function TeamSection({
   teamName,
   pitchers,
   obsByPitcher,
+  notesByPitcher,
+  currentUserId,
   currentInning,
   addingOpen,
   onOpenAdd,
@@ -442,6 +554,8 @@ function TeamSection({
   onSubmitAdd,
   onMakeActive,
   onQuickTag,
+  onAddNote,
+  onDeleteNote,
   onEditPitcher,
   onDeletePitcher,
   removeMode,
@@ -456,6 +570,8 @@ function TeamSection({
   teamName: string;
   pitchers: Pitcher[];
   obsByPitcher: Map<string, PitcherObs[]>;
+  notesByPitcher: Map<string, PitcherNote[]>;
+  currentUserId: string | null;
   currentInning: number;
   addingOpen: boolean;
   onOpenAdd: () => void;
@@ -463,6 +579,8 @@ function TeamSection({
   onSubmitAdd: () => void;
   onMakeActive: (p: Pitcher) => void;
   onQuickTag: (p: Pitcher, tag: string) => void;
+  onAddNote: (p: Pitcher, text: string) => Promise<boolean>;
+  onDeleteNote: (id: string) => void;
   onEditPitcher: (p: Pitcher) => void;
   onDeletePitcher: (p: Pitcher) => void;
   removeMode: boolean;
@@ -536,15 +654,19 @@ function TeamSection({
           <ActivePitcherCard
             pitcher={active}
             pObs={obsByPitcher.get(active.id) ?? []}
+            pNotes={notesByPitcher.get(active.id) ?? []}
+            currentUserId={currentUserId}
             currentInning={currentInning}
             onTag={(t) => onQuickTag(active, t)}
+            onAddNote={(text) => onAddNote(active, text)}
+            onDeleteNote={onDeleteNote}
             onEdit={() => onEditPitcher(active)}
             onDelete={() => onDeletePitcher(active)}
             removeMode={removeMode}
           />
         ) : (
           <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            No active {teamName} pitcher. Tap “+ Add / Sub Pitcher”.
+            No active {teamName} pitcher. Tap "+ Add / Sub Pitcher".
           </div>
         )}
 
@@ -560,6 +682,10 @@ function TeamSection({
                   key={p.id}
                   pitcher={p}
                   pObs={obsByPitcher.get(p.id) ?? []}
+                  pNotes={notesByPitcher.get(p.id) ?? []}
+                  currentUserId={currentUserId}
+                  onAddNote={(text) => onAddNote(p, text)}
+                  onDeleteNote={onDeleteNote}
                   onMakeActive={() => onMakeActive(p)}
                   onEdit={() => onEditPitcher(p)}
                   onDelete={() => onDeletePitcher(p)}
@@ -596,16 +722,24 @@ function firstSeenInning(pObs: PitcherObs[]): number | null {
 function ActivePitcherCard({
   pitcher,
   pObs,
+  pNotes,
+  currentUserId,
   currentInning,
   onTag,
+  onAddNote,
+  onDeleteNote,
   onEdit,
   onDelete,
   removeMode,
 }: {
   pitcher: Pitcher;
   pObs: PitcherObs[];
+  pNotes: PitcherNote[];
+  currentUserId: string | null;
   currentInning: number;
   onTag: (tag: string) => void;
+  onAddNote: (text: string) => Promise<boolean>;
+  onDeleteNote: (id: string) => void;
   onEdit: () => void;
   onDelete: () => void;
   removeMode: boolean;
@@ -690,6 +824,14 @@ function ActivePitcherCard({
           );
         })}
       </div>
+
+      <NotesSection
+        pNotes={pNotes}
+        currentUserId={currentUserId}
+        currentInning={currentInning}
+        onAddNote={onAddNote}
+        onDeleteNote={onDeleteNote}
+      />
     </div>
   );
 }
@@ -697,12 +839,20 @@ function ActivePitcherCard({
 function EarlierPitcherRow({
   pitcher,
   pObs,
+  pNotes,
+  currentUserId,
+  onAddNote,
+  onDeleteNote,
   onMakeActive,
   onEdit,
   onDelete,
 }: {
   pitcher: Pitcher;
   pObs: PitcherObs[];
+  pNotes: PitcherNote[];
+  currentUserId: string | null;
+  onAddNote: (text: string) => Promise<boolean>;
+  onDeleteNote: (id: string) => void;
   onMakeActive: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -745,6 +895,100 @@ function EarlierPitcherRow({
         </ul>
       ) : (
         <p className="mt-2 text-xs italic text-muted-foreground">No tags logged.</p>
+      )}
+
+      <NotesSection
+        pNotes={pNotes}
+        currentUserId={currentUserId}
+        currentInning={null}
+        onAddNote={onAddNote}
+        onDeleteNote={onDeleteNote}
+      />
+    </div>
+  );
+}
+
+function NotesSection({
+  pNotes,
+  currentUserId,
+  currentInning,
+  onAddNote,
+  onDeleteNote,
+}: {
+  pNotes: PitcherNote[];
+  currentUserId: string | null;
+  currentInning: number | null;
+  onAddNote: (text: string) => Promise<boolean>;
+  onDeleteNote: (id: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const submit = async () => {
+    if (!draft.trim() || saving) return;
+    setSaving(true);
+    const ok = await onAddNote(draft);
+    setSaving(false);
+    if (ok) setDraft("");
+  };
+
+  return (
+    <div className="mt-3 border-t border-border/50 pt-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Notes ({pNotes.length})
+        </p>
+        <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
+          {open ? "Cancel" : "+ Add note"}
+        </Button>
+      </div>
+
+      {open && (
+        <div className="mb-2 space-y-2">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={
+              currentInning !== null
+                ? `Note for Inning ${currentInning} — visible to your whole team`
+                : "Add a note — visible to your whole team"
+            }
+            className="min-h-20"
+          />
+          <Button size="sm" onClick={submit} disabled={!draft.trim() || saving} className="w-full">
+            {saving ? "Saving…" : "Save note"}
+          </Button>
+        </div>
+      )}
+
+      {pNotes.length === 0 ? (
+        <p className="text-xs italic text-muted-foreground">No notes yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {pNotes.map((n) => (
+            <li
+              key={n.id}
+              className="rounded-lg border bg-background/60 p-2 text-xs"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="whitespace-pre-wrap text-foreground">{n.text}</p>
+                {currentUserId === n.player_id && (
+                  <button
+                    onClick={() => onDeleteNote(n.id)}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label="Delete note"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                {n.author_name} · Inning {n.inning}
+              </p>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
