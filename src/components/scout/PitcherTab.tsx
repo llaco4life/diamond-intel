@@ -824,6 +824,14 @@ function ActivePitcherCard({
           );
         })}
       </div>
+
+      <NotesSection
+        pNotes={pNotes}
+        currentUserId={currentUserId}
+        currentInning={currentInning}
+        onAddNote={onAddNote}
+        onDeleteNote={onDeleteNote}
+      />
     </div>
   );
 }
