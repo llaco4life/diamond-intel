@@ -310,7 +310,39 @@ export function PitcherTab({
     }
   };
 
-  const savePitcherEdit = async (id: string, patch: { jersey_number: string; name: string | null; notes: string | null }) => {
+  const addNote = async (p: Pitcher, text: string): Promise<boolean> => {
+    if (!user) return false;
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    const appliesTo = p.team_side === "home" ? homeTeam : p.team_side === "away" ? awayTeam : null;
+    const res = await write("scout_observations", {
+      game_id: gameId,
+      player_id: user.id,
+      pitcher_id: p.id,
+      inning,
+      is_team_level: true,
+      tags: [],
+      key_play: trimmed,
+      applies_to_team: appliesTo,
+    });
+    if (res.ok) {
+      toast.success(`Note added · #${p.jersey_number}`);
+      reloadObs();
+      return true;
+    }
+    toast.warning("Note queued (offline)");
+    return true;
+  };
+
+  const deleteNote = async (id: string) => {
+    const { error } = await supabase.from("scout_observations").delete().eq("id", id);
+    if (error) {
+      toast.error("Could not delete note");
+      return;
+    }
+    toast.success("Note deleted");
+    reloadObs();
+  };
     if (!patch.jersey_number.trim()) {
       toast.error("Jersey number required");
       return;
