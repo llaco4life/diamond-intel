@@ -934,7 +934,7 @@ function NotesSection({
   };
 
   return (
-    <div className="mt-3 border-t border-border/50 pt-3">
+    <div className="mt-3">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Notes ({pNotes.length})
