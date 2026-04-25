@@ -140,6 +140,59 @@ export function PitcherTab({
     return m;
   }, [obs]);
 
+  const notesByPitcher = useMemo(() => {
+    const m = new Map<string, PitcherNote[]>();
+    for (const r of obs) {
+      const text = r.key_play?.trim();
+      if (!text) continue;
+      const list = m.get(r.pitcher_id) ?? [];
+      list.push({
+        id: r.id,
+        pitcher_id: r.pitcher_id,
+        inning: r.inning,
+        text,
+        player_id: r.player_id,
+        author_name: authorNames.get(r.player_id) ?? "Teammate",
+        created_at: r.created_at,
+      });
+      m.set(r.pitcher_id, list);
+    }
+    // newest first
+    for (const list of m.values()) {
+      list.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    }
+    return m;
+  }, [obs, authorNames]);
+
+  // Load author display names for any new authors seen in observations.
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const r of obs) {
+      if (r.key_play && r.key_play.trim() && !authorNames.has(r.player_id)) {
+        ids.add(r.player_id);
+      }
+    }
+    if (ids.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", Array.from(ids));
+      if (cancelled || !data) return;
+      setAuthorNames((prev) => {
+        const next = new Map(prev);
+        for (const p of data) {
+          next.set(p.id as string, (p.full_name as string) ?? "Teammate");
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [obs, authorNames]);
+
   const teamNameFor = (side: TeamSide) => (side === "home" ? homeTeam : awayTeam);
 
   const openAdd = (side: TeamSide) => {
