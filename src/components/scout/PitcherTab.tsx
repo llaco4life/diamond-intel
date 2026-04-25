@@ -41,6 +41,18 @@ interface PitcherObs {
   inning: number;
   tags: string[];
   created_at: string;
+  key_play: string | null;
+  player_id: string;
+}
+
+interface PitcherNote {
+  id: string;
+  pitcher_id: string;
+  inning: number;
+  text: string;
+  player_id: string;
+  author_name: string;
+  created_at: string;
 }
 
 export function PitcherTab({
