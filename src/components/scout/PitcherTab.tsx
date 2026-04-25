@@ -839,12 +839,20 @@ function ActivePitcherCard({
 function EarlierPitcherRow({
   pitcher,
   pObs,
+  pNotes,
+  currentUserId,
+  onAddNote,
+  onDeleteNote,
   onMakeActive,
   onEdit,
   onDelete,
 }: {
   pitcher: Pitcher;
   pObs: PitcherObs[];
+  pNotes: PitcherNote[];
+  currentUserId: string | null;
+  onAddNote: (text: string) => Promise<boolean>;
+  onDeleteNote: (id: string) => void;
   onMakeActive: () => void;
   onEdit: () => void;
   onDelete: () => void;
