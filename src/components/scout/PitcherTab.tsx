@@ -72,6 +72,7 @@ export function PitcherTab({
   const { write } = useOfflineWriter();
   const [pitchers, setPitchers] = useState<Pitcher[]>([]);
   const [obs, setObs] = useState<PitcherObs[]>([]);
+  const [authorNames, setAuthorNames] = useState<Map<string, string>>(new Map());
   const [addingForSide, setAddingForSide] = useState<TeamSide | null>(null);
   const [jersey, setJersey] = useState("");
   const [name, setName] = useState("");
