@@ -545,6 +545,8 @@ function TeamSection({
   teamName,
   pitchers,
   obsByPitcher,
+  notesByPitcher,
+  currentUserId,
   currentInning,
   addingOpen,
   onOpenAdd,
@@ -552,6 +554,8 @@ function TeamSection({
   onSubmitAdd,
   onMakeActive,
   onQuickTag,
+  onAddNote,
+  onDeleteNote,
   onEditPitcher,
   onDeletePitcher,
   removeMode,
@@ -566,6 +570,8 @@ function TeamSection({
   teamName: string;
   pitchers: Pitcher[];
   obsByPitcher: Map<string, PitcherObs[]>;
+  notesByPitcher: Map<string, PitcherNote[]>;
+  currentUserId: string | null;
   currentInning: number;
   addingOpen: boolean;
   onOpenAdd: () => void;
@@ -573,6 +579,8 @@ function TeamSection({
   onSubmitAdd: () => void;
   onMakeActive: (p: Pitcher) => void;
   onQuickTag: (p: Pitcher, tag: string) => void;
+  onAddNote: (p: Pitcher, text: string) => Promise<boolean>;
+  onDeleteNote: (id: string) => void;
   onEditPitcher: (p: Pitcher) => void;
   onDeletePitcher: (p: Pitcher) => void;
   removeMode: boolean;
