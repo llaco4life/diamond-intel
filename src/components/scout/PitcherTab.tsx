@@ -92,7 +92,7 @@ export function PitcherTab({
   const reloadObs = useCallback(async () => {
     const { data } = await supabase
       .from("scout_observations")
-      .select("id, pitcher_id, inning, tags, created_at")
+      .select("id, pitcher_id, inning, tags, created_at, key_play, player_id")
       .eq("game_id", gameId)
       .not("pitcher_id", "is", null)
       .order("created_at", { ascending: true });
@@ -102,6 +102,8 @@ export function PitcherTab({
       inning: r.inning as number,
       tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
       created_at: r.created_at as string,
+      key_play: (r.key_play as string | null) ?? null,
+      player_id: r.player_id as string,
     }));
     setObs(rows);
   }, [gameId]);
