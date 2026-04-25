@@ -418,6 +418,8 @@ export function PitcherTab({
         teamName={awayTeam}
         pitchers={awayPitchers}
         obsByPitcher={obsByPitcher}
+        notesByPitcher={notesByPitcher}
+        currentUserId={user?.id ?? null}
         currentInning={inning}
         addingOpen={addingForSide === "away"}
         onOpenAdd={() => openAdd("away")}
@@ -425,6 +427,8 @@ export function PitcherTab({
         onSubmitAdd={submitAdd}
         onMakeActive={makeActive}
         onQuickTag={quickTag}
+        onAddNote={addNote}
+        onDeleteNote={deleteNote}
         onEditPitcher={setEditingPitcher}
         onDeletePitcher={setDeletingPitcher}
         removeMode={removeMode}
@@ -440,6 +444,8 @@ export function PitcherTab({
         teamName={homeTeam}
         pitchers={homePitchers}
         obsByPitcher={obsByPitcher}
+        notesByPitcher={notesByPitcher}
+        currentUserId={user?.id ?? null}
         currentInning={inning}
         addingOpen={addingForSide === "home"}
         onOpenAdd={() => openAdd("home")}
@@ -447,6 +453,8 @@ export function PitcherTab({
         onSubmitAdd={submitAdd}
         onMakeActive={makeActive}
         onQuickTag={quickTag}
+        onAddNote={addNote}
+        onDeleteNote={deleteNote}
         onEditPitcher={setEditingPitcher}
         onDeletePitcher={setDeletingPitcher}
         removeMode={removeMode}
