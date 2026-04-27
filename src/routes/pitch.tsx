@@ -289,12 +289,10 @@ function PitchLobbyContent() {
 
 function ActivePitchGameRow({
   game,
-  onJoin,
   onDelete,
   deleting,
 }: {
   game: GameRow;
-  onJoin: () => void;
   onDelete: () => void;
   deleting: boolean;
 }) {
@@ -346,9 +344,9 @@ function ActivePitchGameRow({
             onConfirm={onDelete}
             iconOnly
           />
-          <Button size="sm" onClick={onJoin}>
-            Join Game
-          </Button>
+          <Link to="/pitch/$gameId" params={{ gameId: game.id }}>
+            <Button size="sm">Join Game</Button>
+          </Link>
         </div>
       </div>
     </li>
