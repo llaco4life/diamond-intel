@@ -39,6 +39,10 @@ interface Props {
   pins?: PinnedItem[];
   /** Notes belonging to a cluster appear once; total count is shown. */
   showConfirmedReads?: boolean;
+  /** "scout" = opponent-style labels (Must Know / Attack Plan).
+   *  "ours"  = our-team-style labels (What to Clean Up / Practice Focus).
+   *  Hides Pitcher Breakdown / Steal It Wall sections handled by parent. */
+  mode?: "scout" | "ours";
 }
 
 interface MergedAction {
