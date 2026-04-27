@@ -79,13 +79,16 @@ function CollapsibleSection({
 }
 
 export function GameSummaryView({ gameId }: { gameId: string }) {
-  const { user, role } = useAuth();
+  const { user, role, org } = useAuth();
   const isCoach = role === "head_coach" || role === "assistant_coach";
   const [game, setGame] = useState<GameRow | null>(null);
   const [obs, setObs] = useState<RawObs[]>([]);
   const [pitchers, setPitchers] = useState<Pitcher[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [scoutOverride, setScoutOverride] = useState<ScoutTypeOverride>(() =>
+    loadScoutTypeOverride(gameId),
+  );
 
   useEffect(() => {
     let cancel = false;
