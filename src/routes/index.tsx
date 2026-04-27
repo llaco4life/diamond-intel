@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Eye, GraduationCap, Sprout, LayoutDashboard, ArrowRight } from "lucide-react";
+import { Eye, GraduationCap, Sprout, LayoutDashboard, ArrowRight, Target } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
@@ -65,6 +65,13 @@ function HomeContent() {
           description="Study the game, log at-bats, grow your eye."
           icon={<GraduationCap className="h-6 w-6" />}
           tone="pink"
+        />
+        <ModeCard
+          to="/pitch"
+          title="Pitch Intel"
+          description="Live pitch calling: codes, count, fatigue, and recommendations."
+          icon={<Target className="h-6 w-6" />}
+          tone="primary"
         />
       </section>
 
