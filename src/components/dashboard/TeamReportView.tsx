@@ -116,7 +116,7 @@ export function TeamReportView({
     if (t) return false; // explicitly tagged for the OTHER team
     // Untagged: include only if this team appears in the game and the note
     // is not flagged as "our team" content.
-    const g = gameById.get(o.game_id as unknown as string);
+    const g = gameById.get((o as unknown as { game_id: string }).game_id);
     if (!g) return false;
     const isInGame =
       norm(g.home_team) === team.key || norm(g.away_team) === team.key;
