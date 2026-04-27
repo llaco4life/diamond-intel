@@ -57,7 +57,11 @@ export function CoachIntelSummary({
   obs,
   pins = [],
   showConfirmedReads = true,
+  mode = "scout",
 }: Props) {
+  const labels = mode === "ours"
+    ? { mustKnow: "🛠️ What to Clean Up", attack: "📋 Practice Focus" }
+    : { mustKnow: "⚡ Must Know", attack: "🎯 Attack Plan" };
   const mustKnow = useMemo(() => computeMustKnow(obs, pins, 5), [obs, pins]);
 
   const themeClusters = useMemo(() => clusterByTheme(obs), [obs]);
