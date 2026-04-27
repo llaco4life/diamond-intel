@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useMatches, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,15 +13,15 @@ import { DeleteGameButton } from "@/components/DeleteGameButton";
 import type { GameRow } from "@/hooks/useActiveGame";
 
 export const Route = createFileRoute("/pitch")({
-  component: PitchLobby,
+  component: PitchLayout,
 });
 
-function PitchLobby() {
-  return (
-    <ProtectedShell>
-      <PitchLobbyContent />
-    </ProtectedShell>
+function PitchLayout() {
+  const matches = useMatches();
+  const isChildRoute = matches.some(
+    (m) => m.routeId !== "__root__" && m.routeId !== "/pitch" && m.routeId.startsWith("/pitch"),
   );
+  return <ProtectedShell>{isChildRoute ? <Outlet /> : <PitchLobbyContent />}</ProtectedShell>;
 }
 
 function relativeTime(iso: string): string {
@@ -220,9 +220,6 @@ function PitchLobbyContent() {
                   <ActivePitchGameRow
                     key={g.id}
                     game={g}
-                    onJoin={() =>
-                      navigate({ to: "/pitch/$gameId", params: { gameId: g.id } })
-                    }
                     onDelete={() => handleDelete(g)}
                     deleting={deletingId === g.id}
                   />
@@ -292,12 +289,10 @@ function PitchLobbyContent() {
 
 function ActivePitchGameRow({
   game,
-  onJoin,
   onDelete,
   deleting,
 }: {
   game: GameRow;
-  onJoin: () => void;
   onDelete: () => void;
   deleting: boolean;
 }) {
@@ -349,9 +344,9 @@ function ActivePitchGameRow({
             onConfirm={onDelete}
             iconOnly
           />
-          <Button size="sm" onClick={onJoin}>
-            Join Game
-          </Button>
+          <Link to="/pitch/$gameId" params={{ gameId: game.id }}>
+            <Button size="sm">Join Game</Button>
+          </Link>
         </div>
       </div>
     </li>
