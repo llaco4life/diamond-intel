@@ -100,10 +100,15 @@ function BatterProfile() {
     })();
   }, [gameId]);
 
-  const myEntries = useMemo(
-    () => entries.filter((e) => e.batter_key === batterKey),
-    [entries, batterKey],
-  );
+  const myEntries = useMemo(() => {
+    const keys = new Set<string>([batterKey]);
+    if (slot) {
+      keys.add(makeBatterKey(batterTeam, `slot:${slot.slotId}`));
+      keys.add(makeBatterKey(batterTeam, slot.jersey));
+      for (const j of slot.legacyJerseys) keys.add(makeBatterKey(batterTeam, j));
+    }
+    return entries.filter((e) => keys.has(e.batter_key));
+  }, [entries, batterKey, batterTeam, slot]);
 
   // Group into PAs
   const pas = useMemo(() => groupPAs(myEntries), [myEntries]);
