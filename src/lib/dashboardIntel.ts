@@ -1,6 +1,13 @@
 // War Room intel engine for the Coach Dashboard.
 // Transforms raw scout_observations + pitchers into actionable signals.
 
+import {
+  getCoachPhrase,
+  getPitcherAction,
+  isOurTeamTag,
+  type CoachPhrase,
+} from "./coachLanguage";
+
 export interface RawObs {
   id: string;
   player_id: string;
