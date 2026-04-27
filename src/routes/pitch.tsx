@@ -220,9 +220,6 @@ function PitchLobbyContent() {
                   <ActivePitchGameRow
                     key={g.id}
                     game={g}
-                    onJoin={() =>
-                      navigate({ to: "/pitch/$gameId", params: { gameId: g.id } })
-                    }
                     onDelete={() => handleDelete(g)}
                     deleting={deletingId === g.id}
                   />
