@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
 import { usePitchLineup } from "@/hooks/usePitchLineup";
+import { useCurrentBatter } from "@/hooks/useCurrentBatter";
 import { makeBatterKey } from "@/lib/pitchIntel/types";
 import { usePitchTypes } from "@/hooks/usePitchTypes";
 import { usePitchCodeMap } from "@/hooks/usePitchCodeMap";
@@ -70,6 +71,25 @@ function BatterProfile() {
   const slot = slotId ? lineup.find((s) => s.slotId === slotId) ?? null : null;
   const jersey = slot?.jersey ?? (isSlotKey ? "?" : parts[1]);
   const displayName = slot?.name;
+
+  const { index: currentBatterIndex, setIndex: setCurrentBatterIndex } = useCurrentBatter(
+    gameId,
+    batterTeam,
+    lineup.length,
+  );
+
+  const goToNextBatter = () => {
+    if (lineup.length === 0) return;
+    const nextIdx = (currentBatterIndex + 1) % lineup.length;
+    setCurrentBatterIndex(nextIdx);
+    const nextSlot = lineup[nextIdx];
+    if (!nextSlot) return;
+    const nextKey = makeBatterKey(batterTeam, `slot:${nextSlot.slotId}`);
+    navigate({
+      to: "/pitch/$gameId/batter/$batterKey",
+      params: { gameId, batterKey: encodeURIComponent(nextKey) },
+    });
+  };
 
   const [game, setGame] = useState<GameRow | null>(null);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
@@ -315,6 +335,32 @@ function BatterProfile() {
               ))}
             </div>
           )}
+
+          {(() => {
+            const nextSlot = lineup.length
+              ? lineup[(currentBatterIndex + 1) % lineup.length]
+              : null;
+            const paComplete = !activePa && completePas.length > 0;
+            return (
+              <div className="rounded-xl border border-border bg-card p-3">
+                {paComplete && (
+                  <div className="mb-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                    ✓ At-bat saved
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  className="w-full"
+                  variant={paComplete ? "default" : "outline"}
+                  disabled={lineup.length === 0}
+                  onClick={goToNextBatter}
+                >
+                  End at-bat → Next batter
+                  {nextSlot ? `: #${nextSlot.jersey}${nextSlot.name ? ` ${nextSlot.name}` : ""}` : ""}
+                </Button>
+              </div>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="previous" className="mt-3 space-y-2">
