@@ -5,19 +5,45 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import {
   computeMustKnow,
-  computeAttackPlan,
   computePitcherCall,
   computeRoleIntel,
+  resolveScoutSides,
+  splitByTeamSide,
   type RawObs,
   type PinnedItem,
   type MustKnowItem,
-  type AttackBucket,
+  type ScoutKind,
 } from "@/lib/dashboardIntel";
 import { CoachIntelSummary } from "@/components/scout/CoachIntelSummary";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAiCoachCall } from "@/hooks/useAiCoachCall";
 import type { PitcherCoachCallInput } from "@/server/pitcherCoachCall.functions";
 import { Pin, PinOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+
+const SCOUT_TYPE_KEY = (gameId: string) => `scoutType:${gameId}`;
+type ScoutTypeOverride = ScoutKind | "auto";
+
+function loadScoutTypeOverride(gameId: string): ScoutTypeOverride {
+  if (typeof window === "undefined") return "auto";
+  try {
+    const v = window.localStorage.getItem(SCOUT_TYPE_KEY(gameId));
+    if (v === "upcoming_opponent" || v === "neutral") return v;
+  } catch {
+    // ignore
+  }
+  return "auto";
+}
+
+function saveScoutTypeOverride(gameId: string, v: ScoutTypeOverride) {
+  if (typeof window === "undefined") return;
+  try {
+    if (v === "auto") window.localStorage.removeItem(SCOUT_TYPE_KEY(gameId));
+    else window.localStorage.setItem(SCOUT_TYPE_KEY(gameId), v);
+  } catch {
+    // ignore
+  }
+}
 
 interface GameRow {
   id: string;
@@ -70,22 +96,14 @@ function ConfidenceChip({ level }: { level: "High" | "Medium" }) {
   );
 }
 
-const ATTACK_BUCKET_ORDER: AttackBucket[] = [
-  "Offense",
-  "Our Pitching Plan",
-  "Defense",
-  "Baserunning",
-];
-
-const ATTACK_BUCKET_ICON: Record<AttackBucket, string> = {
-  Offense: "🏏",
-  "Our Pitching Plan": "🎯",
-  Defense: "🛡️",
-  Baserunning: "🏃",
-};
+// (Attack Plan rendering moved into CoachIntelSummary.)
 
 export function ScoutingReportView({ gameId }: { gameId: string }) {
-  const { user } = useAuth();
+  const { user, org } = useAuth();
+  const [scoutOverride, setScoutOverride] = useState<ScoutTypeOverride>(() =>
+    loadScoutTypeOverride(gameId),
+  );
+  const [activeTab, setActiveTab] = useState<string>("primary");
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<GameRow | null>(null);
   const [opponentName, setOpponentName] = useState<string | null>(null);
@@ -242,15 +260,34 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
   );
 
   const mustKnow = computeMustKnow(teamObs, pins, 5);
-  const attackPlan = computeAttackPlan(teamObs);
   const roleIntel = computeRoleIntel(roleObs);
   const stealObs = obs.filter((o) => !!o.steal_it);
   const visibleSteal = showAllSteal ? stealObs : stealObs.slice(0, 3);
 
+  // Resolve scout type (auto-detect, with persisted manual override)
+  const sides = resolveScoutSides(
+    game.home_team,
+    game.away_team,
+    org?.name ?? null,
+    scoutOverride === "auto" ? null : scoutOverride,
+  );
+  const split = splitByTeamSide(teamObs, sides);
+  const primaryObs = split.kind === "upcoming_opponent" ? split.opponent : split.teamA;
+  const secondaryObs = split.kind === "upcoming_opponent" ? split.ours : split.teamB;
+  const primaryLabel = split.kind === "upcoming_opponent" ? "Opponent" : sides.kind === "neutral" ? sides.teamA : "";
+  const secondaryLabel = split.kind === "upcoming_opponent" ? "Our Team" : sides.kind === "neutral" ? sides.teamB : "";
+  const primarySub = split.kind === "neutral" ? "Home" : null;
+  const secondarySub = split.kind === "neutral" ? "Away" : null;
+
   // Existing inning view (collapsed, raw)
   const teamInnings = Array.from(
-    new Set(teamObs.filter((o) => o.is_team_level).map((o) => o.inning)),
+    new Set(primaryObs.filter((o) => o.is_team_level).map((o) => o.inning)),
   ).sort((a, b) => a - b);
+
+  const setOverride = (v: ScoutTypeOverride) => {
+    setScoutOverride(v);
+    saveScoutTypeOverride(gameId, v);
+  };
 
   return (
     <div className="space-y-5">
@@ -288,10 +325,48 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
             </span>
           )}
         </div>
+        {/* Scout-type picker (persisted per game) */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="uppercase tracking-wider">Scout type:</span>
+          <select
+            value={scoutOverride}
+            onChange={(e) => setOverride(e.target.value as ScoutTypeOverride)}
+            className="rounded border bg-background px-2 py-0.5 text-xs"
+          >
+            <option value="auto">
+              Auto ({sides.kind === "upcoming_opponent" ? "Upcoming Opponent" : "Neutral Scout"})
+            </option>
+            <option value="upcoming_opponent">Upcoming Opponent</option>
+            <option value="neutral">Neutral Scout</option>
+          </select>
+        </div>
       </section>
 
-      {/* Coach Intel: Must Know + Attack Plan + Alerts + Confirmed Reads */}
-      <CoachIntelSummary obs={teamObs} pins={pins} />
+      {/* Tabs: Opponent/Our Team OR Team A/Team B */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="primary">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="primary" className="flex flex-col items-center leading-tight py-1.5">
+            <span className="font-semibold">{primaryLabel}</span>
+            {primarySub && <span className="text-[10px] uppercase tracking-wider opacity-70">{primarySub}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="secondary" className="flex flex-col items-center leading-tight py-1.5">
+            <span className="font-semibold">{secondaryLabel}</span>
+            {secondarySub && <span className="text-[10px] uppercase tracking-wider opacity-70">{secondarySub}</span>}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="primary" className="mt-4 space-y-5">
+          <CoachIntelSummary obs={primaryObs} pins={pins} mode="scout" />
+        </TabsContent>
+
+        <TabsContent value="secondary" className="mt-4 space-y-5">
+          <CoachIntelSummary
+            obs={secondaryObs}
+            pins={split.kind === "upcoming_opponent" ? [] : pins}
+            mode={split.kind === "upcoming_opponent" ? "ours" : "scout"}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Pin controls (coaches only) — promote any Must Know to a permanent pin */}
       {isCoach && mustKnow.length > 0 && (

@@ -5,8 +5,28 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow } from "@/hooks/useActiveGame";
 import { CoachIntelSummary } from "./CoachIntelSummary";
-import type { RawObs } from "@/lib/dashboardIntel";
+import { resolveScoutSides, splitByTeamSide, type RawObs, type ScoutKind } from "@/lib/dashboardIntel";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ChevronDown } from "lucide-react";
+
+const SCOUT_TYPE_KEY = (gameId: string) => `scoutType:${gameId}`;
+type ScoutTypeOverride = ScoutKind | "auto";
+
+function loadScoutTypeOverride(gameId: string): ScoutTypeOverride {
+  if (typeof window === "undefined") return "auto";
+  try {
+    const v = window.localStorage.getItem(SCOUT_TYPE_KEY(gameId));
+    if (v === "upcoming_opponent" || v === "neutral") return v;
+  } catch { /* ignore */ }
+  return "auto";
+}
+function saveScoutTypeOverride(gameId: string, v: ScoutTypeOverride) {
+  if (typeof window === "undefined") return;
+  try {
+    if (v === "auto") window.localStorage.removeItem(SCOUT_TYPE_KEY(gameId));
+    else window.localStorage.setItem(SCOUT_TYPE_KEY(gameId), v);
+  } catch { /* ignore */ }
+}
 
 interface Pitcher {
   id: string;
@@ -59,13 +79,16 @@ function CollapsibleSection({
 }
 
 export function GameSummaryView({ gameId }: { gameId: string }) {
-  const { user, role } = useAuth();
+  const { user, role, org } = useAuth();
   const isCoach = role === "head_coach" || role === "assistant_coach";
   const [game, setGame] = useState<GameRow | null>(null);
   const [obs, setObs] = useState<RawObs[]>([]);
   const [pitchers, setPitchers] = useState<Pitcher[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [scoutOverride, setScoutOverride] = useState<ScoutTypeOverride>(() =>
+    loadScoutTypeOverride(gameId),
+  );
 
   useEffect(() => {
     let cancel = false;
@@ -190,8 +213,65 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
         </p>
       )}
 
-      {/* COACH INTEL — top of page */}
-      <CoachIntelSummary obs={teamObs} />
+      {/* COACH INTEL — tabbed by scout type */}
+      {(() => {
+        const sides = resolveScoutSides(
+          game.home_team,
+          game.away_team,
+          org?.name ?? null,
+          scoutOverride === "auto" ? null : scoutOverride,
+        );
+        const split = splitByTeamSide(teamObs, sides);
+        const primaryObs = split.kind === "upcoming_opponent" ? split.opponent : split.teamA;
+        const secondaryObs = split.kind === "upcoming_opponent" ? split.ours : split.teamB;
+        const primaryLabel = split.kind === "upcoming_opponent" ? "Opponent" : sides.kind === "neutral" ? sides.teamA : "";
+        const secondaryLabel = split.kind === "upcoming_opponent" ? "Our Team" : sides.kind === "neutral" ? sides.teamB : "";
+        const primarySub = split.kind === "neutral" ? "Home" : null;
+        const secondarySub = split.kind === "neutral" ? "Away" : null;
+        const setOverride = (v: ScoutTypeOverride) => {
+          setScoutOverride(v);
+          saveScoutTypeOverride(gameId, v);
+        };
+        return (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="uppercase tracking-wider">Scout type:</span>
+              <select
+                value={scoutOverride}
+                onChange={(e) => setOverride(e.target.value as ScoutTypeOverride)}
+                className="rounded border bg-background px-2 py-0.5 text-xs"
+              >
+                <option value="auto">
+                  Auto ({sides.kind === "upcoming_opponent" ? "Upcoming Opponent" : "Neutral Scout"})
+                </option>
+                <option value="upcoming_opponent">Upcoming Opponent</option>
+                <option value="neutral">Neutral Scout</option>
+              </select>
+            </div>
+            <Tabs defaultValue="primary">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="primary" className="flex flex-col items-center leading-tight py-1.5">
+                  <span className="font-semibold">{primaryLabel}</span>
+                  {primarySub && <span className="text-[10px] uppercase tracking-wider opacity-70">{primarySub}</span>}
+                </TabsTrigger>
+                <TabsTrigger value="secondary" className="flex flex-col items-center leading-tight py-1.5">
+                  <span className="font-semibold">{secondaryLabel}</span>
+                  {secondarySub && <span className="text-[10px] uppercase tracking-wider opacity-70">{secondarySub}</span>}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="primary" className="mt-4">
+                <CoachIntelSummary obs={primaryObs} mode="scout" />
+              </TabsContent>
+              <TabsContent value="secondary" className="mt-4">
+                <CoachIntelSummary
+                  obs={secondaryObs}
+                  mode={split.kind === "upcoming_opponent" ? "ours" : "scout"}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        );
+      })()}
 
       {/* Pitchers */}
       {pitchers.length > 0 && (

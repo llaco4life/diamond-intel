@@ -39,6 +39,10 @@ interface Props {
   pins?: PinnedItem[];
   /** Notes belonging to a cluster appear once; total count is shown. */
   showConfirmedReads?: boolean;
+  /** "scout" = opponent-style labels (Must Know / Attack Plan).
+   *  "ours"  = our-team-style labels (What to Clean Up / Practice Focus).
+   *  Hides Pitcher Breakdown / Steal It Wall sections handled by parent. */
+  mode?: "scout" | "ours";
 }
 
 interface MergedAction {
@@ -53,7 +57,11 @@ export function CoachIntelSummary({
   obs,
   pins = [],
   showConfirmedReads = true,
+  mode = "scout",
 }: Props) {
+  const labels = mode === "ours"
+    ? { mustKnow: "🛠️ What to Clean Up", attack: "📋 Practice Focus" }
+    : { mustKnow: "⚡ Must Know", attack: "🎯 Attack Plan" };
   const mustKnow = useMemo(() => computeMustKnow(obs, pins, 5), [obs, pins]);
 
   const themeClusters = useMemo(() => clusterByTheme(obs), [obs]);
@@ -131,7 +139,7 @@ export function CoachIntelSummary({
       {/* Must Know */}
       {mustKnow.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold">⚡ Must Know</h2>
+          <h2 className="mb-2 text-sm font-semibold">{labels.mustKnow}</h2>
           <ul className="space-y-2">
             {mustKnow.map((m) => (
               <li
@@ -143,13 +151,13 @@ export function CoachIntelSummary({
                     : "border-border",
                 )}
               >
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-start gap-1.5">
                   {m.jersey && (
                     <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">
                       #{m.jersey}
                     </span>
                   )}
-                  <span className="font-semibold">{m.tag}</span>
+                  <span className="flex-1 font-semibold leading-snug">{m.headline}</span>
                   {m.appliesTo && (
                     <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-medium text-primary">
                       {m.appliesTo}
@@ -157,6 +165,11 @@ export function CoachIntelSummary({
                   )}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                  {m.headline !== m.tag && (
+                    <span className="rounded-full border bg-background px-1.5 py-0.5 font-medium">
+                      {m.tag}
+                    </span>
+                  )}
                   {m.count > 0 && (
                     <span>
                       Seen {m.count}× · innings {m.innings.join(", ")}
@@ -180,10 +193,10 @@ export function CoachIntelSummary({
         </section>
       )}
 
-      {/* Attack Plan */}
+      {/* Attack Plan / Practice Focus */}
       {ATTACK_BUCKET_ORDER.some((b) => attackByBucket[b].length > 0) && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold">🎯 Attack Plan</h2>
+          <h2 className="mb-2 text-sm font-semibold">{labels.attack}</h2>
           <div className="grid gap-2 sm:grid-cols-2">
             {ATTACK_BUCKET_ORDER.map((bucket) => {
               const actions = attackByBucket[bucket];

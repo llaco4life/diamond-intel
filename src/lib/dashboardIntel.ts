@@ -1,6 +1,13 @@
 // War Room intel engine for the Coach Dashboard.
 // Transforms raw scout_observations + pitchers into actionable signals.
 
+import {
+  getCoachPhrase,
+  getPitcherAction,
+  isOurTeamTag,
+  type CoachPhrase,
+} from "./coachLanguage";
+
 export interface RawObs {
   id: string;
   player_id: string;
@@ -28,6 +35,12 @@ export type Confidence = "High" | "Medium";
 export interface MustKnowItem {
   key: string;                 // stable identity used for pinning
   tag: string;
+  /** Coach-language sentence; falls back to tag when no mapping exists. */
+  headline: string;
+  /** 1 = curiosity, 5 = changes a coaching decision. */
+  actionability: number;
+  /** "scout" = about the scouted team. "ours" = about our own team. */
+  side: "scout" | "ours";
   appliesTo: string | null;    // team it applies to
   jersey: string | null;       // null for team-level
   count: number;
@@ -159,26 +172,118 @@ function isNoiseTag(tag: string | null | undefined): boolean {
   return POSITION_LABEL_SET.has(t);
 }
 
+/** Resolve which "side" of the report an observation belongs to.
+ *  - "upcoming_opponent" mode: { opponent, ours, unknown }
+ *  - "neutral" mode:           { teamA, teamB, unknown }
+ *  Job-tab observations are excluded — they have their own roll-up. */
+export type ScoutKind = "upcoming_opponent" | "neutral";
+
+export interface ScoutSidesUpcoming {
+  kind: "upcoming_opponent";
+  ourTeam: string;
+  opponent: string;
+}
+export interface ScoutSidesNeutral {
+  kind: "neutral";
+  teamA: string;
+  teamB: string;
+}
+export type ScoutSides = ScoutSidesUpcoming | ScoutSidesNeutral;
+
+export interface UpcomingSplit {
+  kind: "upcoming_opponent";
+  opponent: RawObs[];
+  ours: RawObs[];
+  unknown: RawObs[];
+}
+export interface NeutralSplit {
+  kind: "neutral";
+  teamA: RawObs[];
+  teamB: RawObs[];
+  unknown: RawObs[];
+}
+export type SideSplit = UpcomingSplit | NeutralSplit;
+
+const norm = (s: string | null | undefined) =>
+  (s ?? "").trim().toLowerCase();
+
+export function resolveScoutSides(
+  homeTeam: string,
+  awayTeam: string,
+  ourTeamName: string | null | undefined,
+  override?: ScoutKind | null,
+): ScoutSides {
+  const our = norm(ourTeamName);
+  const home = norm(homeTeam);
+  const away = norm(awayTeam);
+  const detected: ScoutKind =
+    our && (our === home || our === away) ? "upcoming_opponent" : "neutral";
+  const kind = override ?? detected;
+
+  if (kind === "upcoming_opponent") {
+    const ourMatch =
+      our === home ? homeTeam : our === away ? awayTeam : (ourTeamName ?? homeTeam);
+    const oppMatch = ourMatch === homeTeam ? awayTeam : homeTeam;
+    return { kind: "upcoming_opponent", ourTeam: ourMatch, opponent: oppMatch };
+  }
+  return { kind: "neutral", teamA: homeTeam, teamB: awayTeam };
+}
+
+export function splitByTeamSide(obs: RawObs[], sides: ScoutSides): SideSplit {
+  // Job-tab obs handled elsewhere.
+  const teamObs = obs.filter((o) => !(o.applies_to_team ?? "").startsWith("job:"));
+
+  if (sides.kind === "upcoming_opponent") {
+    const out: UpcomingSplit = { kind: "upcoming_opponent", opponent: [], ours: [], unknown: [] };
+    const ours = norm(sides.ourTeam);
+    const opp = norm(sides.opponent);
+    for (const o of teamObs) {
+      const t = norm(o.applies_to_team);
+      if (t === ours) out.ours.push(o);
+      else if (t === opp) out.opponent.push(o);
+      else if (!t) {
+        const tags = o.tags ?? [];
+        if (tags.some((tag) => isOurTeamTag(tag))) out.ours.push(o);
+        else out.opponent.push(o);
+      } else {
+        out.unknown.push(o);
+      }
+    }
+    return out;
+  }
+
+  const out: NeutralSplit = { kind: "neutral", teamA: [], teamB: [], unknown: [] };
+  const a = norm(sides.teamA);
+  const b = norm(sides.teamB);
+  for (const o of teamObs) {
+    const t = norm(o.applies_to_team);
+    if (t === a) out.teamA.push(o);
+    else if (t === b) out.teamB.push(o);
+    else out.unknown.push(o);
+  }
+  return out;
+}
+
 export function computeMustKnow(
   obs: RawObs[],
   pinned: PinnedItem[],
   limit = 5,
 ): MustKnowItem[] {
-  // Aggregate by (tag, applies_to_team, jersey).
   const buckets = new Map<string, MustKnowItem>();
   for (const o of obs) {
     if (!o.tags || o.tags.length === 0) continue;
-    if ((o.applies_to_team ?? "").startsWith("job:")) {
-      // Role intel handled separately
-    }
     for (const tag of o.tags) {
       if (isNoiseTag(tag)) continue;
       const key = obsKey(o, tag);
       let b = buckets.get(key);
       if (!b) {
+        const phrase: CoachPhrase | null = getCoachPhrase(tag);
         b = {
           key,
           tag,
+          headline: phrase?.headline ?? tag,
+          actionability: phrase?.actionability ?? 1,
+          side: phrase?.side ?? "scout",
           appliesTo: o.applies_to_team,
           jersey: o.jersey_number,
           count: 0,
@@ -200,19 +305,20 @@ export function computeMustKnow(
     }
   }
 
-  // Score and sort
+  // Score: actionability is dominant; observers add trust; HIGH_VALUE_TAGS legacy bonus retained.
   const items = Array.from(buckets.values()).map((b) => {
-    const highValue = HIGH_VALUE_TAGS.has(b.tag) ? 3 : 0;
-    const noteBonus = b.sampleNote ? 1 : 0;
-    const observerBonus = b.observers.size > 1 ? 2 : 0;
-    b.score = b.count + highValue + noteBonus + observerBonus;
-    b.confidence = b.score >= 5 ? "High" : "Medium";
+    const highValue = HIGH_VALUE_TAGS.has(b.tag) ? 2 : 0;
+    const observerBonus = b.observers.size > 1 ? b.observers.size + 1 : 0;
+    b.score = b.count + b.actionability * 3 + observerBonus + highValue;
+    b.confidence = b.actionability >= 4 || b.score >= 8 ? "High" : "Medium";
     b.innings.sort((a, b2) => a - b2);
     return b;
   });
-  items.sort((a, b) => b.score - a.score);
+  items.sort((a, b) => {
+    if (b.actionability !== a.actionability) return b.actionability - a.actionability;
+    return b.score - a.score;
+  });
 
-  // Apply pins: pinned items always come first, in pin creation order.
   const pinByKey = new Map(pinned.map((p) => [p.pin_key, p]));
   const pinnedItems: MustKnowItem[] = [];
   const seen = new Set<string>();
@@ -224,10 +330,13 @@ export function computeMustKnow(
       pinnedItems.push(found);
       seen.add(found.key);
     } else {
-      // Pinned item no longer in current obs (rare). Synthesize a stub from pin metadata.
+      const phrase = getCoachPhrase(p.label);
       pinnedItems.push({
         key: p.pin_key,
         tag: p.label,
+        headline: phrase?.headline ?? p.label,
+        actionability: phrase?.actionability ?? 3,
+        side: phrase?.side ?? "scout",
         appliesTo: null,
         jersey: null,
         count: 0,
@@ -244,7 +353,6 @@ export function computeMustKnow(
     }
   }
   const rest = items.filter((i) => !seen.has(i.key));
-  // Mark any non-pinned that have a matching pin (defensive)
   for (const i of rest) {
     const p = pinByKey.get(i.key);
     if (p) {
@@ -256,12 +364,15 @@ export function computeMustKnow(
 }
 
 export function computeAttackPlan(obs: RawObs[]): Record<AttackBucket, AttackAction[]> {
-  const counts = new Map<string, AttackAction>();
+  const counts = new Map<string, AttackAction & { actionability: number }>();
   for (const o of obs) {
     if (!o.tags) continue;
     for (const tag of o.tags) {
+      const phrase = getCoachPhrase(tag);
       const map = TAG_TO_ACTION[tag];
-      if (!map) continue;
+      const bucket = phrase?.bucket ?? map?.bucket;
+      const action = phrase?.headline ?? map?.action;
+      if (!bucket || !action) continue;
       const key = `${tag}::${o.applies_to_team ?? ""}`;
       const existing = counts.get(key);
       if (existing) {
@@ -269,9 +380,10 @@ export function computeAttackPlan(obs: RawObs[]): Record<AttackBucket, AttackAct
       } else {
         counts.set(key, {
           tag,
-          action: map.action,
+          action,
           appliesTo: o.applies_to_team,
           count: 1,
+          actionability: phrase?.actionability ?? 2,
         });
       }
     }
@@ -284,12 +396,18 @@ export function computeAttackPlan(obs: RawObs[]): Record<AttackBucket, AttackAct
     Baserunning: [],
   };
   for (const action of counts.values()) {
-    const map = TAG_TO_ACTION[action.tag];
-    if (!map) continue;
-    buckets[map.bucket].push(action);
+    const phrase = getCoachPhrase(action.tag);
+    const bucket = phrase?.bucket ?? TAG_TO_ACTION[action.tag]?.bucket;
+    if (!bucket) continue;
+    buckets[bucket].push(action);
   }
   for (const k of Object.keys(buckets) as AttackBucket[]) {
-    buckets[k].sort((a, b) => b.count - a.count);
+    buckets[k].sort((a, b) => {
+      const aw = (counts.get(`${a.tag}::${a.appliesTo ?? ""}`)?.actionability ?? 2);
+      const bw = (counts.get(`${b.tag}::${b.appliesTo ?? ""}`)?.actionability ?? 2);
+      if (bw !== aw) return bw - aw;
+      return b.count - a.count;
+    });
   }
   return buckets;
 }
@@ -316,17 +434,28 @@ export function computePitcherCall(
     .slice(0, 3)
     .map(([tag, count]) => ({ tag, count }));
 
-  // Build a one-liner Coach Call
-  const parts: string[] = [];
-  if (tagCounts.get("Fastball heavy")) parts.push("sit fastball");
-  if (tagCounts.get("Tipping pitches")) parts.push("call pitches from dugout");
-  if (tagCounts.get("Slow to plate")) parts.push("green light to run");
-  if (tagCounts.get("Lost command")) parts.push("take until strike");
-  if (tagCounts.get("Works high")) parts.push("lay off high");
-  if (tagCounts.get("Works low")) parts.push("hunt down in zone");
-  if (tagCounts.get("Off-speed used") && parts.length < 2) parts.push("stay back on off-speed");
-  if (parts.length === 0 && top.length > 0) parts.push(`watch ${top[0].tag.toLowerCase()}`);
-  const call = parts.length === 0 ? "No reads yet — gather more intel." : parts.slice(0, 3).join(" · ");
+  // Compose action phrases by priority. Never emit "watch …".
+  const actions: { phrase: string; priority: number; count: number }[] = [];
+  const seen = new Set<string>();
+  for (const [tag, count] of tagCounts.entries()) {
+    const a = getPitcherAction(tag);
+    if (!a || seen.has(a.phrase)) continue;
+    seen.add(a.phrase);
+    actions.push({ phrase: a.phrase, priority: a.priority, count });
+  }
+  actions.sort((a, b) => {
+    if (b.priority !== a.priority) return b.priority - a.priority;
+    return b.count - a.count;
+  });
+
+  let call: string;
+  if (actions.length === 0) {
+    call = tagCounts.size === 0
+      ? "No reads yet — gather more intel."
+      : "Make her throw strikes — gather more intel";
+  } else {
+    call = actions.slice(0, 3).map((a) => a.phrase).join(" · ");
+  }
   return { pitcherId, call, topReads: top };
 }
 
