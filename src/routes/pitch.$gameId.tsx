@@ -5,14 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, Plus, X, AlertTriangle, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  Plus,
+  X,
+  AlertTriangle,
+  ChevronRight,
+  Pencil,
+  Repeat,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
-import { usePitchLineup } from "@/hooks/usePitchLineup";
+import { usePitchLineup, type LineupSlot } from "@/hooks/usePitchLineup";
 import { makeBatterKey, type PitchEntryRow } from "@/lib/pitchIntel/types";
 import { PitcherFatigueBar } from "@/components/pitch/PitcherFatigueBar";
+import { BatterEditDialog } from "@/components/pitch/BatterEditDialog";
 
 interface PitcherRow {
   id: string;
@@ -52,9 +61,12 @@ function PitchGameScreen() {
   const [batterTeam, setBatterTeam] = useState<string>("");
 
   const { entries } = usePitchEntries(gameId);
-  const { lineup, add, remove } = usePitchLineup(gameId, batterTeam);
+  const { lineup, add, update, remove, substitute } = usePitchLineup(gameId, batterTeam);
 
-  // Load game + pitchers
+  // Dialog state
+  const [editSlot, setEditSlot] = useState<LineupSlot | null>(null);
+  const [subSlot, setSubSlot] = useState<LineupSlot | null>(null);
+
   useEffect(() => {
     void (async () => {
       const { data: g } = await supabase
@@ -89,7 +101,7 @@ function PitchGameScreen() {
     ]);
   };
 
-  // ----- Add pitcher inline -----
+  // Add pitcher
   const [addingPitcher, setAddingPitcher] = useState(false);
   const [newJersey, setNewJersey] = useState("");
   const [newName, setNewName] = useState("");
@@ -110,17 +122,23 @@ function PitchGameScreen() {
       toast.error(error.message);
       return;
     }
-    const next = [...pitchers, data as PitcherRow];
-    setPitchers(next);
+    setPitchers((prev) => [...prev, data as PitcherRow]);
     if (!activePitcherId) setActivePitcherId(data.id);
     setNewJersey("");
     setNewName("");
     setAddingPitcher(false);
   };
 
-  // Add batter inline
-  const [newBatter, setNewBatter] = useState("");
+  // Add batter
+  const [newBatterJersey, setNewBatterJersey] = useState("");
+  const [newBatterName, setNewBatterName] = useState("");
   const inningOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
+
+  const handleDeleteSlot = (slot: LineupSlot) => {
+    const label = `#${slot.jersey}${slot.name ? ` ${slot.name}` : ""}`;
+    if (!window.confirm(`Remove ${label} from the lineup? Their logged at-bats stay in history.`)) return;
+    remove(slot.slotId);
+  };
 
   if (!game) {
     return <div className="mx-auto max-w-2xl px-4 pt-6 text-sm text-muted-foreground">Loading game…</div>;
@@ -142,7 +160,6 @@ function PitchGameScreen() {
         </div>
       </header>
 
-      {/* Inning + Pitcher + Batter team */}
       <div className="mb-3 grid grid-cols-3 gap-2">
         <div>
           <Label className="text-[10px] uppercase">Inning</Label>
@@ -178,7 +195,6 @@ function PitchGameScreen() {
         </div>
       </div>
 
-      {/* Add pitcher */}
       {pitchers.length === 0 || addingPitcher ? (
         <div className="mb-3 space-y-2 rounded-xl border border-dashed border-border p-3">
           <div className="text-xs font-semibold uppercase text-muted-foreground">
@@ -205,7 +221,6 @@ function PitchGameScreen() {
         </Button>
       )}
 
-      {/* Fatigue + pitch count */}
       {activePitcher && (
         <div className="mb-4">
           <PitcherFatigueBar
@@ -216,7 +231,6 @@ function PitchGameScreen() {
         </div>
       )}
 
-      {/* Lineup as tap cards */}
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Lineup · {batterTeam}
@@ -225,35 +239,49 @@ function PitchGameScreen() {
       </div>
 
       <ul className="space-y-2">
-        {lineup.map((jersey) => (
-          <li key={jersey}>
+        {lineup.map((slot) => (
+          <li key={slot.slotId}>
             <BatterCard
               gameId={gameId}
               batterTeam={batterTeam}
-              jersey={jersey}
+              slot={slot}
               entries={entries}
-              onRemove={() => remove(jersey)}
+              onEdit={() => setEditSlot(slot)}
+              onSub={() => setSubSlot(slot)}
+              onRemove={() => handleDeleteSlot(slot)}
             />
           </li>
         ))}
       </ul>
 
-      {/* Add batter */}
-      <div className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-border p-3">
-        <Input
-          value={newBatter}
-          onChange={(e) => setNewBatter(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
-          placeholder="Add jersey #"
-          className="h-10 w-24 text-center font-bold"
-          inputMode="numeric"
-        />
+      <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-border p-3">
+        <div>
+          <Label className="text-[10px] uppercase">Jersey</Label>
+          <Input
+            value={newBatterJersey}
+            onChange={(e) => setNewBatterJersey(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+            placeholder="#"
+            className="h-10 w-20 text-center font-bold"
+            inputMode="numeric"
+          />
+        </div>
+        <div className="min-w-[10rem] flex-1">
+          <Label className="text-[10px] uppercase">Name (optional)</Label>
+          <Input
+            value={newBatterName}
+            onChange={(e) => setNewBatterName(e.target.value)}
+            placeholder="e.g. Smith"
+            className="h-10"
+          />
+        </div>
         <Button
           onClick={() => {
-            if (!newBatter.trim()) return;
-            add(newBatter.trim());
-            setNewBatter("");
+            if (!newBatterJersey.trim()) return;
+            add(newBatterJersey.trim(), newBatterName);
+            setNewBatterJersey("");
+            setNewBatterName("");
           }}
-          className="gap-1"
+          className="h-10 gap-1"
         >
           <Plus className="h-4 w-4" /> Add batter
         </Button>
@@ -265,17 +293,36 @@ function PitchGameScreen() {
         </p>
       )}
 
-      {/* Quick link to logger requires batter, so no global pitch button */}
       <div className="mt-6 text-center text-[11px] text-muted-foreground">
         Pitch logging happens inside each batter card.
       </div>
 
-      <Link
-        to="/pitch/codes"
-        className="mt-2 block text-center text-xs text-primary hover:underline"
-      >
+      <Link to="/pitch/codes" className="mt-2 block text-center text-xs text-primary hover:underline">
         Manage pitcher codes
       </Link>
+
+      {editSlot && (
+        <BatterEditDialog
+          mode="edit"
+          open={!!editSlot}
+          slot={editSlot}
+          onClose={() => setEditSlot(null)}
+          onSave={(patch) => update(editSlot.slotId, patch)}
+        />
+      )}
+      {subSlot && (
+        <BatterEditDialog
+          mode="sub"
+          open={!!subSlot}
+          slot={subSlot}
+          inning={inning}
+          onClose={() => setSubSlot(null)}
+          onSave={(data) => {
+            substitute(subSlot.slotId, data);
+            toast.success(`Subbed in #${data.jersey}${data.name ? ` ${data.name}` : ""}`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -283,20 +330,29 @@ function PitchGameScreen() {
 function BatterCard({
   gameId,
   batterTeam,
-  jersey,
+  slot,
   entries,
+  onEdit,
+  onSub,
   onRemove,
 }: {
   gameId: string;
   batterTeam: string;
-  jersey: string;
+  slot: LineupSlot;
   entries: PitchEntryRow[];
+  onEdit: () => void;
+  onSub: () => void;
   onRemove: () => void;
 }) {
-  const batterKey = makeBatterKey(batterTeam, jersey);
-  const myEntries = entries.filter((e) => e.batter_key === batterKey);
+  const slotKey = makeBatterKey(batterTeam, `slot:${slot.slotId}`);
+  // Match entries by new slot key OR any legacy jersey this slot used
+  const allKeys = new Set<string>([
+    slotKey,
+    ...slot.legacyJerseys.map((j) => makeBatterKey(batterTeam, j)),
+    makeBatterKey(batterTeam, slot.jersey),
+  ]);
+  const myEntries = entries.filter((e) => allKeys.has(e.batter_key));
 
-  // Group into PAs in this game, find latest complete + active
   const byAb = new Map<number, PitchEntryRow[]>();
   for (const e of myEntries) {
     const arr = byAb.get(e.at_bat_seq) ?? [];
@@ -318,58 +374,95 @@ function BatterCard({
   const hardContact = lastResult?.contact_quality === "hard" || lastResult?.contact_quality === "barrel";
   const totalPas = sortedAbSeqs.filter((s) => byAb.get(s)!.some((p) => p.ab_result)).length;
 
+  const lastSub = slot.subs[slot.subs.length - 1];
+  const display = `#${slot.jersey}${slot.name ? ` ${slot.name}` : ""}`;
+
   return (
-    <Link
-      to="/pitch/$gameId/batter/$batterKey"
-      params={{ gameId, batterKey: encodeURIComponent(batterKey) }}
-      className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary hover:bg-accent/30 active:scale-[0.99]"
-    >
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-        <span className="text-xl font-black tabular-nums">#{jersey}</span>
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{batterTeam}</span>
-          <span className="text-[10px] text-muted-foreground">{totalPas} PA</span>
-          {activePa && (
-            <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
-              Live
-            </span>
-          )}
-          {hardContact && (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
-              <AlertTriangle className="h-3 w-3" /> hard contact
-            </span>
-          )}
-        </div>
-
-        <div className="mt-1 text-xs text-muted-foreground">
-          {lastResult ? (
-            <>
-              Last: <span className="font-mono font-semibold text-foreground">{lastResult.ab_result}</span>
-              {lastResult.spray_zone ? ` → ${lastResult.spray_zone}` : ""}
-              {lastResult.contact_quality ? ` · ${lastResult.contact_quality}` : ""}
-            </>
-          ) : (
-            <>No prior at-bat</>
-          )}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onRemove();
-        }}
-        className="hidden h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive hover:text-destructive-foreground group-hover:flex"
-        aria-label="Remove batter"
+    <div className="group rounded-2xl border border-border bg-card shadow-sm transition hover:border-primary">
+      <Link
+        to="/pitch/$gameId/batter/$batterKey"
+        params={{ gameId, batterKey: encodeURIComponent(slotKey) }}
+        className="flex items-center gap-3 p-4 active:scale-[0.99]"
       >
-        <X className="h-4 w-4" />
-      </button>
-      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
-    </Link>
+        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <span className="text-[9px] font-bold opacity-80">#{slot.order}</span>
+          <span className="text-lg font-black tabular-nums leading-none">#{slot.jersey}</span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-sm font-bold">
+              {slot.name ? slot.name : `#${slot.jersey}`}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{batterTeam}</span>
+            <span className="text-[10px] text-muted-foreground">{totalPas} PA</span>
+            {activePa && (
+              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                Live
+              </span>
+            )}
+            {hardContact && (
+              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
+                <AlertTriangle className="h-3 w-3" /> hard contact
+              </span>
+            )}
+          </div>
+
+          {lastSub && (
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              Subbed in for #{lastSub.jersey}{lastSub.name ? ` ${lastSub.name}` : ""} — Inning {lastSub.inning}
+              {lastSub.note ? ` · ${lastSub.note}` : ""}
+            </div>
+          )}
+
+          <div className="mt-1 text-xs text-muted-foreground">
+            {lastResult ? (
+              <>
+                Last: <span className="font-mono font-semibold text-foreground">{lastResult.ab_result}</span>
+                {lastResult.spray_zone ? ` → ${lastResult.spray_zone}` : ""}
+                {lastResult.contact_quality ? ` · ${lastResult.contact_quality}` : ""}
+              </>
+            ) : (
+              <>No prior at-bat</>
+            )}
+          </div>
+          {slot.note && (
+            <div className="mt-0.5 text-[10px] italic text-muted-foreground">{slot.note}</div>
+          )}
+        </div>
+
+        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+      </Link>
+
+      <div className="flex items-center justify-end gap-1 border-t border-border/60 px-2 py-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          className="h-8 gap-1 px-2 text-xs text-muted-foreground"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Edit
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onSub}
+          className="h-8 gap-1 px-2 text-xs text-muted-foreground"
+        >
+          <Repeat className="h-3.5 w-3.5" /> Sub
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
+        >
+          <X className="h-3.5 w-3.5" /> Remove
+        </Button>
+      </div>
+    </div>
   );
 }

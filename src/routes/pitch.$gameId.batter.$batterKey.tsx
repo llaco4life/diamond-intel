@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
+import { usePitchLineup } from "@/hooks/usePitchLineup";
+import { makeBatterKey } from "@/lib/pitchIntel/types";
 import { usePitchTypes } from "@/hooks/usePitchTypes";
 import { usePitchCodeMap } from "@/hooks/usePitchCodeMap";
 import { applyPitch } from "@/lib/pitchIntel/countEngine";
@@ -56,9 +58,18 @@ function BatterProfileRoute() {
 function BatterProfile() {
   const { gameId, batterKey: rawKey } = Route.useParams();
   const batterKey = decodeURIComponent(rawKey);
-  const [batterTeam, jersey] = batterKey.split(":");
+  const parts = batterKey.split(":");
+  const batterTeam = parts[0];
+  // New form: team:slot:<slotId>  · Legacy form: team:<jersey>
+  const isSlotKey = parts[1] === "slot";
+  const slotId = isSlotKey ? parts.slice(2).join(":") : null;
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const { lineup } = usePitchLineup(gameId, batterTeam);
+  const slot = slotId ? lineup.find((s) => s.slotId === slotId) ?? null : null;
+  const jersey = slot?.jersey ?? (isSlotKey ? "?" : parts[1]);
+  const displayName = slot?.name;
 
   const [game, setGame] = useState<GameRow | null>(null);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
@@ -89,10 +100,15 @@ function BatterProfile() {
     })();
   }, [gameId]);
 
-  const myEntries = useMemo(
-    () => entries.filter((e) => e.batter_key === batterKey),
-    [entries, batterKey],
-  );
+  const myEntries = useMemo(() => {
+    const keys = new Set<string>([batterKey]);
+    if (slot) {
+      keys.add(makeBatterKey(batterTeam, `slot:${slot.slotId}`));
+      keys.add(makeBatterKey(batterTeam, slot.jersey));
+      for (const j of slot.legacyJerseys) keys.add(makeBatterKey(batterTeam, j));
+    }
+    return entries.filter((e) => keys.has(e.batter_key));
+  }, [entries, batterKey, batterTeam, slot]);
 
   // Group into PAs
   const pas = useMemo(() => groupPAs(myEntries), [myEntries]);
@@ -224,18 +240,33 @@ function BatterProfile() {
         </div>
       </header>
 
-      <div className="mb-3 flex items-center gap-3 rounded-2xl border border-primary/40 bg-primary/5 p-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <span className="text-xl font-black tabular-nums">#{jersey}</span>
-        </div>
-        <div className="min-w-0">
-          <div className="text-base font-bold">{batterTeam}</div>
-          <div className="text-xs text-muted-foreground">
-            {activePitcher
-              ? `vs #${activePitcher.jersey_number}${activePitcher.name ? ` ${activePitcher.name}` : ""} · ${totalPitchesThisPitcher} pitches`
-              : "No pitcher selected"}
+      <div className="mb-3 rounded-2xl border border-primary/40 bg-primary/5 p-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <span className="text-xl font-black tabular-nums">#{jersey}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-bold">
+              {displayName ? `${displayName} ` : ""}<span className="text-muted-foreground">· {batterTeam}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {activePitcher
+                ? `vs #${activePitcher.jersey_number}${activePitcher.name ? ` ${activePitcher.name}` : ""} · ${totalPitchesThisPitcher} pitches`
+                : "No pitcher selected"}
+            </div>
           </div>
         </div>
+        {slot && slot.subs.length > 0 && (
+          <div className="mt-2 space-y-0.5 border-t border-primary/20 pt-2 text-[11px] text-muted-foreground">
+            <div className="font-semibold uppercase text-[10px]">Previous occupants</div>
+            {slot.subs.map((s, i) => (
+              <div key={i}>
+                #{s.jersey}{s.name ? ` ${s.name}` : ""} — Inning {s.inning}
+                {s.note ? ` · ${s.note}` : ""}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <Tabs defaultValue="current">
