@@ -271,9 +271,14 @@ function PitchLiveLogger() {
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
       <header className="mb-3 flex items-center justify-between">
-        <button onClick={() => navigate({ to: "/pitch" })} className="flex items-center gap-1 text-sm text-muted-foreground">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate({ to: "/pitch" })}
+          className="-ml-2 h-8 gap-1 px-2 text-sm text-muted-foreground hover:text-foreground"
+        >
           <ChevronLeft className="h-4 w-4" /> Pitch Intel
-        </button>
+        </Button>
         <div className="text-xs text-muted-foreground">
           {game.home_team} vs {game.away_team}
         </div>

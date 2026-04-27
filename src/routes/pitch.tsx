@@ -9,15 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Target, Settings, Plus } from "lucide-react";
-
-interface PitchGame {
-  id: string;
-  home_team: string;
-  away_team: string;
-  game_date: string;
-  status: string;
-  created_at: string;
-}
+import { DeleteGameButton } from "@/components/DeleteGameButton";
+import type { GameRow } from "@/hooks/useActiveGame";
 
 export const Route = createFileRoute("/pitch")({
   component: PitchLobby,
@@ -31,29 +24,59 @@ function PitchLobby() {
   );
 }
 
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 function PitchLobbyContent() {
   const { org, user } = useAuth();
   const navigate = useNavigate();
-  const [games, setGames] = useState<PitchGame[]>([]);
+  const [active, setActive] = useState<GameRow[]>([]);
+  const [recent, setRecent] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [home, setHome] = useState("");
   const [away, setAway] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [resumingId, setResumingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!org) return;
+    let cancelled = false;
     void (async () => {
-      const { data } = await supabase
-        .from("games")
-        .select("id,home_team,away_team,game_date,status,created_at")
-        .eq("org_id", org.id)
-        .eq("game_type", "pitch")
-        .order("created_at", { ascending: false })
-        .limit(20);
-      setGames((data ?? []) as PitchGame[]);
+      const [{ data: a }, { data: r }] = await Promise.all([
+        supabase
+          .from("games")
+          .select("*")
+          .eq("org_id", org.id)
+          .eq("game_type", "pitch")
+          .eq("status", "active")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("games")
+          .select("*")
+          .eq("org_id", org.id)
+          .eq("game_type", "pitch")
+          .eq("status", "ended")
+          .order("created_at", { ascending: false })
+          .limit(3),
+      ]);
+      if (cancelled) return;
+      setActive((a as GameRow[] | null) ?? []);
+      setRecent((r as GameRow[] | null) ?? []);
       setLoading(false);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [org]);
 
   useEffect(() => {
@@ -100,12 +123,42 @@ function PitchLobbyContent() {
         .select("id")
         .single();
       if (gErr) throw gErr;
+      toast.success("Game started");
       navigate({ to: "/pitch/$gameId", params: { gameId: g.id } });
     } catch (e) {
       toast.error((e as Error).message ?? "Could not start game");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDelete = async (game: GameRow) => {
+    setDeletingId(game.id);
+    const { error } = await supabase.from("games").delete().eq("id", game.id);
+    setDeletingId(null);
+    if (error) {
+      toast.error("Could not delete game.");
+      return;
+    }
+    setActive((prev) => prev.filter((g) => g.id !== game.id));
+    setRecent((prev) => prev.filter((g) => g.id !== game.id));
+    toast.success("Game deleted.");
+  };
+
+  const handleResume = async (game: GameRow) => {
+    setResumingId(game.id);
+    const { error } = await supabase
+      .from("games")
+      .update({ status: "active" })
+      .eq("id", game.id);
+    setResumingId(null);
+    if (error) {
+      toast.error("Could not resume game.");
+      return;
+    }
+    setRecent((prev) => prev.filter((g) => g.id !== game.id));
+    setActive((prev) => [{ ...game, status: "active" }, ...prev]);
+    toast.success("Game resumed.");
   };
 
   return (
@@ -153,38 +206,154 @@ function PitchLobbyContent() {
         </div>
       )}
 
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Recent games
-      </h2>
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : games.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No Pitch Intel games yet.
-        </div>
+        <div className="h-20 animate-pulse rounded-xl bg-muted/50" />
       ) : (
-        <ul className="space-y-2">
-          {games.map((g) => (
-            <li key={g.id}>
-              <Link
-                to="/pitch/$gameId"
-                params={{ gameId: g.id }}
-                className="block rounded-xl border border-border bg-card p-3 transition hover:border-primary/50"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold">
-                      {g.home_team} vs {g.away_team}
+        <>
+          {active.length > 0 && (
+            <section className="mb-6">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Active games ({active.length})
+              </h2>
+              <ul className="space-y-3">
+                {active.map((g) => (
+                  <ActivePitchGameRow
+                    key={g.id}
+                    game={g}
+                    onJoin={() =>
+                      navigate({ to: "/pitch/$gameId", params: { gameId: g.id } })
+                    }
+                    onDelete={() => handleDelete(g)}
+                    deleting={deletingId === g.id}
+                  />
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Recent games
+            </h2>
+            {recent.length === 0 && active.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                No Pitch Intel games yet.
+              </div>
+            ) : recent.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No completed games yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {recent.map((g) => (
+                  <li
+                    key={g.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {g.home_team} <span className="text-muted-foreground">vs</span> {g.away_team}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(g.game_date).toLocaleDateString()}
+                      </p>
                     </div>
-                    <div className="text-xs text-muted-foreground">{g.game_date}</div>
-                  </div>
-                  <Badge variant={g.status === "active" ? "default" : "secondary"}>{g.status}</Badge>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <Link
+                        to="/pitch/$gameId"
+                        params={{ gameId: g.id }}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        View
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleResume(g)}
+                        disabled={resumingId === g.id}
+                        className="text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      >
+                        {resumingId === g.id ? "Resuming…" : "Resume"}
+                      </button>
+                      <DeleteGameButton
+                        game={g}
+                        busy={deletingId === g.id}
+                        onConfirm={() => handleDelete(g)}
+                        iconOnly
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
       )}
     </div>
+  );
+}
+
+function ActivePitchGameRow({
+  game,
+  onJoin,
+  onDelete,
+  deleting,
+}: {
+  game: GameRow;
+  onJoin: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  const [creatorName, setCreatorName] = useState<string | null>(null);
+  const [pitchCount, setPitchCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [profile, pitches] = await Promise.all([
+        supabase.from("profiles").select("full_name").eq("id", game.created_by).maybeSingle(),
+        supabase
+          .from("pitch_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("game_id", game.id),
+      ]);
+      if (cancelled) return;
+      setCreatorName(profile.data?.full_name ?? null);
+      setPitchCount(pitches.count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [game.id, game.created_by]);
+
+  return (
+    <li className="rounded-2xl border bg-card p-4 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold">
+            {game.home_team} <span className="text-muted-foreground">vs</span> {game.away_team}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Started {relativeTime(game.created_at)} by {creatorName ?? "a teammate"}
+          </p>
+        </div>
+        <Badge>Active</Badge>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {pitchCount === null
+            ? "Loading…"
+            : `${pitchCount} pitch${pitchCount === 1 ? "" : "es"} logged`}
+        </p>
+        <div className="flex items-center gap-2">
+          <DeleteGameButton
+            game={game}
+            busy={deleting}
+            onConfirm={onDelete}
+            iconOnly
+          />
+          <Button size="sm" onClick={onJoin}>
+            Join Game
+          </Button>
+        </div>
+      </div>
+    </li>
   );
 }

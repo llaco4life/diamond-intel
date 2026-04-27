@@ -5,7 +5,7 @@ export interface GameRow {
   id: string;
   org_id: string;
   opponent_id: string | null;
-  game_type: "scout" | "learning";
+  game_type: "scout" | "learning" | "pitch";
   tournament_name: string | null;
   game_date: string;
   home_team: string;
