@@ -67,15 +67,17 @@ export function RecommendationBox(props: Props) {
             </div>
           )}
           {out.avoid.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1 text-[11px] font-bold uppercase text-red-600 dark:text-red-400">
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2">
+              <div className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase text-red-700 dark:text-red-400">
                 <ThumbsDown className="h-3 w-3" />
-                Avoid
+                Avoid these pitches
               </div>
               <ul className="space-y-1">
                 {out.avoid.map((r) => (
                   <li key={r.pitchTypeId} className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{r.label}</span>
+                    <span className="font-semibold text-red-700 dark:text-red-300 line-through decoration-red-500/60">
+                      {r.label}
+                    </span>
                     <span className="font-mono text-xs text-muted-foreground">
                       {r.score} · {r.samples}
                     </span>
