@@ -1,169 +1,78 @@
-## Pitch Intel — Final Build Plan (approved refinements applied)
+# Match Learning + Pitch Intel UX to Scout
 
-A new live pitch-calling module added inside Diamond Intel. Lives alongside Scout / Learning / Coach. Reuses existing `games`, `pitchers`, `opponents` tables. Adds 3 new tables for pitch code mapping and pitch-by-pitch logging.
+Scout has a clean lobby pattern users like:
+- **Start** new game (team-name form → instantly joined)
+- **Active games** list (everyone in the org sees what's running) with **Join** + **Delete**
+- **Recent games** with View summary / Resume / Delete
 
----
-
-### 1. Navigation & Routes
-
-- **`BottomNav.tsx`**: add "Pitch" tab → `/pitch` (Target icon).
-- **`src/routes/index.tsx`**: add a third ModeCard for Pitch Intel.
-- **New routes** (TanStack file-based):
-  - `pitch.tsx` — lobby (active Pitch Intel games + start new + link to code map)
-  - `pitch.$gameId.tsx` — Live Logger
-  - `pitch.$gameId.batter.$batterKey.tsx` — Batter Profile (3 tabs)
-  - `pitch.codes.tsx` — Pitcher pitch-code map manager (Excel import/template)
+Learning and Pitch Intel both diverge from this. Bring them in line.
 
 ---
 
-### 2. Database Migration
+## Pitch Intel (`/pitch`) — biggest gap
 
-`ALTER TYPE game_type ADD VALUE 'pitch';` plus 3 new tables:
+Currently the lobby uses bare `<Link>` rows with no Join button and no Delete. The "start game → enter teams → game" flow already works (it navigates to `/pitch/$gameId`), so we keep that, but rework the rest to mirror Scout.
 
-- `pitch_types` — canonical pitch list per org (FBAWY, FBINS, …) seeded by app on first use.
-- `pitch_code_map` — per-pitcher numeric_code → pitch_type_id.
-- `pitch_entries` — one row per pitch with `balls_before/strikes_before/balls_after/strikes_after`, `result`, `spray_zone`, `contact_quality` (`weak`/`hard`/`barrel` only — no medium), `ab_result`, `at_bat_seq`, `pitch_seq`.
+**Edit `src/routes/pitch.tsx`:**
 
-RLS mirrors existing patterns: org-scoped reads, `logged_by = auth.uid()` for inserts, coach-only update/delete on pitch_entries.
+- Extract logic into a new `PitchLobby` shape (still in same file, single component is fine — like Scout's `GameLobby`).
+- Query games scoped to `org_id` (already done) and split into:
+  - **Active** = `status = 'active'` and `game_type = 'pitch'`
+  - **Recent** = `status = 'ended'` and `game_type = 'pitch'`, limit 3
+- Each Active row shows:
+  - `home_team vs away_team`
+  - "Started X min ago by {creator name}" (lookup `profiles.full_name` by `created_by`)
+  - "N pitches logged" (count `pitch_entries` for `game_id`) — Pitch Intel's analog of Scout's "people tracking" stat
+  - `Active` badge
+  - `<DeleteGameButton iconOnly … />` → `supabase.from("games").delete().eq("id", g.id)`
+  - **Join Game** button → `navigate({ to: "/pitch/$gameId", params: { gameId: g.id } })`
+- Each Recent row shows: View summary placeholder (link to game route), Resume (`update status: 'active'`), Delete.
+- Keep the existing inline "Start a Pitch Intel game" form (home/away inputs → insert game → navigate). Move the **Codes** button next to Start so it stays accessible.
 
-Indexes on `(game_id, batter_key, at_bat_seq, pitch_seq)`, `(batter_team, batter_number)`, `(pitcher_id, created_at)`.
+**Edit `src/routes/pitch.$gameId.tsx`:**
 
----
-
-### 3. Pitch Code Map Manager (`/pitch/codes`)
-
-- Pick a pitcher (drawn from existing `pitchers` table, scoped to org games).
-- Inline editor: numeric_code → pitch_type dropdown.
-- **Download blank Excel template** (`.xlsx` via `xlsx` npm package) with example row + instructions.
-- **Import** `.xlsx` / `.csv` → preview diff → bulk upsert.
-- Manual add/edit/delete rows.
-
-Adds dependency: `xlsx` (~600KB, pure JS, Worker-safe).
-
----
-
-### 4. Live At-Bat Logger (`/pitch/$gameId`)
-
-Mobile-first single screen:
-
-```text
-┌─────────────────────────────────────┐
-│ Inning [2▼]  Pitcher: #14 Sara      │
-│ ⚠ 72 pitches — RED                  │  ← Fatigue (§4a)
-│ ⚠ 3 hard contact in last 6 hitters  │
-├─────────────────────────────────────┤
-│ Lineup: [#3][#7▶][#12][#22][+ Add]  │
-├─────────────────────────────────────┤
-│ Now batting: #7 BULLDOGS             │
-│ ┌─ Last PA (1st inning) ──────────┐ │  ← Quick Banner (§4b)
-│ │ FBAWY → CURVE → CHUPA           │ │
-│ │ GO to SS · 🟢 weak              │ │
-│ └─────────────────────────────────┘ │
-│ Count B●●○○  S●○○ · PA: 3 · Tot: 47 │
-├─────────────────────────────────────┤
-│ Code [_ _ _] → "014" = FB Away      │
-│ [Ball][C-Str][Sw-Str][Foul]         │
-│ [In Play][HBP][Foul Tip K]          │
-└─────────────────────────────────────┘
-```
-
-**4a. Pitcher Fatigue Bar** — top strip:
-- 50–69 yellow · 70–84 red · 85+ critical
-- Hard-contact streak: ≥3 hard/barrel in last 6 batters faced
-
-**4b. Previous PA Quick Banner** — under "Now batting", visible without leaving the logger:
-- Pitch sequence (translated codes) · ab_result · spray zone · 🟢/🔴 hard contact indicator
-- Inning + game context. Empty state if first PA.
-
-**4c. Lineup** — add-as-you-go + "Paste full lineup" modal.
-
-**4d. Code entry & count engine** — pure function `countEngine.ts`:
-- ball: +1 ball; 4 = walk
-- called_strike / swinging_strike: +1 strike; 3 = K
-- foul: +1 strike unless strikes=2
-- foul_tip_caught: +1 strike (can be K)
-- caught_foul: out
-- in_play: opens spray chart → contact quality → ab_result
-- hbp: ends PA
-
-Inserts `pitch_entries` immediately via `useOfflineWriter` (offline-safe).
+- Convert the `<button>` "← Pitch Intel" header into a real `Button variant="ghost" size="sm"` so the way back to the dashboard is clearly tappable (matches Scout's back affordance).
+- No behavior change otherwise.
 
 ---
 
-### 5. Spray Chart
+## Learning (`/learning`) — add Join, stop auto-resume
 
-SVG diamond modal on contact:
-1. Tap zone (LF/CF/RF/SS/3B/2B/1B/P/C)
-2. Contact quality: **Weak / Hard / Barrel** only
-3. AB result chips
+Learning currently auto-resumes the user's most recent active session on mount, which means you never see the lobby and there's no Join flow. It also scopes everything to `created_by = userId`, so even within an org each player only sees their own sessions. The Delete button already exists.
 
-Reused as read-only dot map in Batter Profile. Colors: 🟢 out, 🟠 weak hit, 🔴 hard/barrel/XBH.
+Two refinements to match Scout:
 
----
+**Edit `src/routes/learning.tsx`:**
 
-### 6. Batter Profile (`/pitch/$gameId/batter/$batterKey`)
+- **Remove the auto-resume effect** (lines 30–54) so users always land on the lobby and explicitly tap Resume/Join. This is the same model as Scout — multiple sessions can exist; user picks one.
 
-Three tabs:
-- **Current** — pitcher, count, pitch count, last PA, **Recommendation box** (§7).
-- **Previous** — all historical PAs across org. Each row: date, game, pitcher, sequence, count, ab_result, spray.
-- **Spray** — aggregated dots; pull% / oppo% / hard-contact zones.
+**Edit `src/components/learning/LearningLobby.tsx`:**
 
----
+- Replace the existing "Resume" button label with **Join Session** for the Active sessions list (the action is the same — `onResume(g)` — but the label aligns with Scout's "Join Game" verb the user is used to).
+- Keep the "Reflect now" button for `learning_phase = 'reflect'` rows since reflection is a distinct action.
+- Keep Delete buttons exactly as they are (they already work).
+- Keep Recent sessions section with View summary / Resume / Delete (already correct).
 
-### 7. Recommendation Engine (situation-aware, rules-based)
-
-`recommend.ts` pure function. Inputs: `batter_key`, `pitcher_id`, current `(balls, strikes)`, all prior `pitch_entries`.
-
-**7a. Situation classification** (`countSituation.ts`):
-- `even` (0-0, 1-1) · `ahead` (0-1, 0-2, 1-2) · `behind` (1-0, 2-0, 2-1, 3-0, 3-1) · `full` (3-2) · `two_strike` (any X-2 except 3-2)
-
-**7b. Sample cascade** — only score prior pitches in **comparable count situations**:
-1. Same batter vs same pitcher in **same situation** → ×4
-2. Same batter vs same pitcher in **any count** → ×2
-3. Same batter vs any pitcher in **same situation** → ×2
-4. Same team in **same situation** → ×1
-
-**7c. Pitch scoring** — sum across filtered samples:
-- +3 swinging_strike, +2 called_strike, +2 weak-contact out, +2 K
-- −3 hard contact, −4 barrel, −5 XBH/HR
-
-**7d. Situation-specific output:**
-- `ahead` / `two_strike` — surface "Best chase pitch" first
-- `behind` — surface "Strike pitch" first; de-prioritize walk-risk pitches
-- `full` — avoid pitches with high ball% in batter history
-- `even` — balanced top-2
-
-Output: `{ situation, recommended[2], bestChase?, avoid[2], confidence }`.
-Empty state (<3 prior pitches): "Not enough history — start with fastball away, see how she reacts."
+> Note: Learning sessions stay **per-user** (filter `created_by = userId`) — they're personal prep/reflect notes, not team-shared like Scout games. The user said "match the UX," not "make Learning multi-user," so we keep the data scope and only align the lobby controls.
 
 ---
 
-### 8. File Map
+## Files touched
 
-**New libs:** `src/lib/pitchIntel/{types,countEngine,countSituation,fatigue,recommend,codeTemplate}.ts`
+- **edit** `src/routes/pitch.tsx` — full rework of game list (Active/Recent split, Join + Delete + creator + pitch count)
+- **edit** `src/routes/pitch.$gameId.tsx` — back button styling
+- **edit** `src/routes/learning.tsx` — remove auto-resume effect
+- **edit** `src/components/learning/LearningLobby.tsx` — relabel Resume → Join Session in Active sessions
 
-**New components:** `src/components/pitch/{PitchLobby,PitchGameSetup,LiveLogger,PitcherFatigueBar,PreviousPABanner,LineupStrip,CodeEntry,CountDisplay,ResultPad,SprayChart,BatterProfile,PreviousAtBats,RecommendationBox,PitchCodeMapEditor,PitchCodeImport}.tsx`
+## Files reused (no changes)
 
-**New routes:** `src/routes/{pitch,pitch.$gameId,pitch.$gameId.batter.$batterKey,pitch.codes}.tsx`
+- `src/components/DeleteGameButton.tsx` — already used by Scout and Learning
+- Existing `games` table RLS already permits org members to read and the creator (or head_coach) to delete
 
-**Edited:** `BottomNav.tsx`, `src/routes/index.tsx`
+## Out of scope
 
-**Untouched:** Scout, Learning, Dashboard.
-
----
-
-### 9. MVP Build Order
-
-1. DB migration (via Lovable migration tool)
-2. Core libs (types, countEngine, countSituation, fatigue, recommend, codeTemplate)
-3. Routes scaffolding + nav + home card
-4. Pitch Code Map editor + XLSX import/template
-5. Live Logger with count engine + immediate inserts
-6. Pitcher Fatigue Bar (50/70/85 + hard-contact streak)
-7. Previous PA Quick Banner
-8. Spray chart on contact (Weak/Hard/Barrel)
-9. Batter Profile 3 tabs + situation-aware recommendations
-
-Out of scope: AI recs, ump heat-map, velo/spin, video, PDF export.
+- No DB migration
+- No changes to Scout (already correct per user)
+- No changes to live logger logic, fatigue, recommendations, batter profile, prep/reflect screens
 
 Approve and I'll build it.
