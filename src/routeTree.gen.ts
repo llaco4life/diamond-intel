@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ScoutRouteImport } from './routes/scout'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PitchRouteImport } from './routes/pitch'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LearningRouteImport } from './routes/learning'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -41,6 +42,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PitchRoute = PitchRouteImport.update({
+  id: '/pitch',
+  path: '/pitch',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/pitch': typeof PitchRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/pitch': typeof PitchRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
@@ -128,6 +136,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/pitch': typeof PitchRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/learning'
     | '/login'
+    | '/pitch'
     | '/profile'
     | '/reset-password'
     | '/scout'
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/learning'
     | '/login'
+    | '/pitch'
     | '/profile'
     | '/reset-password'
     | '/scout'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/learning'
     | '/login'
+    | '/pitch'
     | '/profile'
     | '/reset-password'
     | '/scout'
@@ -191,6 +203,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LearningRoute: typeof LearningRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PitchRoute: typeof PitchRoute
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ScoutRoute: typeof ScoutRouteWithChildren
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pitch': {
+      id: '/pitch'
+      path: '/pitch'
+      fullPath: '/pitch'
+      preLoaderRoute: typeof PitchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LearningRoute: LearningRouteWithChildren,
   LoginRoute: LoginRoute,
+  PitchRoute: PitchRoute,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ScoutRoute: ScoutRouteWithChildren,
@@ -332,3 +353,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
