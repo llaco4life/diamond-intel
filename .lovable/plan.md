@@ -1,78 +1,93 @@
-# Match Learning + Pitch Intel UX to Scout
+# Pitch Intel — Game Flow Upgrade
 
-Scout has a clean lobby pattern users like:
-- **Start** new game (team-name form → instantly joined)
-- **Active games** list (everyone in the org sees what's running) with **Join** + **Delete**
-- **Recent games** with View summary / Resume / Delete
+## 1. Fix batter card tap (root cause)
 
-Learning and Pitch Intel both diverge from this. Bring them in line.
+In `src/routes/pitch.$gameId.tsx`, the batter card wraps the main row in a `<Link>` and places Edit/Sub/Remove buttons in a *sibling* footer. That works on desktop, but the footer buttons sit visually inside the same "card" and on touch devices the large card area can feel unresponsive due to the `active:scale-[0.99]` only applying on the inner Link, plus nested interactive regions cause hit-target ambiguity.
 
----
+Fix:
+- Convert the whole card (`<div>` wrapper) into a single `<Link>` block that fills the card, with `to="/pitch/$gameId/batter/$batterKey"` and `params={{ gameId, batterKey: encodeURIComponent(slotKey) }}`.
+- Render Edit / Sub / Remove buttons as overlaid action buttons at the right side, each calling `e.preventDefault(); e.stopPropagation();` in their `onClick` so they never trigger navigation.
+- Verify the `slotKey` continues to round-trip through TanStack params (team names with spaces already work, as `Route.useParams()` decodes once).
 
-## Pitch Intel (`/pitch`) — biggest gap
+## 2. Pitcher management parity with batters
 
-Currently the lobby uses bare `<Link>` rows with no Join button and no Delete. The "start game → enter teams → game" flow already works (it navigates to `/pitch/$gameId`), so we keep that, but rework the rest to mirror Scout.
+Create a new lightweight `usePitchers(gameId)` hook OR keep the inline pitcher state but add full CRUD against the `pitchers` table:
+- **Add** — already exists; keep.
+- **Edit** — open a dialog (reuse pattern from `BatterEditDialog`) to edit jersey + name + notes; `UPDATE pitchers SET ...`.
+- **Remove** — confirm dialog ("Remove pitcher? Their logged pitches stay in history."), then `DELETE FROM pitchers WHERE id=...`. Pitch entries reference `pitcher_id` as text/uuid but have **no FK**, so deletes won't cascade — history is preserved.
+- **Substitute / change current** — single `UPDATE` flipping `is_active` flags. New pitcher becomes active; old one stays in the dropdown so historical entries remain attributable. The existing `switchPitcher` already handles this; expose it in the new compact UI.
 
-**Edit `src/routes/pitch.tsx`:**
+New component: `src/components/pitch/PitcherManagerDialog.tsx` — list of pitchers with inline edit / delete / "Make active" actions plus an "Add pitcher" form.
 
-- Extract logic into a new `PitchLobby` shape (still in same file, single component is fine — like Scout's `GameLobby`).
-- Query games scoped to `org_id` (already done) and split into:
-  - **Active** = `status = 'active'` and `game_type = 'pitch'`
-  - **Recent** = `status = 'ended'` and `game_type = 'pitch'`, limit 3
-- Each Active row shows:
-  - `home_team vs away_team`
-  - "Started X min ago by {creator name}" (lookup `profiles.full_name` by `created_by`)
-  - "N pitches logged" (count `pitch_entries` for `game_id`) — Pitch Intel's analog of Scout's "people tracking" stat
-  - `Active` badge
-  - `<DeleteGameButton iconOnly … />` → `supabase.from("games").delete().eq("id", g.id)`
-  - **Join Game** button → `navigate({ to: "/pitch/$gameId", params: { gameId: g.id } })`
-- Each Recent row shows: View summary placeholder (link to game route), Resume (`update status: 'active'`), Delete.
-- Keep the existing inline "Start a Pitch Intel game" form (home/away inputs → insert game → navigate). Move the **Codes** button next to Start so it stays accessible.
+## 3. Compact scoreboard banner
 
-**Edit `src/routes/pitch.$gameId.tsx`:**
+Add `src/components/pitch/ScoreboardBanner.tsx` rendered at the top of `pitch.$gameId.tsx`:
 
-- Convert the `<button>` "← Pitch Intel" header into a real `Button variant="ghost" size="sm"` so the way back to the dashboard is clearly tappable (matches Scout's back affordance).
-- No behavior change otherwise.
+```text
+┌─────────────────────────────────────────────┐
+│ Top 3rd · 1 out                             │
+│ Unity 2  —  Bulldogs 1     [-][+] [-][+]    │
+│ P: #22 Sara · 41 pitches                    │
+└─────────────────────────────────────────────┘
+```
 
----
+Data:
+- `home_team`, `away_team`, `home_score`, `away_score`, `current_inning` from `games`.
+- Top/bottom of inning derived from `batterTeam === away_team ? "Top" : "Bottom"`.
+- Outs: stored locally in component state (no DB column); resets when inning changes. (We can revisit persistence later.)
+- Active pitcher + pitch count from existing data.
 
-## Learning (`/learning`) — add Join, stop auto-resume
+Score editing: small `+` / `-` buttons next to each score, calling `UPDATE games SET home_score / away_score`.
 
-Learning currently auto-resumes the user's most recent active session on mount, which means you never see the lobby and there's no Join flow. It also scopes everything to `created_by = userId`, so even within an org each player only sees their own sessions. The Delete button already exists.
+## 4. Next-batter banner
 
-Two refinements to match Scout:
+Add `src/components/pitch/NextBatterBanner.tsx` under the scoreboard:
 
-**Edit `src/routes/learning.tsx`:**
+```text
+At bat:   #7 Smith
+On deck:  #12 Jones
+In hole:  #24 Emma
+```
 
-- **Remove the auto-resume effect** (lines 30–54) so users always land on the lobby and explicitly tap Resume/Join. This is the same model as Scout — multiple sessions can exist; user picks one.
+Logic:
+- Track `currentBatterIndex` in component state on the game screen, persisted to `localStorage` under `pitch-current-batter:${gameId}:${team}`.
+- `current = lineup[idx]`, `next = lineup[(idx+1) % len]`, `onDeck = lineup[(idx+2) % len]`.
+- Tapping the banner navigates to current batter's profile (same Link target as the card).
 
-**Edit `src/components/learning/LearningLobby.tsx`:**
+## 5. End At-Bat / Next Batter advance
 
-- Replace the existing "Resume" button label with **Join Session** for the Active sessions list (the action is the same — `onResume(g)` — but the label aligns with Scout's "Join Game" verb the user is used to).
-- Keep the "Reflect now" button for `learning_phase = 'reflect'` rows since reflection is a distinct action.
-- Keep Delete buttons exactly as they are (they already work).
-- Keep Recent sessions section with View summary / Resume / Delete (already correct).
+In `pitch.$gameId.batter.$batterKey.tsx`:
+- Add an "End at-bat → next batter" button that appears once the active PA has an `ab_result` recorded (i.e. spray/AB picker has resolved). Already implicit when `activePa` becomes complete.
+- On click:
+  - Bump the lineup pointer in `localStorage` (`(idx + 1) % lineup.length`).
+  - Navigate back to `/pitch/$gameId` (lineup screen) **or** directly into the next batter's profile — choose direct navigation for speed.
+- Also show a passive "✓ At-bat saved — tap to advance to #X" banner once the PA is complete, so the coach has one obvious next step.
 
-> Note: Learning sessions stay **per-user** (filter `created_by = userId`) — they're personal prep/reflect notes, not team-shared like Scout games. The user said "match the UX," not "make Learning multi-user," so we keep the data scope and only align the lobby controls.
+Expose a tiny shared helper `src/hooks/useCurrentBatter.ts`:
 
----
+```ts
+export function useCurrentBatter(gameId, team, lineupLength) {
+  // reads/writes localStorage index, returns { index, advance, setIndex }
+}
+```
 
-## Files touched
+Used by both the game screen banner and the batter screen advance button so they stay in sync.
 
-- **edit** `src/routes/pitch.tsx` — full rework of game list (Active/Recent split, Join + Delete + creator + pitch count)
-- **edit** `src/routes/pitch.$gameId.tsx` — back button styling
-- **edit** `src/routes/learning.tsx` — remove auto-resume effect
-- **edit** `src/components/learning/LearningLobby.tsx` — relabel Resume → Join Session in Active sessions
+## Files to create / edit
 
-## Files reused (no changes)
+**New:**
+- `src/components/pitch/ScoreboardBanner.tsx`
+- `src/components/pitch/NextBatterBanner.tsx`
+- `src/components/pitch/PitcherManagerDialog.tsx`
+- `src/hooks/useCurrentBatter.ts`
 
-- `src/components/DeleteGameButton.tsx` — already used by Scout and Learning
-- Existing `games` table RLS already permits org members to read and the creator (or head_coach) to delete
+**Edit:**
+- `src/routes/pitch.$gameId.tsx` — make whole card tappable with overlaid action buttons; mount scoreboard + next-batter banners; replace inline pitcher add UI with a "Manage pitchers" button opening the new dialog.
+- `src/routes/pitch.$gameId.batter.$batterKey.tsx` — add "End at-bat / next batter" CTA wired to `useCurrentBatter`.
 
-## Out of scope
+## Out of scope (not requested)
 
-- No DB migration
-- No changes to Scout (already correct per user)
-- No changes to live logger logic, fatigue, recommendations, batter profile, prep/reflect screens
+- Persisting outs/balls/strikes server-side across reloads (kept local for now).
+- Adding new database columns. The plan reuses `games.home_score`, `games.away_score`, `games.current_inning`, and the existing `pitchers` and `pitch_entries` tables — **no schema changes**.
 
-Approve and I'll build it.
+Ready to implement on approval.
