@@ -260,7 +260,6 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
   );
 
   const mustKnow = computeMustKnow(teamObs, pins, 5);
-  const attackPlan = computeAttackPlan(teamObs);
   const roleIntel = computeRoleIntel(roleObs);
   const stealObs = obs.filter((o) => !!o.steal_it);
   const visibleSteal = showAllSteal ? stealObs : stealObs.slice(0, 3);
