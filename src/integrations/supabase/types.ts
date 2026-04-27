@@ -412,6 +412,132 @@ export type Database = {
         }
         Relationships: []
       }
+      pitch_code_map: {
+        Row: {
+          created_at: string
+          id: string
+          numeric_code: string
+          org_id: string
+          pitch_type_id: string
+          pitcher_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          numeric_code: string
+          org_id: string
+          pitch_type_id: string
+          pitcher_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          numeric_code?: string
+          org_id?: string
+          pitch_type_id?: string
+          pitcher_id?: string
+        }
+        Relationships: []
+      }
+      pitch_entries: {
+        Row: {
+          ab_result: string | null
+          at_bat_seq: number
+          balls_after: number
+          balls_before: number
+          batter_key: string
+          batter_number: string
+          batter_team: string
+          contact_quality: string | null
+          created_at: string
+          game_id: string
+          id: string
+          inning: number
+          logged_by: string
+          numeric_code: string | null
+          pitch_seq: number
+          pitch_type_id: string | null
+          pitcher_id: string
+          result: string
+          spray_zone: string | null
+          strikes_after: number
+          strikes_before: number
+        }
+        Insert: {
+          ab_result?: string | null
+          at_bat_seq: number
+          balls_after: number
+          balls_before: number
+          batter_key: string
+          batter_number: string
+          batter_team: string
+          contact_quality?: string | null
+          created_at?: string
+          game_id: string
+          id?: string
+          inning: number
+          logged_by: string
+          numeric_code?: string | null
+          pitch_seq: number
+          pitch_type_id?: string | null
+          pitcher_id: string
+          result: string
+          spray_zone?: string | null
+          strikes_after: number
+          strikes_before: number
+        }
+        Update: {
+          ab_result?: string | null
+          at_bat_seq?: number
+          balls_after?: number
+          balls_before?: number
+          batter_key?: string
+          batter_number?: string
+          batter_team?: string
+          contact_quality?: string | null
+          created_at?: string
+          game_id?: string
+          id?: string
+          inning?: number
+          logged_by?: string
+          numeric_code?: string | null
+          pitch_seq?: number
+          pitch_type_id?: string | null
+          pitcher_id?: string
+          result?: string
+          spray_zone?: string | null
+          strikes_after?: number
+          strikes_before?: number
+        }
+        Relationships: []
+      }
+      pitch_types: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          label: string
+          org_id: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          label: string
+          org_id: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          label?: string
+          org_id?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       pitchers: {
         Row: {
           created_at: string
@@ -644,7 +770,7 @@ export type Database = {
       app_role: "head_coach" | "assistant_coach" | "player"
       dev_status: "working_on" | "got_it"
       game_status: "active" | "ended"
-      game_type: "scout" | "learning"
+      game_type: "scout" | "learning" | "pitch"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -775,7 +901,7 @@ export const Constants = {
       app_role: ["head_coach", "assistant_coach", "player"],
       dev_status: ["working_on", "got_it"],
       game_status: ["active", "ended"],
-      game_type: ["scout", "learning"],
+      game_type: ["scout", "learning", "pitch"],
     },
   },
 } as const
