@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
+import { usePitchLineup } from "@/hooks/usePitchLineup";
+import { makeBatterKey } from "@/lib/pitchIntel/types";
 import { usePitchTypes } from "@/hooks/usePitchTypes";
 import { usePitchCodeMap } from "@/hooks/usePitchCodeMap";
 import { applyPitch } from "@/lib/pitchIntel/countEngine";
