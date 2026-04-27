@@ -4,20 +4,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow } from "@/hooks/useActiveGame";
-
-interface Obs {
-  id: string;
-  player_id: string;
-  inning: number;
-  is_team_level: boolean;
-  jersey_number: string | null;
-  tags: string[] | null;
-  key_play: string | null;
-  steal_it: string | null;
-  pitcher_id: string | null;
-  applies_to_team: string | null;
-  created_at: string;
-}
+import { CoachIntelSummary } from "./CoachIntelSummary";
+import type { RawObs } from "@/lib/dashboardIntel";
+import { ChevronDown } from "lucide-react";
 
 interface Pitcher {
   id: string;
@@ -27,13 +16,54 @@ interface Pitcher {
   team_side: string | null;
 }
 
+const POSITION_NOISE = new Set([
+  "batter", "runner", "pitcher", "catcher",
+  "p", "c", "1b", "2b", "3b", "ss", "lf", "cf", "rf", "if", "of", "dh",
+  "first base", "second base", "third base", "shortstop",
+  "left field", "center field", "right field",
+  "first baseman", "second baseman", "third baseman",
+  "1 baseman", "2 baseman", "3 baseman",
+  "1 basemen", "2 basemen", "3 basemen",
+  "na", "n/a", "none", "",
+]);
+
+function isNoise(tag: string): boolean {
+  return POSITION_NOISE.has(tag.trim().toLowerCase());
+}
+
+function CollapsibleSection({
+  title,
+  count,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  count?: number;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details className="rounded-xl border bg-card" open={defaultOpen}>
+      <summary className="flex cursor-pointer items-center justify-between gap-2 p-3 text-sm font-medium">
+        <span>
+          {title}
+          {typeof count === "number" && (
+            <span className="ml-2 text-xs text-muted-foreground">({count})</span>
+          )}
+        </span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t p-3">{children}</div>
+    </details>
+  );
+}
+
 export function GameSummaryView({ gameId }: { gameId: string }) {
   const { user, role } = useAuth();
   const isCoach = role === "head_coach" || role === "assistant_coach";
   const [game, setGame] = useState<GameRow | null>(null);
-  const [obs, setObs] = useState<Obs[]>([]);
+  const [obs, setObs] = useState<RawObs[]>([]);
   const [pitchers, setPitchers] = useState<Pitcher[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -57,9 +87,8 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
       }
       const { data: o } = await obsQuery;
 
-      // profiles for coach inning panel
       let profMap: Record<string, string> = {};
-      if (isCoach && o && o.length > 0) {
+      if (o && o.length > 0) {
         const ids = Array.from(new Set(o.map((x) => x.player_id)));
         const { data: profs } = await supabase
           .from("profiles")
@@ -71,7 +100,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
       if (!cancel) {
         setGame((g as GameRow | null) ?? null);
         setPitchers((p as Pitcher[]) ?? []);
-        setObs((o as Obs[]) ?? []);
+        setObs((o as RawObs[]) ?? []);
         setProfiles(profMap);
         setLoading(false);
       }
@@ -99,19 +128,17 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     );
   }
 
-  // Split job-scoped observations from regular team observations
   const jobObs = obs.filter((o) => o.applies_to_team?.startsWith("job:"));
   const teamObs = obs.filter((o) => !o.applies_to_team?.startsWith("job:"));
-
-  // Group team tags into counts per inning, split by applies_to_team
   const innings = Array.from(new Set(teamObs.map((o) => o.inning))).sort((a, b) => a - b);
-  const tagCountsByTeam = (rows: Obs[]) => {
-    // Map<tag, Map<team-or-unspecified, count>>
+
+  const tagCountsByTeam = (rows: RawObs[]) => {
     const map = new Map<string, Map<string, number>>();
     for (const r of rows) {
       if (!r.tags) continue;
       const teamKey = r.applies_to_team ?? "Unspecified";
       for (const t of r.tags) {
+        if (isNoise(t)) continue;
         if (!map.has(t)) map.set(t, new Map());
         const inner = map.get(t)!;
         inner.set(teamKey, (inner.get(teamKey) ?? 0) + 1);
@@ -124,7 +151,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     );
   };
 
-  const keyPlays = teamObs.filter((o) => o.key_play);
+  const allKeyPlays = teamObs.filter((o) => o.key_play && o.key_play.trim().length > 0);
   const steals = obs.filter((o) => o.steal_it);
   const playerInning = new Map<string, number>();
   for (const o of obs) {
@@ -132,16 +159,16 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
     if (o.inning > cur) playerInning.set(o.player_id, o.inning);
   }
 
-  // Group job observations by assignment
-  const jobGroups = new Map<string, Obs[]>();
+  const jobGroups = new Map<string, RawObs[]>();
   for (const o of jobObs) {
-    const key = o.applies_to_team!.slice(4); // strip "job:"
+    const key = o.applies_to_team!.slice(4);
     if (!jobGroups.has(key)) jobGroups.set(key, []);
     jobGroups.get(key)!.push(o);
   }
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-6 pb-6 space-y-5">
+      {/* Header */}
       <div>
         <p className="text-xs uppercase tracking-wider text-muted-foreground">
           {game.status === "ended" ? "Final" : "In progress"} · {new Date(game.game_date).toLocaleDateString()}
@@ -163,144 +190,13 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
         </p>
       )}
 
-      {isCoach && playerInning.size > 0 && (
-        <section className="rounded-2xl border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold">Player progress</h2>
-          <ul className="space-y-1 text-sm">
-            {Array.from(playerInning.entries()).map(([pid, inn]) => (
-              <li key={pid} className="flex justify-between">
-                <span>{profiles[pid] ?? "Unknown"}</span>
-                <span className="font-medium">Inning {inn}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* COACH INTEL — top of page */}
+      <CoachIntelSummary obs={teamObs} />
 
-      <section>
-        <h2 className="mb-2 text-sm font-semibold">Observations by inning</h2>
-        {innings.length === 0 ? (
-          <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            No observations.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {innings.map((i) => {
-              const rows = teamObs.filter((o) => o.inning === i);
-              const counts = tagCountsByTeam(rows);
-              const players = rows.filter((r) => !r.is_team_level);
-              return (
-                <div key={i} className="rounded-xl border bg-card p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Inning {i}
-                  </p>
-                  {counts.length > 0 && (
-                    <ul className="mb-2 space-y-1">
-                      {counts.map(([tag, teamMap]) => (
-                        <li key={tag} className="flex flex-wrap items-center gap-1.5 text-xs">
-                          <span className="font-medium">{tag}</span>
-                          {Array.from(teamMap.entries()).map(([team, c]) => (
-                            <span
-                              key={team}
-                              className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] text-primary"
-                            >
-                              ×{c} vs {team}
-                            </span>
-                          ))}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {players.length > 0 && (
-                    <ul className="space-y-1 text-sm">
-                      {players.map((p) => (
-                        <li key={p.id}>
-                          <span className="mr-1.5 inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">
-                            #{p.jersey_number}
-                          </span>
-                          {p.applies_to_team && (
-                            <span className="mr-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                              {p.applies_to_team}
-                            </span>
-                          )}
-                          {p.tags?.join(", ")}
-                          {p.key_play && <span className="italic"> — "{p.key_play}"</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {jobGroups.size > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Assignment notes</h2>
-          <div className="space-y-3">
-            {Array.from(jobGroups.entries()).map(([assignment, rows]) => {
-              const counts = new Map<string, number>();
-              for (const r of rows) {
-                for (const t of r.tags ?? []) {
-                  counts.set(t, (counts.get(t) ?? 0) + 1);
-                }
-              }
-              const sortedCounts = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-              const notes = rows
-                .filter((r) => r.key_play)
-                .sort((a, b) => a.inning - b.inning);
-              return (
-                <div key={assignment} className="rounded-xl border bg-card p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {assignment}
-                  </p>
-                  {sortedCounts.length > 0 && (
-                    <ul className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                      {sortedCounts.map(([tag, c]) => (
-                        <li key={tag} className="text-muted-foreground">
-                          <span className="font-medium text-foreground">{tag}</span> ×{c}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {notes.length > 0 && (
-                    <ul className="space-y-1 text-sm">
-                      {notes.map((n) => (
-                        <li key={n.id}>
-                          <span className="mr-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
-                            I{n.inning}
-                          </span>
-                          <span className="italic">"{n.key_play}"</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {keyPlays.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Key plays</h2>
-          <ul className="space-y-2">
-            {keyPlays.map((k) => (
-              <li key={k.id} className="rounded-xl border bg-card p-3 text-sm">
-                <span className="text-xs text-muted-foreground">Inning {k.inning} · </span>
-                {k.key_play}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
+      {/* Pitchers */}
       {pitchers.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold">Pitchers</h2>
+          <h2 className="mb-2 text-sm font-semibold">⚾ Pitchers</h2>
           {(() => {
             const groups: { label: string; list: Pitcher[] }[] = [
               { label: game.away_team, list: pitchers.filter((p) => p.team_side === "away") },
@@ -320,48 +216,54 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
                         const counts = new Map<string, { c: number; last: number }>();
                         for (const o of pObs) {
                           for (const t of o.tags ?? []) {
+                            if (isNoise(t)) continue;
                             const cur = counts.get(t) ?? { c: 0, last: o.inning };
                             cur.c += 1;
                             if (o.inning > cur.last) cur.last = o.inning;
                             counts.set(t, cur);
                           }
                         }
-                        const sorted = Array.from(counts.entries()).sort(
-                          (a, b) => b[1].c - a[1].c,
-                        );
-                        const firstSeen =
-                          pObs.length > 0
-                            ? pObs.reduce(
-                                (min, o) => (o.inning < min ? o.inning : min),
-                                pObs[0].inning,
-                              )
-                            : null;
+                        const sorted = Array.from(counts.entries()).sort((a, b) => b[1].c - a[1].c);
+                        const firstSeen = pObs.length > 0
+                          ? pObs.reduce((min, o) => (o.inning < min ? o.inning : min), pObs[0].inning)
+                          : null;
+                        const pitcherNotes = pObs
+                          .filter((o) => o.key_play && o.key_play.trim().length > 0)
+                          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
                         return (
                           <li key={p.id} className="rounded-xl border bg-card p-3 text-sm">
                             <p className="font-semibold">
                               #{p.jersey_number}
-                              {p.name && (
-                                <span className="text-muted-foreground"> — {p.name}</span>
-                              )}
+                              {p.name && <span className="text-muted-foreground"> — {p.name}</span>}
                             </p>
                             {firstSeen !== null && (
                               <p className="text-[11px] text-muted-foreground">
                                 First seen Inning {firstSeen}
                               </p>
                             )}
-                            {p.notes && (
-                              <p className="text-xs text-muted-foreground">{p.notes}</p>
-                            )}
+                            {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
                             {sorted.length > 0 && (
                               <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                                 {sorted.map(([tag, v]) => (
                                   <li key={tag} className="text-muted-foreground">
-                                    <span className="font-medium text-foreground">{tag}</span> ×
-                                    {v.c}
+                                    <span className="font-medium text-foreground">{tag}</span> ×{v.c}
                                     <span className="ml-1 opacity-70">(last I{v.last})</span>
                                   </li>
                                 ))}
                               </ul>
+                            )}
+                            {pitcherNotes.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                  Scout Notes ({pitcherNotes.length})
+                                </p>
+                                {pitcherNotes.map((n) => (
+                                  <div key={n.id} className="rounded-md border bg-background/60 px-2 py-1 text-xs">
+                                    <p className="whitespace-pre-wrap">{n.key_play}</p>
+                                    <p className="mt-0.5 text-[10px] text-muted-foreground">Inning {n.inning}</p>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </li>
                         );
@@ -375,6 +277,7 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
         </section>
       )}
 
+      {/* Steal It Wall */}
       {steals.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-semibold">🔥 Steal It wall</h2>
@@ -388,6 +291,143 @@ export function GameSummaryView({ gameId }: { gameId: string }) {
           </ul>
         </section>
       )}
+
+      {/* RAW DATA — collapsed by default */}
+      <div className="space-y-2 pt-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Raw data
+        </p>
+
+        {isCoach && playerInning.size > 0 && (
+          <CollapsibleSection title="Player progress" count={playerInning.size}>
+            <ul className="space-y-1 text-sm">
+              {Array.from(playerInning.entries()).map(([pid, inn]) => (
+                <li key={pid} className="flex justify-between">
+                  <span>{profiles[pid] ?? "Unknown"}</span>
+                  <span className="font-medium">Inning {inn}</span>
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+        )}
+
+        {innings.length > 0 && (
+          <CollapsibleSection title="Observations by inning" count={innings.length}>
+            <div className="space-y-3">
+              {innings.map((i) => {
+                const rows = teamObs.filter((o) => o.inning === i);
+                const counts = tagCountsByTeam(rows);
+                const players = rows.filter((r) => !r.is_team_level);
+                return (
+                  <div key={i} className="rounded-lg border bg-background p-2">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Inning {i}
+                    </p>
+                    {counts.length > 0 && (
+                      <ul className="mb-2 space-y-1">
+                        {counts.map(([tag, teamMap]) => (
+                          <li key={tag} className="flex flex-wrap items-center gap-1.5 text-xs">
+                            <span className="font-medium">{tag}</span>
+                            {Array.from(teamMap.entries()).map(([team, c]) => (
+                              <span
+                                key={team}
+                                className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] text-primary"
+                              >
+                                ×{c} vs {team}
+                              </span>
+                            ))}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {players.length > 0 && (
+                      <ul className="space-y-1 text-sm">
+                        {players.map((pp) => {
+                          const cleanedTags = (pp.tags ?? []).filter((t) => !isNoise(t));
+                          const positionTags = (pp.tags ?? []).filter((t) => isNoise(t) && t.trim().length > 0);
+                          return (
+                            <li key={pp.id}>
+                              <span className="mr-1.5 inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">
+                                #{pp.jersey_number}
+                              </span>
+                              {positionTags.map((pt) => (
+                                <span key={pt} className="mr-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                  {pt}
+                                </span>
+                              ))}
+                              {cleanedTags.join(", ")}
+                              {pp.key_play && <span className="italic"> — "{pp.key_play}"</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {jobGroups.size > 0 && (
+          <CollapsibleSection title="Assignment notes" count={jobGroups.size}>
+            <div className="space-y-3">
+              {Array.from(jobGroups.entries()).map(([assignment, rows]) => {
+                const counts = new Map<string, number>();
+                for (const r of rows) {
+                  for (const t of r.tags ?? []) {
+                    if (isNoise(t)) continue;
+                    counts.set(t, (counts.get(t) ?? 0) + 1);
+                  }
+                }
+                const sortedCounts = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+                const notes = rows.filter((r) => r.key_play).sort((a, b) => a.inning - b.inning);
+                return (
+                  <div key={assignment} className="rounded-lg border bg-background p-2">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {assignment}
+                    </p>
+                    {sortedCounts.length > 0 && (
+                      <ul className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {sortedCounts.map(([tag, c]) => (
+                          <li key={tag} className="text-muted-foreground">
+                            <span className="font-medium text-foreground">{tag}</span> ×{c}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {notes.length > 0 && (
+                      <ul className="space-y-1 text-sm">
+                        {notes.map((n) => (
+                          <li key={n.id}>
+                            <span className="mr-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+                              I{n.inning}
+                            </span>
+                            <span className="italic">"{n.key_play}"</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {allKeyPlays.length > 0 && (
+          <CollapsibleSection title="All raw notes" count={allKeyPlays.length}>
+            <ul className="space-y-2">
+              {allKeyPlays.map((k) => (
+                <li key={k.id} className="rounded-lg border bg-background p-2 text-sm">
+                  <span className="text-xs text-muted-foreground">Inning {k.inning} · </span>
+                  {k.key_play}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+        )}
+      </div>
 
       <Link to="/" search={{ restricted: undefined }}>
         <Button variant="outline" className="w-full">

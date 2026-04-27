@@ -13,6 +13,7 @@ import {
   type MustKnowItem,
   type AttackBucket,
 } from "@/lib/dashboardIntel";
+import { CoachIntelSummary } from "@/components/scout/CoachIntelSummary";
 import { useAiCoachCall } from "@/hooks/useAiCoachCall";
 import type { PitcherCoachCallInput } from "@/server/pitcherCoachCall.functions";
 import { Pin, PinOff, Sparkles } from "lucide-react";
@@ -289,128 +290,42 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
         </div>
       </section>
 
-      {/* Top 5 Must Know */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">⚡ Top 5 Must Know</h2>
-          {isCoach && (
-            <span className="text-[10px] text-muted-foreground">
-              Tap pin to promote
-            </span>
-          )}
-        </div>
-        {mustKnow.length === 0 ? (
-          <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            No intel logged yet.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {mustKnow.map((m) => (
-              <li
-                key={m.key}
-                className={cn(
-                  "rounded-xl border-2 bg-card p-3 shadow-card",
-                  m.pinned
-                    ? "border-amber-500/70 bg-amber-50/50 dark:bg-amber-950/20"
-                    : "border-border",
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {m.pinned && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-                          <Pin className="h-3 w-3" /> Pinned
-                        </span>
-                      )}
-                      {m.jersey && (
-                        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">
-                          #{m.jersey}
-                        </span>
-                      )}
-                      <span className="font-semibold">{m.tag}</span>
-                      <TeamChip team={m.appliesTo} />
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                      {m.count > 0 && (
-                        <span>
-                          Seen {m.count}× · innings {m.innings.join(", ")}
-                        </span>
-                      )}
-                      {m.observers.size > 1 && (
-                        <span>· {m.observers.size} observers</span>
-                      )}
-                      <ConfidenceChip level={m.confidence} />
-                    </div>
-                    {m.sampleNote && (
-                      <p className="mt-1.5 text-xs italic text-muted-foreground">
-                        "{m.sampleNote}"
-                      </p>
-                    )}
-                  </div>
-                  {isCoach && (
-                    <button
-                      type="button"
-                      onClick={() => togglePin(m)}
-                      className={cn(
-                        "shrink-0 rounded-lg border p-2 transition-colors",
-                        m.pinned
-                          ? "border-amber-500/70 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
-                          : "border-border bg-background hover:bg-muted",
-                      )}
-                      aria-label={m.pinned ? "Unpin" : "Pin to Top 5"}
-                    >
-                      {m.pinned ? (
-                        <PinOff className="h-4 w-4" />
-                      ) : (
-                        <Pin className="h-4 w-4" />
-                      )}
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {/* Coach Intel: Must Know + Attack Plan + Alerts + Confirmed Reads */}
+      <CoachIntelSummary obs={teamObs} pins={pins} />
 
-      {/* Attack Plan */}
-      <section>
-        <h2 className="mb-2 text-sm font-semibold">🎯 Attack Plan</h2>
-        {ATTACK_BUCKET_ORDER.every((b) => attackPlan[b].length === 0) ? (
-          <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-            No actionable reads yet.
-          </p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {ATTACK_BUCKET_ORDER.map((bucket) => {
-              const actions = attackPlan[bucket];
-              if (actions.length === 0) return null;
-              return (
-                <div key={bucket} className="rounded-xl border bg-card p-3">
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    {ATTACK_BUCKET_ICON[bucket]} {bucket}
-                  </p>
-                  <ul className="space-y-1.5">
-                    {actions.slice(0, 5).map((a) => (
-                      <li
-                        key={`${a.tag}-${a.appliesTo ?? ""}`}
-                        className="text-sm leading-snug"
-                      >
-                        <span className="font-medium">{a.action}</span>
-                        <span className="ml-1 text-[11px] text-muted-foreground">
-                          ({a.tag}
-                          {a.count > 1 ? ` ×${a.count}` : ""})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      {/* Pin controls (coaches only) — promote any Must Know to a permanent pin */}
+      {isCoach && mustKnow.length > 0 && (
+        <section>
+          <details className="rounded-xl border bg-card">
+            <summary className="cursor-pointer p-3 text-xs font-medium text-muted-foreground">
+              Pin items to Top 5 ({mustKnow.filter((m) => m.pinned).length} pinned)
+            </summary>
+            <ul className="space-y-1 border-t p-3">
+              {mustKnow.map((m) => (
+                <li key={m.key} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate">
+                    {m.jersey ? `#${m.jersey} ` : ""}
+                    <span className="font-medium">{m.tag}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => togglePin(m)}
+                    className={cn(
+                      "shrink-0 rounded-lg border p-1.5 transition-colors",
+                      m.pinned
+                        ? "border-amber-500/70 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                        : "border-border bg-background hover:bg-muted",
+                    )}
+                    aria-label={m.pinned ? "Unpin" : "Pin"}
+                  >
+                    {m.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </section>
+      )}
 
       {/* Pitcher Breakdown */}
       <section>
@@ -433,13 +348,18 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
         )}
       </section>
 
-      {/* Role Intel */}
+      {/* Role Intel — collapsed by default (raw) */}
       {roleIntel.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">🧠 Role Intel</h2>
-          <ul className="space-y-2">
+        <details className="rounded-xl border bg-card">
+          <summary className="cursor-pointer p-3 text-sm font-medium">
+            🧠 Role Intel
+            <span className="ml-2 text-xs text-muted-foreground">
+              ({roleIntel.length} assignments)
+            </span>
+          </summary>
+          <ul className="space-y-2 border-t p-3">
             {roleIntel.map((r) => (
-              <li key={r.assignment} className="rounded-xl border bg-card p-3">
+              <li key={r.assignment} className="rounded-xl border bg-background p-3">
                 <p className="text-sm font-semibold">{r.assignment}</p>
                 {r.tagCounts.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
@@ -450,9 +370,7 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
                       >
                         {t.tag}
                         {t.count > 1 && (
-                          <span className="ml-1 text-muted-foreground">
-                            ×{t.count}
-                          </span>
+                          <span className="ml-1 text-muted-foreground">×{t.count}</span>
                         )}
                       </span>
                     ))}
@@ -476,7 +394,7 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       )}
 
       {/* Steal It Wall */}
