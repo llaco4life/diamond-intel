@@ -240,18 +240,33 @@ function BatterProfile() {
         </div>
       </header>
 
-      <div className="mb-3 flex items-center gap-3 rounded-2xl border border-primary/40 bg-primary/5 p-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <span className="text-xl font-black tabular-nums">#{jersey}</span>
-        </div>
-        <div className="min-w-0">
-          <div className="text-base font-bold">{batterTeam}</div>
-          <div className="text-xs text-muted-foreground">
-            {activePitcher
-              ? `vs #${activePitcher.jersey_number}${activePitcher.name ? ` ${activePitcher.name}` : ""} · ${totalPitchesThisPitcher} pitches`
-              : "No pitcher selected"}
+      <div className="mb-3 rounded-2xl border border-primary/40 bg-primary/5 p-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <span className="text-xl font-black tabular-nums">#{jersey}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-bold">
+              {displayName ? `${displayName} ` : ""}<span className="text-muted-foreground">· {batterTeam}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {activePitcher
+                ? `vs #${activePitcher.jersey_number}${activePitcher.name ? ` ${activePitcher.name}` : ""} · ${totalPitchesThisPitcher} pitches`
+                : "No pitcher selected"}
+            </div>
           </div>
         </div>
+        {slot && slot.subs.length > 0 && (
+          <div className="mt-2 space-y-0.5 border-t border-primary/20 pt-2 text-[11px] text-muted-foreground">
+            <div className="font-semibold uppercase text-[10px]">Previous occupants</div>
+            {slot.subs.map((s, i) => (
+              <div key={i}>
+                #{s.jersey}{s.name ? ` ${s.name}` : ""} — Inning {s.inning}
+                {s.note ? ` · ${s.note}` : ""}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <Tabs defaultValue="current">
