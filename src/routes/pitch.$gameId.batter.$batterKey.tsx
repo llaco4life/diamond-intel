@@ -72,6 +72,25 @@ function BatterProfile() {
   const jersey = slot?.jersey ?? (isSlotKey ? "?" : parts[1]);
   const displayName = slot?.name;
 
+  const { index: currentBatterIndex, setIndex: setCurrentBatterIndex } = useCurrentBatter(
+    gameId,
+    batterTeam,
+    lineup.length,
+  );
+
+  const goToNextBatter = () => {
+    if (lineup.length === 0) return;
+    const nextIdx = (currentBatterIndex + 1) % lineup.length;
+    setCurrentBatterIndex(nextIdx);
+    const nextSlot = lineup[nextIdx];
+    if (!nextSlot) return;
+    const nextKey = makeBatterKey(batterTeam, `slot:${nextSlot.slotId}`);
+    navigate({
+      to: "/pitch/$gameId/batter/$batterKey",
+      params: { gameId, batterKey: encodeURIComponent(nextKey) },
+    });
+  };
+
   const [game, setGame] = useState<GameRow | null>(null);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
   const [activePitcherId, setActivePitcherId] = useState<string>("");
