@@ -197,7 +197,7 @@ export function LearningLobby({
                     label="Delete session"
                   />
                   <Button size="sm" onClick={() => onResume(g)}>
-                    Resume
+                    Join Session
                   </Button>
                 </div>
               </li>
