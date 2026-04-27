@@ -363,6 +363,7 @@ function BatterProfile() {
           })()}
         </TabsContent>
 
+        <TabsContent value="previous" className="mt-3 space-y-2">
           {completePas.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed at-bats yet.</p>
           ) : (
