@@ -5,19 +5,45 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import {
   computeMustKnow,
-  computeAttackPlan,
   computePitcherCall,
   computeRoleIntel,
+  resolveScoutSides,
+  splitByTeamSide,
   type RawObs,
   type PinnedItem,
   type MustKnowItem,
-  type AttackBucket,
+  type ScoutKind,
 } from "@/lib/dashboardIntel";
 import { CoachIntelSummary } from "@/components/scout/CoachIntelSummary";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAiCoachCall } from "@/hooks/useAiCoachCall";
 import type { PitcherCoachCallInput } from "@/server/pitcherCoachCall.functions";
 import { Pin, PinOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+
+const SCOUT_TYPE_KEY = (gameId: string) => `scoutType:${gameId}`;
+type ScoutTypeOverride = ScoutKind | "auto";
+
+function loadScoutTypeOverride(gameId: string): ScoutTypeOverride {
+  if (typeof window === "undefined") return "auto";
+  try {
+    const v = window.localStorage.getItem(SCOUT_TYPE_KEY(gameId));
+    if (v === "upcoming_opponent" || v === "neutral") return v;
+  } catch {
+    // ignore
+  }
+  return "auto";
+}
+
+function saveScoutTypeOverride(gameId: string, v: ScoutTypeOverride) {
+  if (typeof window === "undefined") return;
+  try {
+    if (v === "auto") window.localStorage.removeItem(SCOUT_TYPE_KEY(gameId));
+    else window.localStorage.setItem(SCOUT_TYPE_KEY(gameId), v);
+  } catch {
+    // ignore
+  }
+}
 
 interface GameRow {
   id: string;
