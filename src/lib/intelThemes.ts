@@ -346,7 +346,8 @@ export function scoreNotes(obs: RawObs[]): ScoredNote[] {
 }
 
 /** Top-N highest-signal notes, but skip notes whose theme is already shown
- * as a cluster (avoid the "same idea three times" problem). */
+ * as a cluster (avoid the "same idea three times" problem). Tie-break by
+ * actionability (via theme) → observerCount → score. */
 export function pickConfirmedReads(
   scored: ScoredNote[],
   clusters: NoteCluster[],
@@ -355,10 +356,22 @@ export function pickConfirmedReads(
   const clusteredThemes = new Set(
     clusters.filter((c) => c.notes.length >= 2).map((c) => c.themeId),
   );
+
+  // Re-rank with explicit actionability emphasis.
+  const themeActionability = new Map<ThemeId, number>(
+    clusters.map((c) => [c.themeId, c.theme.actionability]),
+  );
+  const ranked = [...scored].sort((a, b) => {
+    const aAct = Math.max(0, ...a.themeIds.map((t) => themeActionability.get(t) ?? 0));
+    const bAct = Math.max(0, ...b.themeIds.map((t) => themeActionability.get(t) ?? 0));
+    if (bAct !== aAct) return bAct - aAct;
+    if (b.observerCount !== a.observerCount) return b.observerCount - a.observerCount;
+    return b.score - a.score;
+  });
+
   const result: ScoredNote[] = [];
   const seenThemes = new Set<ThemeId>();
-  for (const s of scored) {
-    // If this note belongs to a cluster, only include the highest-signal one
+  for (const s of ranked) {
     const overlap = s.themeIds.find((t) => clusteredThemes.has(t));
     if (overlap) {
       if (seenThemes.has(overlap)) continue;
