@@ -145,6 +145,10 @@ export function computeMustKnow(
   pinned: PinnedItem[],
   limit = 5,
 ): MustKnowItem[] {
+  // Lazy import to avoid cycle
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { isPositionLabel, clusterByTheme } = require("./intelThemes") as typeof import("./intelThemes");
+
   // Aggregate by (tag, applies_to_team, jersey).
   const buckets = new Map<string, MustKnowItem>();
   for (const o of obs) {
@@ -153,6 +157,7 @@ export function computeMustKnow(
       // Role intel handled separately
     }
     for (const tag of o.tags) {
+      if (isPositionLabel(tag)) continue;
       const key = obsKey(o, tag);
       let b = buckets.get(key);
       if (!b) {
