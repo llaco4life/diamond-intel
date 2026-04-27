@@ -96,19 +96,7 @@ function ConfidenceChip({ level }: { level: "High" | "Medium" }) {
   );
 }
 
-const ATTACK_BUCKET_ORDER: AttackBucket[] = [
-  "Offense",
-  "Our Pitching Plan",
-  "Defense",
-  "Baserunning",
-];
-
-const ATTACK_BUCKET_ICON: Record<AttackBucket, string> = {
-  Offense: "🏏",
-  "Our Pitching Plan": "🎯",
-  Defense: "🛡️",
-  Baserunning: "🏃",
-};
+// (Attack Plan rendering moved into CoachIntelSummary.)
 
 export function ScoutingReportView({ gameId }: { gameId: string }) {
   const { user } = useAuth();
