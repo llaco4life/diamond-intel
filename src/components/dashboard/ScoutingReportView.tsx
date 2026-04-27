@@ -99,7 +99,11 @@ function ConfidenceChip({ level }: { level: "High" | "Medium" }) {
 // (Attack Plan rendering moved into CoachIntelSummary.)
 
 export function ScoutingReportView({ gameId }: { gameId: string }) {
-  const { user } = useAuth();
+  const { user, org } = useAuth();
+  const [scoutOverride, setScoutOverride] = useState<ScoutTypeOverride>(() =>
+    loadScoutTypeOverride(gameId),
+  );
+  const [activeTab, setActiveTab] = useState<string>("primary");
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<GameRow | null>(null);
   const [opponentName, setOpponentName] = useState<string | null>(null);
