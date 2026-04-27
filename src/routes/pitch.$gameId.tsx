@@ -13,29 +13,28 @@ import {
   ChevronRight,
   Pencil,
   Repeat,
+  Users,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
 import { usePitchLineup, type LineupSlot } from "@/hooks/usePitchLineup";
+import { useCurrentBatter } from "@/hooks/useCurrentBatter";
 import { makeBatterKey, type PitchEntryRow } from "@/lib/pitchIntel/types";
 import { PitcherFatigueBar } from "@/components/pitch/PitcherFatigueBar";
 import { BatterEditDialog } from "@/components/pitch/BatterEditDialog";
-
-interface PitcherRow {
-  id: string;
-  jersey_number: string;
-  name: string | null;
-  team_side: string | null;
-  is_active: boolean;
-}
+import { ScoreboardBanner } from "@/components/pitch/ScoreboardBanner";
+import { NextBatterBanner } from "@/components/pitch/NextBatterBanner";
+import { PitcherManagerDialog, type ManagedPitcher } from "@/components/pitch/PitcherManagerDialog";
 
 interface GameRow {
   id: string;
   home_team: string;
   away_team: string;
   current_inning: number;
+  home_score: number;
+  away_score: number;
 }
 
 export const Route = createFileRoute("/pitch/$gameId")({
@@ -55,15 +54,21 @@ function PitchGameScreen() {
   const navigate = useNavigate();
 
   const [game, setGame] = useState<GameRow | null>(null);
-  const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
+  const [pitchers, setPitchers] = useState<ManagedPitcher[]>([]);
   const [activePitcherId, setActivePitcherId] = useState<string>("");
   const [inning, setInning] = useState(1);
   const [batterTeam, setBatterTeam] = useState<string>("");
+  const [outs, setOuts] = useState(0);
+  const [pitcherMgrOpen, setPitcherMgrOpen] = useState(false);
 
   const { entries } = usePitchEntries(gameId);
   const { lineup, add, update, remove, substitute } = usePitchLineup(gameId, batterTeam);
+  const { index: currentBatterIndex, setIndex: setCurrentBatterIndex } = useCurrentBatter(
+    gameId,
+    batterTeam,
+    lineup.length,
+  );
 
-  // Dialog state
   const [editSlot, setEditSlot] = useState<LineupSlot | null>(null);
   const [subSlot, setSubSlot] = useState<LineupSlot | null>(null);
 
@@ -71,7 +76,7 @@ function PitchGameScreen() {
     void (async () => {
       const { data: g } = await supabase
         .from("games")
-        .select("id,home_team,away_team,current_inning")
+        .select("id,home_team,away_team,current_inning,home_score,away_score")
         .eq("id", gameId)
         .maybeSingle();
       if (!g) return;
@@ -81,52 +86,100 @@ function PitchGameScreen() {
 
       const { data: ps } = await supabase
         .from("pitchers")
-        .select("id,jersey_number,name,team_side,is_active")
+        .select("id,jersey_number,name,is_active")
         .eq("game_id", gameId);
-      const list = (ps ?? []) as PitcherRow[];
+      const list = (ps ?? []) as ManagedPitcher[];
       setPitchers(list);
       const active = list.find((p) => p.is_active) ?? list[0];
       if (active) setActivePitcherId(active.id);
     })();
   }, [gameId]);
 
+  // Reset outs when inning changes
+  useEffect(() => {
+    setOuts(0);
+  }, [inning, batterTeam]);
+
   const activePitcher = pitchers.find((p) => p.id === activePitcherId);
-  const totalPitchesThisPitcher = entries.filter((e) => e.pitcher_id === activePitcherId).length;
+  const pitchCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const e of entries) m[e.pitcher_id] = (m[e.pitcher_id] ?? 0) + 1;
+    return m;
+  }, [entries]);
+  const totalPitchesThisPitcher = pitchCounts[activePitcherId] ?? 0;
 
   const switchPitcher = async (id: string) => {
     setActivePitcherId(id);
+    setPitchers((prev) => prev.map((p) => ({ ...p, is_active: p.id === id })));
     await Promise.all([
       supabase.from("pitchers").update({ is_active: false }).eq("game_id", gameId),
       supabase.from("pitchers").update({ is_active: true }).eq("id", id),
     ]);
   };
 
-  // Add pitcher
-  const [addingPitcher, setAddingPitcher] = useState(false);
-  const [newJersey, setNewJersey] = useState("");
-  const [newName, setNewName] = useState("");
-  const addPitcher = async () => {
-    if (!newJersey.trim() || !game) return;
+  const addPitcher = async ({ jersey, name }: { jersey: string; name?: string }) => {
+    if (!game) return;
     const { data, error } = await supabase
       .from("pitchers")
       .insert({
         game_id: gameId,
-        jersey_number: newJersey.trim(),
-        name: newName.trim() || null,
+        jersey_number: jersey,
+        name: name ?? null,
         team_side: batterTeam === game.away_team ? "away" : "home",
         is_active: pitchers.length === 0,
       })
-      .select("id,jersey_number,name,team_side,is_active")
+      .select("id,jersey_number,name,is_active")
       .single();
     if (error) {
       toast.error(error.message);
       return;
     }
-    setPitchers((prev) => [...prev, data as PitcherRow]);
+    setPitchers((prev) => [...prev, data as ManagedPitcher]);
     if (!activePitcherId) setActivePitcherId(data.id);
-    setNewJersey("");
-    setNewName("");
-    setAddingPitcher(false);
+  };
+
+  const updatePitcher = async (id: string, patch: { jersey: string; name?: string }) => {
+    const { error } = await supabase
+      .from("pitchers")
+      .update({ jersey_number: patch.jersey, name: patch.name ?? null })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setPitchers((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, jersey_number: patch.jersey, name: patch.name ?? null } : p)),
+    );
+  };
+
+  const removePitcher = async (id: string) => {
+    const { error } = await supabase.from("pitchers").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setPitchers((prev) => prev.filter((p) => p.id !== id));
+    if (id === activePitcherId) {
+      const next = pitchers.find((p) => p.id !== id);
+      if (next) await switchPitcher(next.id);
+      else setActivePitcherId("");
+    }
+  };
+
+  const changeScore = async (side: "home" | "away", delta: number) => {
+    if (!game) return;
+    const next = Math.max(0, (side === "home" ? game.home_score : game.away_score) + delta);
+    const patch = side === "home" ? { home_score: next } : { away_score: next };
+    setGame({ ...game, ...patch });
+    await supabase.from("games").update(patch).eq("id", gameId);
+  };
+
+  const changeInning = async (v: number) => {
+    setInning(v);
+    if (game) {
+      setGame({ ...game, current_inning: v });
+      await supabase.from("games").update({ current_inning: v }).eq("id", gameId);
+    }
   };
 
   // Add batter
@@ -144,6 +197,11 @@ function PitchGameScreen() {
     return <div className="mx-auto max-w-2xl px-4 pt-6 text-sm text-muted-foreground">Loading game…</div>;
   }
 
+  const isTop = batterTeam === game.away_team;
+  const pitcherLabel = activePitcher
+    ? `#${activePitcher.jersey_number}${activePitcher.name ? ` ${activePitcher.name}` : ""}`
+    : undefined;
+
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
       <header className="mb-3 flex items-center justify-between">
@@ -160,10 +218,26 @@ function PitchGameScreen() {
         </div>
       </header>
 
+      <ScoreboardBanner
+        homeTeam={game.home_team}
+        awayTeam={game.away_team}
+        homeScore={game.home_score}
+        awayScore={game.away_score}
+        inning={inning}
+        isTop={isTop}
+        outs={outs}
+        pitcherLabel={pitcherLabel}
+        pitchCount={totalPitchesThisPitcher}
+        onChangeScore={changeScore}
+        onChangeOuts={(d) => setOuts((o) => Math.max(0, Math.min(3, o + d)))}
+      />
+
+      <NextBatterBanner gameId={gameId} team={batterTeam} lineup={lineup} index={currentBatterIndex} />
+
       <div className="mb-3 grid grid-cols-3 gap-2">
         <div>
           <Label className="text-[10px] uppercase">Inning</Label>
-          <Select value={String(inning)} onValueChange={(v) => setInning(Number(v))}>
+          <Select value={String(inning)} onValueChange={(v) => void changeInning(Number(v))}>
             <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               {inningOptions.map((i) => <SelectItem key={i} value={String(i)}>{i}</SelectItem>)}
@@ -195,31 +269,19 @@ function PitchGameScreen() {
         </div>
       </div>
 
-      {pitchers.length === 0 || addingPitcher ? (
-        <div className="mb-3 space-y-2 rounded-xl border border-dashed border-border p-3">
-          <div className="text-xs font-semibold uppercase text-muted-foreground">
-            {pitchers.length === 0 ? "Add the first pitcher" : "Add a pitcher"}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="#"
-              value={newJersey}
-              onChange={(e) => setNewJersey(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
-              className="w-16 text-center font-bold"
-              inputMode="numeric"
-            />
-            <Input placeholder="name (optional)" value={newName} onChange={(e) => setNewName(e.target.value)} />
-            <Button onClick={addPitcher}>Add</Button>
-          </div>
-          {pitchers.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setAddingPitcher(false)}>Cancel</Button>
-          )}
-        </div>
-      ) : (
-        <Button variant="ghost" size="sm" onClick={() => setAddingPitcher(true)} className="mb-3 text-xs">
-          + Add pitcher
+      <div className="mb-3 flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPitcherMgrOpen(true)}
+          className="h-9 gap-1 text-xs"
+        >
+          <Users className="h-3.5 w-3.5" /> Manage pitchers
         </Button>
-      )}
+        {pitchers.length === 0 && (
+          <span className="text-xs text-muted-foreground">Add a pitcher to start logging</span>
+        )}
+      </div>
 
       {activePitcher && (
         <div className="mb-4">
@@ -239,13 +301,15 @@ function PitchGameScreen() {
       </div>
 
       <ul className="space-y-2">
-        {lineup.map((slot) => (
+        {lineup.map((slot, i) => (
           <li key={slot.slotId}>
             <BatterCard
               gameId={gameId}
               batterTeam={batterTeam}
               slot={slot}
               entries={entries}
+              isCurrent={i === currentBatterIndex}
+              onTapToCurrent={() => setCurrentBatterIndex(i)}
               onEdit={() => setEditSlot(slot)}
               onSub={() => setSubSlot(slot)}
               onRemove={() => handleDeleteSlot(slot)}
@@ -293,11 +357,7 @@ function PitchGameScreen() {
         </p>
       )}
 
-      <div className="mt-6 text-center text-[11px] text-muted-foreground">
-        Pitch logging happens inside each batter card.
-      </div>
-
-      <Link to="/pitch/codes" className="mt-2 block text-center text-xs text-primary hover:underline">
+      <Link to="/pitch/codes" className="mt-6 block text-center text-xs text-primary hover:underline">
         Manage pitcher codes
       </Link>
 
@@ -323,6 +383,17 @@ function PitchGameScreen() {
           }}
         />
       )}
+
+      <PitcherManagerDialog
+        open={pitcherMgrOpen}
+        onClose={() => setPitcherMgrOpen(false)}
+        pitchers={pitchers}
+        pitchCounts={pitchCounts}
+        onAdd={addPitcher}
+        onUpdate={updatePitcher}
+        onMakeActive={switchPitcher}
+        onRemove={removePitcher}
+      />
     </div>
   );
 }
@@ -332,6 +403,8 @@ function BatterCard({
   batterTeam,
   slot,
   entries,
+  isCurrent,
+  onTapToCurrent,
   onEdit,
   onSub,
   onRemove,
@@ -340,12 +413,13 @@ function BatterCard({
   batterTeam: string;
   slot: LineupSlot;
   entries: PitchEntryRow[];
+  isCurrent: boolean;
+  onTapToCurrent: () => void;
   onEdit: () => void;
   onSub: () => void;
   onRemove: () => void;
 }) {
   const slotKey = makeBatterKey(batterTeam, `slot:${slot.slotId}`);
-  // Match entries by new slot key OR any legacy jersey this slot used
   const allKeys = new Set<string>([
     slotKey,
     ...slot.legacyJerseys.map((j) => makeBatterKey(batterTeam, j)),
@@ -375,15 +449,22 @@ function BatterCard({
   const totalPas = sortedAbSeqs.filter((s) => byAb.get(s)!.some((p) => p.ab_result)).length;
 
   const lastSub = slot.subs[slot.subs.length - 1];
-  const display = `#${slot.jersey}${slot.name ? ` ${slot.name}` : ""}`;
+
+  const stop = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   return (
-    <div className="group rounded-2xl border border-border bg-card shadow-sm transition hover:border-primary">
-      <Link
-        to="/pitch/$gameId/batter/$batterKey"
-        params={{ gameId, batterKey: encodeURIComponent(slotKey) }}
-        className="flex items-center gap-3 p-4 active:scale-[0.99]"
-      >
+    <Link
+      to="/pitch/$gameId/batter/$batterKey"
+      params={{ gameId, batterKey: encodeURIComponent(slotKey) }}
+      onClick={onTapToCurrent}
+      className={`relative block rounded-2xl border bg-card shadow-sm transition active:scale-[0.99] ${
+        isCurrent ? "border-primary ring-2 ring-primary/40" : "border-border hover:border-primary"
+      }`}
+    >
+      <div className="flex items-center gap-3 p-4 pr-2">
         <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground">
           <span className="text-[9px] font-bold opacity-80">#{slot.order}</span>
           <span className="text-lg font-black tabular-nums leading-none">#{slot.jersey}</span>
@@ -396,6 +477,11 @@ function BatterCard({
             </span>
             <span className="text-[10px] text-muted-foreground">{batterTeam}</span>
             <span className="text-[10px] text-muted-foreground">{totalPas} PA</span>
+            {isCurrent && (
+              <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                At bat
+              </span>
+            )}
             {activePa && (
               <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
                 Live
@@ -432,37 +518,31 @@ function BatterCard({
         </div>
 
         <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
-      </Link>
+      </div>
 
       <div className="flex items-center justify-end gap-1 border-t border-border/60 px-2 py-1.5">
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          className="h-8 gap-1 px-2 text-xs text-muted-foreground"
+          onClick={(e) => { stop(e); onEdit(); }}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
         >
           <Pencil className="h-3.5 w-3.5" /> Edit
-        </Button>
-        <Button
+        </button>
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onSub}
-          className="h-8 gap-1 px-2 text-xs text-muted-foreground"
+          onClick={(e) => { stop(e); onSub(); }}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
         >
           <Repeat className="h-3.5 w-3.5" /> Sub
-        </Button>
-        <Button
+        </button>
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onRemove}
-          className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
+          onClick={(e) => { stop(e); onRemove(); }}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-destructive"
         >
           <X className="h-3.5 w-3.5" /> Remove
-        </Button>
+        </button>
       </div>
-    </div>
+    </Link>
   );
 }
