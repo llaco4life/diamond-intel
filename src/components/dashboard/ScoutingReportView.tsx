@@ -13,6 +13,7 @@ import {
   type MustKnowItem,
   type AttackBucket,
 } from "@/lib/dashboardIntel";
+import { CoachIntelSummary } from "@/components/scout/CoachIntelSummary";
 import { useAiCoachCall } from "@/hooks/useAiCoachCall";
 import type { PitcherCoachCallInput } from "@/server/pitcherCoachCall.functions";
 import { Pin, PinOff, Sparkles } from "lucide-react";
