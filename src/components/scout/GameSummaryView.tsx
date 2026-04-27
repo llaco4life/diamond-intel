@@ -5,8 +5,28 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow } from "@/hooks/useActiveGame";
 import { CoachIntelSummary } from "./CoachIntelSummary";
-import type { RawObs } from "@/lib/dashboardIntel";
+import { resolveScoutSides, splitByTeamSide, type RawObs, type ScoutKind } from "@/lib/dashboardIntel";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ChevronDown } from "lucide-react";
+
+const SCOUT_TYPE_KEY = (gameId: string) => `scoutType:${gameId}`;
+type ScoutTypeOverride = ScoutKind | "auto";
+
+function loadScoutTypeOverride(gameId: string): ScoutTypeOverride {
+  if (typeof window === "undefined") return "auto";
+  try {
+    const v = window.localStorage.getItem(SCOUT_TYPE_KEY(gameId));
+    if (v === "upcoming_opponent" || v === "neutral") return v;
+  } catch { /* ignore */ }
+  return "auto";
+}
+function saveScoutTypeOverride(gameId: string, v: ScoutTypeOverride) {
+  if (typeof window === "undefined") return;
+  try {
+    if (v === "auto") window.localStorage.removeItem(SCOUT_TYPE_KEY(gameId));
+    else window.localStorage.setItem(SCOUT_TYPE_KEY(gameId), v);
+  } catch { /* ignore */ }
+}
 
 interface Pitcher {
   id: string;
