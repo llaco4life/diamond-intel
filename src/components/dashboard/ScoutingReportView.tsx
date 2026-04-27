@@ -348,13 +348,18 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
         )}
       </section>
 
-      {/* Role Intel */}
+      {/* Role Intel — collapsed by default (raw) */}
       {roleIntel.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">🧠 Role Intel</h2>
-          <ul className="space-y-2">
+        <details className="rounded-xl border bg-card">
+          <summary className="cursor-pointer p-3 text-sm font-medium">
+            🧠 Role Intel
+            <span className="ml-2 text-xs text-muted-foreground">
+              ({roleIntel.length} assignments)
+            </span>
+          </summary>
+          <ul className="space-y-2 border-t p-3">
             {roleIntel.map((r) => (
-              <li key={r.assignment} className="rounded-xl border bg-card p-3">
+              <li key={r.assignment} className="rounded-xl border bg-background p-3">
                 <p className="text-sm font-semibold">{r.assignment}</p>
                 {r.tagCounts.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
@@ -365,9 +370,7 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
                       >
                         {t.tag}
                         {t.count > 1 && (
-                          <span className="ml-1 text-muted-foreground">
-                            ×{t.count}
-                          </span>
+                          <span className="ml-1 text-muted-foreground">×{t.count}</span>
                         )}
                       </span>
                     ))}
@@ -391,7 +394,7 @@ export function ScoutingReportView({ gameId }: { gameId: string }) {
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       )}
 
       {/* Steal It Wall */}
