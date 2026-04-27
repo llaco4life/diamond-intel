@@ -35,6 +35,12 @@ export type Confidence = "High" | "Medium";
 export interface MustKnowItem {
   key: string;                 // stable identity used for pinning
   tag: string;
+  /** Coach-language sentence; falls back to tag when no mapping exists. */
+  headline: string;
+  /** 1 = curiosity, 5 = changes a coaching decision. */
+  actionability: number;
+  /** "scout" = about the scouted team. "ours" = about our own team. */
+  side: "scout" | "ours";
   appliesTo: string | null;    // team it applies to
   jersey: string | null;       // null for team-level
   count: number;
