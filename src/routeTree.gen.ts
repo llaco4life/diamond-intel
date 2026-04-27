@@ -13,15 +13,19 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ScoutRouteImport } from './routes/scout'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PitchRouteImport } from './routes/pitch'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LearningRouteImport } from './routes/learning'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DevelopmentRouteImport } from './routes/development'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PitchCodesRouteImport } from './routes/pitch.codes'
+import { Route as PitchGameIdRouteImport } from './routes/pitch.$gameId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
 import { Route as LearningSummarySessionIdRouteImport } from './routes/learning.summary.$sessionId'
+import { Route as PitchGameIdBatterBatterKeyRouteImport } from './routes/pitch.$gameId.batter.$batterKey'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -41,6 +45,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PitchRoute = PitchRouteImport.update({
+  id: '/pitch',
+  path: '/pitch',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -73,6 +82,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PitchCodesRoute = PitchCodesRouteImport.update({
+  id: '/codes',
+  path: '/codes',
+  getParentRoute: () => PitchRoute,
+} as any)
+const PitchGameIdRoute = PitchGameIdRouteImport.update({
+  id: '/$gameId',
+  path: '/$gameId',
+  getParentRoute: () => PitchRoute,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
@@ -89,6 +108,12 @@ const LearningSummarySessionIdRoute =
     path: '/summary/$sessionId',
     getParentRoute: () => LearningRoute,
   } as any)
+const PitchGameIdBatterBatterKeyRoute =
+  PitchGameIdBatterBatterKeyRouteImport.update({
+    id: '/batter/$batterKey',
+    path: '/batter/$batterKey',
+    getParentRoute: () => PitchGameIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -97,13 +122,17 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/pitch': typeof PitchRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
+  '/pitch/codes': typeof PitchCodesRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -112,13 +141,17 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/pitch': typeof PitchRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
+  '/pitch/codes': typeof PitchCodesRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -128,13 +161,17 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/pitch': typeof PitchRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
+  '/pitch/codes': typeof PitchCodesRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -145,13 +182,17 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/learning'
     | '/login'
+    | '/pitch'
     | '/profile'
     | '/reset-password'
     | '/scout'
     | '/signup'
     | '/invite/$token'
+    | '/pitch/$gameId'
+    | '/pitch/codes'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/pitch/$gameId/batter/$batterKey'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -160,13 +201,17 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/learning'
     | '/login'
+    | '/pitch'
     | '/profile'
     | '/reset-password'
     | '/scout'
     | '/signup'
     | '/invite/$token'
+    | '/pitch/$gameId'
+    | '/pitch/codes'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/pitch/$gameId/batter/$batterKey'
   id:
     | '__root__'
     | '/'
@@ -175,13 +220,17 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/learning'
     | '/login'
+    | '/pitch'
     | '/profile'
     | '/reset-password'
     | '/scout'
     | '/signup'
     | '/invite/$token'
+    | '/pitch/$gameId'
+    | '/pitch/codes'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/pitch/$gameId/batter/$batterKey'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -191,6 +240,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LearningRoute: typeof LearningRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PitchRoute: typeof PitchRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ScoutRoute: typeof ScoutRouteWithChildren
@@ -226,6 +276,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pitch': {
+      id: '/pitch'
+      path: '/pitch'
+      fullPath: '/pitch'
+      preLoaderRoute: typeof PitchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -270,6 +327,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pitch/codes': {
+      id: '/pitch/codes'
+      path: '/codes'
+      fullPath: '/pitch/codes'
+      preLoaderRoute: typeof PitchCodesRouteImport
+      parentRoute: typeof PitchRoute
+    }
+    '/pitch/$gameId': {
+      id: '/pitch/$gameId'
+      path: '/$gameId'
+      fullPath: '/pitch/$gameId'
+      preLoaderRoute: typeof PitchGameIdRouteImport
+      parentRoute: typeof PitchRoute
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
@@ -291,6 +362,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningSummarySessionIdRouteImport
       parentRoute: typeof LearningRoute
     }
+    '/pitch/$gameId/batter/$batterKey': {
+      id: '/pitch/$gameId/batter/$batterKey'
+      path: '/batter/$batterKey'
+      fullPath: '/pitch/$gameId/batter/$batterKey'
+      preLoaderRoute: typeof PitchGameIdBatterBatterKeyRouteImport
+      parentRoute: typeof PitchGameIdRoute
+    }
   }
 }
 
@@ -305,6 +383,30 @@ const LearningRouteChildren: LearningRouteChildren = {
 const LearningRouteWithChildren = LearningRoute._addFileChildren(
   LearningRouteChildren,
 )
+
+interface PitchGameIdRouteChildren {
+  PitchGameIdBatterBatterKeyRoute: typeof PitchGameIdBatterBatterKeyRoute
+}
+
+const PitchGameIdRouteChildren: PitchGameIdRouteChildren = {
+  PitchGameIdBatterBatterKeyRoute: PitchGameIdBatterBatterKeyRoute,
+}
+
+const PitchGameIdRouteWithChildren = PitchGameIdRoute._addFileChildren(
+  PitchGameIdRouteChildren,
+)
+
+interface PitchRouteChildren {
+  PitchGameIdRoute: typeof PitchGameIdRouteWithChildren
+  PitchCodesRoute: typeof PitchCodesRoute
+}
+
+const PitchRouteChildren: PitchRouteChildren = {
+  PitchGameIdRoute: PitchGameIdRouteWithChildren,
+  PitchCodesRoute: PitchCodesRoute,
+}
+
+const PitchRouteWithChildren = PitchRoute._addFileChildren(PitchRouteChildren)
 
 interface ScoutRouteChildren {
   ScoutSummaryGameIdRoute: typeof ScoutSummaryGameIdRoute
@@ -323,6 +425,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LearningRoute: LearningRouteWithChildren,
   LoginRoute: LoginRoute,
+  PitchRoute: PitchRouteWithChildren,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ScoutRoute: ScoutRouteWithChildren,
@@ -332,12 +435,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

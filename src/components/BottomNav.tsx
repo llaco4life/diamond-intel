@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Eye, GraduationCap, LayoutDashboard, Sprout, User } from "lucide-react";
+import { Home, Eye, GraduationCap, LayoutDashboard, Sprout, User, Target } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface NavItem {
@@ -13,6 +13,7 @@ const items: NavItem[] = [
   { to: "/", label: "Home", icon: Home },
   { to: "/scout", label: "Scout", icon: Eye },
   { to: "/learning", label: "Learning", icon: GraduationCap },
+  { to: "/pitch", label: "Pitch", icon: Target },
   { to: "/dashboard", label: "Coach", icon: LayoutDashboard, coachOnly: true },
   { to: "/development", label: "Dev", icon: Sprout },
   { to: "/profile", label: "Profile", icon: User },
