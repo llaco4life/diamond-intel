@@ -20,10 +20,12 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DevelopmentRouteImport } from './routes/development'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PitchCodesRouteImport } from './routes/pitch.codes'
 import { Route as PitchGameIdRouteImport } from './routes/pitch.$gameId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
 import { Route as LearningSummarySessionIdRouteImport } from './routes/learning.summary.$sessionId'
+import { Route as PitchGameIdBatterBatterKeyRouteImport } from './routes/pitch.$gameId.batter.$batterKey'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -80,6 +82,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PitchCodesRoute = PitchCodesRouteImport.update({
+  id: '/codes',
+  path: '/codes',
+  getParentRoute: () => PitchRoute,
+} as any)
 const PitchGameIdRoute = PitchGameIdRouteImport.update({
   id: '/$gameId',
   path: '/$gameId',
@@ -101,6 +108,12 @@ const LearningSummarySessionIdRoute =
     path: '/summary/$sessionId',
     getParentRoute: () => LearningRoute,
   } as any)
+const PitchGameIdBatterBatterKeyRoute =
+  PitchGameIdBatterBatterKeyRouteImport.update({
+    id: '/batter/$batterKey',
+    path: '/batter/$batterKey',
+    getParentRoute: () => PitchGameIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -115,9 +128,11 @@ export interface FileRoutesByFullPath {
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/pitch/$gameId': typeof PitchGameIdRoute
+  '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
+  '/pitch/codes': typeof PitchCodesRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -132,9 +147,11 @@ export interface FileRoutesByTo {
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/pitch/$gameId': typeof PitchGameIdRoute
+  '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
+  '/pitch/codes': typeof PitchCodesRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -150,9 +167,11 @@ export interface FileRoutesById {
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/pitch/$gameId': typeof PitchGameIdRoute
+  '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
+  '/pitch/codes': typeof PitchCodesRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -170,8 +189,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/invite/$token'
     | '/pitch/$gameId'
+    | '/pitch/codes'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/pitch/$gameId/batter/$batterKey'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -187,8 +208,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/invite/$token'
     | '/pitch/$gameId'
+    | '/pitch/codes'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/pitch/$gameId/batter/$batterKey'
   id:
     | '__root__'
     | '/'
@@ -204,8 +227,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/invite/$token'
     | '/pitch/$gameId'
+    | '/pitch/codes'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/pitch/$gameId/batter/$batterKey'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -302,6 +327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pitch/codes': {
+      id: '/pitch/codes'
+      path: '/codes'
+      fullPath: '/pitch/codes'
+      preLoaderRoute: typeof PitchCodesRouteImport
+      parentRoute: typeof PitchRoute
+    }
     '/pitch/$gameId': {
       id: '/pitch/$gameId'
       path: '/$gameId'
@@ -330,6 +362,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningSummarySessionIdRouteImport
       parentRoute: typeof LearningRoute
     }
+    '/pitch/$gameId/batter/$batterKey': {
+      id: '/pitch/$gameId/batter/$batterKey'
+      path: '/batter/$batterKey'
+      fullPath: '/pitch/$gameId/batter/$batterKey'
+      preLoaderRoute: typeof PitchGameIdBatterBatterKeyRouteImport
+      parentRoute: typeof PitchGameIdRoute
+    }
   }
 }
 
@@ -345,12 +384,26 @@ const LearningRouteWithChildren = LearningRoute._addFileChildren(
   LearningRouteChildren,
 )
 
+interface PitchGameIdRouteChildren {
+  PitchGameIdBatterBatterKeyRoute: typeof PitchGameIdBatterBatterKeyRoute
+}
+
+const PitchGameIdRouteChildren: PitchGameIdRouteChildren = {
+  PitchGameIdBatterBatterKeyRoute: PitchGameIdBatterBatterKeyRoute,
+}
+
+const PitchGameIdRouteWithChildren = PitchGameIdRoute._addFileChildren(
+  PitchGameIdRouteChildren,
+)
+
 interface PitchRouteChildren {
-  PitchGameIdRoute: typeof PitchGameIdRoute
+  PitchGameIdRoute: typeof PitchGameIdRouteWithChildren
+  PitchCodesRoute: typeof PitchCodesRoute
 }
 
 const PitchRouteChildren: PitchRouteChildren = {
-  PitchGameIdRoute: PitchGameIdRoute,
+  PitchGameIdRoute: PitchGameIdRouteWithChildren,
+  PitchCodesRoute: PitchCodesRoute,
 }
 
 const PitchRouteWithChildren = PitchRoute._addFileChildren(PitchRouteChildren)
