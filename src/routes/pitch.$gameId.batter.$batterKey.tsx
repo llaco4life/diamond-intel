@@ -335,9 +335,34 @@ function BatterProfile() {
               ))}
             </div>
           )}
+
+          {(() => {
+            const nextSlot = lineup.length
+              ? lineup[(currentBatterIndex + 1) % lineup.length]
+              : null;
+            const paComplete = !activePa && completePas.length > 0;
+            return (
+              <div className="rounded-xl border border-border bg-card p-3">
+                {paComplete && (
+                  <div className="mb-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                    ✓ At-bat saved
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  className="w-full"
+                  variant={paComplete ? "default" : "outline"}
+                  disabled={lineup.length === 0}
+                  onClick={goToNextBatter}
+                >
+                  End at-bat → Next batter
+                  {nextSlot ? `: #${nextSlot.jersey}${nextSlot.name ? ` ${nextSlot.name}` : ""}` : ""}
+                </Button>
+              </div>
+            );
+          })()}
         </TabsContent>
 
-        <TabsContent value="previous" className="mt-3 space-y-2">
           {completePas.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed at-bats yet.</p>
           ) : (
