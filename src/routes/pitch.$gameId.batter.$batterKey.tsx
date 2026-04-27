@@ -56,9 +56,18 @@ function BatterProfileRoute() {
 function BatterProfile() {
   const { gameId, batterKey: rawKey } = Route.useParams();
   const batterKey = decodeURIComponent(rawKey);
-  const [batterTeam, jersey] = batterKey.split(":");
+  const parts = batterKey.split(":");
+  const batterTeam = parts[0];
+  // New form: team:slot:<slotId>  · Legacy form: team:<jersey>
+  const isSlotKey = parts[1] === "slot";
+  const slotId = isSlotKey ? parts.slice(2).join(":") : null;
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const { lineup } = usePitchLineup(gameId, batterTeam);
+  const slot = slotId ? lineup.find((s) => s.slotId === slotId) ?? null : null;
+  const jersey = slot?.jersey ?? (isSlotKey ? "?" : parts[1]);
+  const displayName = slot?.name;
 
   const [game, setGame] = useState<GameRow | null>(null);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
