@@ -140,15 +140,30 @@ function obsKey(o: RawObs, tag: string): string {
   return `${tag}::${team}::${j}`;
 }
 
+const POSITION_LABEL_SET = new Set([
+  "batter", "runner", "pitcher", "catcher",
+  "p", "c", "1b", "2b", "3b", "ss",
+  "lf", "cf", "rf", "if", "of", "dh",
+  "first base", "second base", "third base", "shortstop",
+  "left field", "center field", "right field",
+  "first baseman", "second baseman", "third baseman",
+  "1 baseman", "2 baseman", "3 baseman",
+  "1 basemen", "2 basemen", "3 basemen",
+  "na", "n/a", "none", "",
+]);
+
+function isNoiseTag(tag: string | null | undefined): boolean {
+  if (!tag) return true;
+  const t = tag.trim().toLowerCase();
+  if (t.length === 0) return true;
+  return POSITION_LABEL_SET.has(t);
+}
+
 export function computeMustKnow(
   obs: RawObs[],
   pinned: PinnedItem[],
   limit = 5,
 ): MustKnowItem[] {
-  // Lazy import to avoid cycle
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { isPositionLabel, clusterByTheme } = require("./intelThemes") as typeof import("./intelThemes");
-
   // Aggregate by (tag, applies_to_team, jersey).
   const buckets = new Map<string, MustKnowItem>();
   for (const o of obs) {
@@ -157,7 +172,7 @@ export function computeMustKnow(
       // Role intel handled separately
     }
     for (const tag of o.tags) {
-      if (isPositionLabel(tag)) continue;
+      if (isNoiseTag(tag)) continue;
       const key = obsKey(o, tag);
       let b = buckets.get(key);
       if (!b) {
