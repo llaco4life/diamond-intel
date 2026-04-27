@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
 import { usePitchLineup } from "@/hooks/usePitchLineup";
+import { useCurrentBatter } from "@/hooks/useCurrentBatter";
 import { makeBatterKey } from "@/lib/pitchIntel/types";
 import { usePitchTypes } from "@/hooks/usePitchTypes";
 import { usePitchCodeMap } from "@/hooks/usePitchCodeMap";
