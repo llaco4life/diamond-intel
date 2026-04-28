@@ -45,11 +45,46 @@ function PitchCodes() {
   const [newType, setNewType] = useState("");
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [untagged, setUntagged] = useState<{ id: string; numeric_code: string; pitch_type_id: string }[]>([]);
 
   // Reset selected pitcher when team changes so we don't show stale codes
   useEffect(() => {
     setPitcherId("");
   }, [activeTeamId]);
+
+  // Load untagged (team_id IS NULL) rows for this pitcher
+  useEffect(() => {
+    if (!org || !pitcherId || !activeTeamId) {
+      setUntagged([]);
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from("pitch_code_map")
+        .select("id,numeric_code,pitch_type_id")
+        .eq("org_id", org.id)
+        .eq("pitcher_id", pitcherId)
+        .is("team_id", null)
+        .order("numeric_code");
+      setUntagged((data ?? []) as typeof untagged);
+    })();
+  }, [org, pitcherId, activeTeamId, rows]);
+
+  const assignUntagged = async () => {
+    if (!activeTeamId || untagged.length === 0) return;
+    const ids = untagged.map((u) => u.id);
+    const { error } = await supabase
+      .from("pitch_code_map")
+      .update({ team_id: activeTeamId })
+      .in("id", ids);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Assigned ${ids.length} code${ids.length === 1 ? "" : "s"} to ${activeTeam?.name ?? "team"}`);
+    setUntagged([]);
+    void refresh();
+  };
 
   useEffect(() => {
     if (!org) return;
