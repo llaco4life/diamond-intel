@@ -176,11 +176,27 @@ function PitchCodes() {
       <h1 className="mb-1 text-2xl font-bold">Pitcher Pitch Codes</h1>
       <p className="mb-4 text-sm text-muted-foreground">
         Map each pitcher's numeric codes (what they flash from the mound) to a pitch type.
+        {activeTeam && <> Codes are saved for <span className="font-semibold">{activeTeam.name}</span>.</>}
       </p>
 
+      {!activeTeamId && (
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1">
+            <p className="font-semibold">Select a team first.</p>
+            <p className="text-xs text-muted-foreground">
+              Pitch code imports must be tied to one of your teams.
+            </p>
+          </div>
+          <Link to="/teams">
+            <Button size="sm" variant="outline">Manage teams</Button>
+          </Link>
+        </div>
+      )}
+
       <div className="mb-4">
-        <Select value={pitcherId} onValueChange={setPitcherId}>
-          <SelectTrigger><SelectValue placeholder="Select a pitcher" /></SelectTrigger>
+        <Select value={pitcherId} onValueChange={setPitcherId} disabled={!activeTeamId}>
+          <SelectTrigger><SelectValue placeholder={activeTeamId ? "Select a pitcher" : "Select a team first"} /></SelectTrigger>
           <SelectContent>
             {pitchers.map((p) => (
               <SelectItem key={p.id} value={p.id}>
