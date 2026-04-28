@@ -789,7 +789,7 @@ function BatterCard({
           }}
           className="mr-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
-          <Target className="h-3.5 w-3.5" /> Set as current
+          <Target className="h-3.5 w-3.5" /> Mark as at bat
         </button>
         <button
           type="button"
