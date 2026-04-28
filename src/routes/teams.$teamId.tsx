@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ChevronLeft, Plus, Trash2, Save, Upload, ImageIcon } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Save, Upload, ImageIcon, UserCog } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { InviteLinksSection } from "@/components/profile/InviteLinksSection";
 import { toast } from "sonner";
 
 interface RosterRow {

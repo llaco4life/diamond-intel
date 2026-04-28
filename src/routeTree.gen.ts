@@ -25,6 +25,7 @@ import { Route as TeamsTeamIdRouteImport } from './routes/teams.$teamId'
 import { Route as PitchCodesRouteImport } from './routes/pitch.codes'
 import { Route as PitchGameIdRouteImport } from './routes/pitch.$gameId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as TeamsTeamIdMembersRouteImport } from './routes/teams.$teamId.members'
 import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
 import { Route as LearningSummarySessionIdRouteImport } from './routes/learning.summary.$sessionId'
 import { Route as PitchGameIdBatterBatterKeyRouteImport } from './routes/pitch.$gameId.batter.$batterKey'
@@ -109,6 +110,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeamsTeamIdMembersRoute = TeamsTeamIdMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => TeamsTeamIdRoute,
+} as any)
 const ScoutSummaryGameIdRoute = ScoutSummaryGameIdRouteImport.update({
   id: '/summary/$gameId',
   path: '/summary/$gameId',
@@ -143,9 +149,10 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
-  '/teams/$teamId': typeof TeamsTeamIdRoute
+  '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/teams/$teamId/members': typeof TeamsTeamIdMembersRoute
   '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRoutesByTo {
@@ -164,9 +171,10 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
-  '/teams/$teamId': typeof TeamsTeamIdRoute
+  '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/teams/$teamId/members': typeof TeamsTeamIdMembersRoute
   '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRoutesById {
@@ -186,9 +194,10 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
-  '/teams/$teamId': typeof TeamsTeamIdRoute
+  '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
+  '/teams/$teamId/members': typeof TeamsTeamIdMembersRoute
   '/pitch/$gameId/batter/$batterKey': typeof PitchGameIdBatterBatterKeyRoute
 }
 export interface FileRouteTypes {
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/teams/$teamId'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/teams/$teamId/members'
     | '/pitch/$gameId/batter/$batterKey'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/teams/$teamId'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/teams/$teamId/members'
     | '/pitch/$gameId/batter/$batterKey'
   id:
     | '__root__'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/teams/$teamId'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
+    | '/teams/$teamId/members'
     | '/pitch/$gameId/batter/$batterKey'
   fileRoutesById: FileRoutesById
 }
@@ -387,6 +399,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teams/$teamId/members': {
+      id: '/teams/$teamId/members'
+      path: '/members'
+      fullPath: '/teams/$teamId/members'
+      preLoaderRoute: typeof TeamsTeamIdMembersRouteImport
+      parentRoute: typeof TeamsTeamIdRoute
+    }
     '/scout/summary/$gameId': {
       id: '/scout/summary/$gameId'
       path: '/summary/$gameId'
@@ -457,12 +476,24 @@ const ScoutRouteChildren: ScoutRouteChildren = {
 
 const ScoutRouteWithChildren = ScoutRoute._addFileChildren(ScoutRouteChildren)
 
+interface TeamsTeamIdRouteChildren {
+  TeamsTeamIdMembersRoute: typeof TeamsTeamIdMembersRoute
+}
+
+const TeamsTeamIdRouteChildren: TeamsTeamIdRouteChildren = {
+  TeamsTeamIdMembersRoute: TeamsTeamIdMembersRoute,
+}
+
+const TeamsTeamIdRouteWithChildren = TeamsTeamIdRoute._addFileChildren(
+  TeamsTeamIdRouteChildren,
+)
+
 interface TeamsRouteChildren {
-  TeamsTeamIdRoute: typeof TeamsTeamIdRoute
+  TeamsTeamIdRoute: typeof TeamsTeamIdRouteWithChildren
 }
 
 const TeamsRouteChildren: TeamsRouteChildren = {
-  TeamsTeamIdRoute: TeamsTeamIdRoute,
+  TeamsTeamIdRoute: TeamsTeamIdRouteWithChildren,
 }
 
 const TeamsRouteWithChildren = TeamsRoute._addFileChildren(TeamsRouteChildren)
