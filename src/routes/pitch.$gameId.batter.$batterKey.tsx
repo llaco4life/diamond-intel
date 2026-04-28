@@ -30,6 +30,7 @@ import { SprayChartModal } from "@/components/pitch/SprayChartModal";
 import { AbResultPicker } from "@/components/pitch/AbResultPicker";
 import { RecommendationBox } from "@/components/pitch/RecommendationBox";
 import { ScoreboardBanner } from "@/components/pitch/ScoreboardBanner";
+import { PreviousPABanner } from "@/components/pitch/PreviousPABanner";
 
 interface PitcherRow {
   id: string;
