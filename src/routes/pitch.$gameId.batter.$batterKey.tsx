@@ -58,7 +58,7 @@ function BatterProfileRoute() {
 
 function BatterProfile() {
   const { gameId, batterKey: rawKey } = Route.useParams();
-  const batterKey = decodeURIComponent(rawKey);
+  const batterKey = decodeBatterKey(rawKey);
   const parts = batterKey.split(":");
   const batterTeam = parts[0];
   // New form: team:slot:<slotId>  · Legacy form: team:<jersey>
@@ -87,7 +87,7 @@ function BatterProfile() {
     const nextKey = makeBatterKey(batterTeam, `slot:${nextSlot.slotId}`);
     navigate({
       to: "/pitch/$gameId/batter/$batterKey",
-      params: { gameId, batterKey: encodeURIComponent(nextKey) },
+      params: { gameId, batterKey: nextKey },
     });
   };
 
@@ -389,6 +389,20 @@ function BatterProfile() {
       />
     </div>
   );
+}
+
+function decodeBatterKey(value: string) {
+  let next = value;
+  for (let i = 0; i < 2; i += 1) {
+    try {
+      const decoded = decodeURIComponent(next);
+      if (decoded === next) break;
+      next = decoded;
+    } catch {
+      break;
+    }
+  }
+  return next;
 }
 
 interface PA {
