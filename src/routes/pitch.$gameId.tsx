@@ -93,11 +93,11 @@ function PitchGameScreen() {
   const { entries } = usePitchEntries(gameId);
   const { lineup, add, update, remove, substitute, reorder, finalized, setFinalized } =
     usePitchLineup(gameId, batterTeam);
-  const { index: currentBatterIndex, setIndex: setCurrentBatterIndex } = useCurrentBatter(
-    gameId,
-    batterTeam,
-    lineup.length,
-  );
+  const {
+    index: currentBatterIndex,
+    setIndex: setCurrentBatterIndex,
+    lastIndex: lastBatterIndex,
+  } = useCurrentBatter(gameId, batterTeam, lineup.length);
 
   const [editSlot, setEditSlot] = useState<LineupSlot | null>(null);
   const [subSlot, setSubSlot] = useState<LineupSlot | null>(null);
