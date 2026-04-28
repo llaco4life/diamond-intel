@@ -5,6 +5,8 @@ interface Props {
   batterKey: string;
   batterTeam: string;
   pitchTypes: PitchTypeRow[];
+  /** When true, `entries` is already filtered to this batter — skip internal filter. */
+  preFiltered?: boolean;
 }
 
 interface BuiltPA {
