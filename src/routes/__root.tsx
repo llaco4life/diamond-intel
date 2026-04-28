@@ -81,8 +81,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <AuthProvider>
-      <Outlet />
-      <Toaster richColors />
+      <ActiveTeamProvider>
+        <Outlet />
+        <Toaster richColors />
+      </ActiveTeamProvider>
     </AuthProvider>
   );
 }
