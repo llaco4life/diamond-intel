@@ -1,12 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Copy, Check, LogOut, Users } from "lucide-react";
+import { Copy, Check, LogOut, Users, Pencil, Settings, ImageIcon } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, AppRole } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { InviteLinksSection } from "@/components/profile/InviteLinksSection";
 import { toast } from "sonner";
