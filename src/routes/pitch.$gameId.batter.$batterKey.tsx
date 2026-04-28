@@ -330,6 +330,26 @@ function BatterProfile() {
         </div>
       </header>
 
+      {game && (
+        <ScoreboardBanner
+          homeTeam={game.home_team}
+          awayTeam={game.away_team}
+          homeScore={game.home_score}
+          awayScore={game.away_score}
+          inning={game.current_inning ?? 1}
+          isTop={batterTeam === game.away_team}
+          outs={outs}
+          pitcherLabel={
+            activePitcher
+              ? `#${activePitcher.jersey_number}${activePitcher.name ? ` ${activePitcher.name}` : ""}`
+              : undefined
+          }
+          pitchCount={totalPitchesThisPitcher}
+          onChangeScore={changeScore}
+          onChangeOuts={handleChangeOuts}
+        />
+      )}
+
       <div className="mb-3 rounded-2xl border border-primary/40 bg-primary/5 p-3">
         <div className="flex items-center gap-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
