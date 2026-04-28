@@ -587,19 +587,8 @@ function BatterCard({
   onRemove: () => void;
   dragHandleProps: Record<string, unknown> | null;
 }) {
-  const navigate = useNavigate();
   const slotKey = makeBatterKey(batterTeam, `slot:${slot.slotId}`);
-  const openAtBat = () => {
-    onTapToCurrent();
-    navigate({
-      to: "/pitch/$gameId/batter/$batterKey",
-      params: { gameId, batterKey: slotKey },
-    });
-  };
-  const handleCardClick = (e: MouseEvent) => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    openAtBat();
-  };
+  const batterLabel = `#${slot.jersey}${slot.name ? ` ${slot.name}` : ""}`;
   const allKeys = new Set<string>([
     slotKey,
     ...slot.legacyJerseys.map((j) => makeBatterKey(batterTeam, j)),
@@ -632,26 +621,25 @@ function BatterCard({
 
   return (
     <div
-      role="link"
-      tabIndex={0}
-      onClick={handleCardClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          openAtBat();
-        }
-      }}
       className={`relative rounded-2xl border bg-card shadow-sm transition ${
         isCurrent ? "border-primary ring-2 ring-primary/40" : "border-border"
       }`}
     >
-      <div className="flex items-stretch">
+      <Link
+        to="/pitch/$gameId/batter/$batterKey"
+        params={{ gameId, batterKey: slotKey }}
+        onClick={onTapToCurrent}
+        className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-label={`Open live at-bat for ${batterLabel}`}
+      />
+
+      <div className="pointer-events-none relative z-20 flex items-stretch">
         {draggable && (
           <button
             type="button"
             aria-label="Drag to reorder"
             onClick={(e) => e.stopPropagation()}
-            className="flex w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-l-2xl text-muted-foreground hover:bg-secondary active:cursor-grabbing"
+            className="pointer-events-auto flex w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-l-2xl text-muted-foreground hover:bg-secondary active:cursor-grabbing"
             {...(dragHandleProps ?? {})}
           >
             <GripVertical className="h-4 w-4" />
@@ -721,7 +709,7 @@ function BatterCard({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 px-2 py-1.5">
+      <div className="relative z-20 flex flex-wrap items-center justify-end gap-1 border-t border-border/60 px-2 py-1.5">
         <button
           type="button"
           onClick={(e) => {
