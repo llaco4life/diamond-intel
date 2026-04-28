@@ -465,6 +465,21 @@ function PitchGameScreen() {
         }}
       />
 
+      {!finalized && activeTeamId && rosterCount > 0 && (
+        <div className="mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5"
+            onClick={loadSavedRoster}
+            disabled={loadingRoster}
+          >
+            <ListPlus className="h-4 w-4" />
+            {loadingRoster ? "Loading…" : `Load Saved Roster (${activeTeam?.name ?? "team"} · ${rosterCount})`}
+          </Button>
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-border p-3">
         <div>
           <Label className="text-[10px] uppercase">Jersey</Label>
