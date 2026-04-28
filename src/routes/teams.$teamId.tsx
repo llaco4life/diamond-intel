@@ -119,6 +119,45 @@ function TeamDetailContent() {
     await load();
   };
 
+  const uploadLogo = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+      const path = `${teamId}/logo-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("team-logos")
+        .upload(path, file, { upsert: true, cacheControl: "3600" });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("team-logos").getPublicUrl(path);
+      const { error: updErr } = await supabase
+        .from("teams")
+        .update({ logo_url: pub.publicUrl })
+        .eq("id", teamId);
+      if (updErr) throw updErr;
+      toast.success("Logo updated");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const removeLogo = async () => {
+    const { error } = await supabase.from("teams").update({ logo_url: null }).eq("id", teamId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Logo removed");
+    await load();
+  };
+
   if (!team) {
     return <div className="mx-auto max-w-2xl px-4 pt-6 text-sm text-muted-foreground">Loading…</div>;
   }
@@ -131,7 +170,16 @@ function TeamDetailContent() {
         </Link>
       </header>
 
-      <h1 className="mb-4 text-2xl font-bold">{team.name}</h1>
+      <div className="mb-4 flex items-center gap-3">
+        {team.logo_url ? (
+          <img src={team.logo_url} alt={`${team.name} logo`} className="h-14 w-14 rounded-lg border bg-background object-cover" />
+        ) : (
+          <div className="flex h-14 w-14 items-center justify-center rounded-lg border bg-muted text-muted-foreground">
+            <ImageIcon className="h-6 w-6" />
+          </div>
+        )}
+        <h1 className="text-2xl font-bold">{team.name}</h1>
+      </div>
 
       <section className="mb-5 space-y-3 rounded-2xl border bg-card p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Team info</h2>
@@ -149,6 +197,31 @@ function TeamDetailContent() {
             <Input id="e-season" value={season} onChange={(e) => setSeason(e.target.value)} disabled={!isCoach} />
           </div>
         </div>
+        {isCoach && (
+          <div>
+            <Label>Logo</Label>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadLogo(f);
+                }}
+              />
+              <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading} className="gap-1.5">
+                <Upload className="h-4 w-4" /> {uploading ? "Uploading…" : team.logo_url ? "Replace logo" : "Upload logo"}
+              </Button>
+              {team.logo_url && (
+                <Button type="button" variant="ghost" onClick={() => void removeLogo()} disabled={uploading}>
+                  Remove
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         {isCoach && (
           <Button onClick={saveTeam} className="gap-1.5">
             <Save className="h-4 w-4" /> Save
