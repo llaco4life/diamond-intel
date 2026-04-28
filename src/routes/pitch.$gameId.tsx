@@ -314,11 +314,16 @@ function PitchGameScreen() {
         pitcherLabel={pitcherLabel}
         pitchCount={totalPitchesThisPitcher}
         onChangeScore={changeScore}
-        onChangeOuts={(d) => setOuts((o) => Math.max(0, Math.min(3, o + d)))}
+        onChangeOuts={handleChangeOuts}
       />
 
-      <NextBatterBanner gameId={gameId} team={batterTeam} lineup={lineup} index={currentBatterIndex} />
-
+      <NextBatterBanner
+        gameId={gameId}
+        team={batterTeam}
+        lineup={lineup}
+        index={currentBatterIndex}
+        lastIndex={lastBatterIndex}
+      />
       <div className="mb-3 grid grid-cols-3 gap-2">
         <div>
           <Label className="text-[10px] uppercase">Inning</Label>
