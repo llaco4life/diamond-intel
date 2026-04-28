@@ -23,6 +23,10 @@ function key(gameId: string, team: string) {
   return `pitch-lineup:${gameId}:${team}`;
 }
 
+function finalKey(gameId: string, team: string) {
+  return `pitch-lineup-finalized:${gameId}:${team}`;
+}
+
 function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `slot_${Math.random().toString(36).slice(2)}_${Date.now()}`;
@@ -60,19 +64,35 @@ function migrate(raw: string): LineupSlot[] {
 
 export function usePitchLineup(gameId: string | undefined, team: string | undefined) {
   const [lineup, setLineup] = useState<LineupSlot[]>([]);
+  const [finalized, setFinalizedState] = useState(false);
 
   useEffect(() => {
     if (!gameId || !team) return;
     const raw = localStorage.getItem(key(gameId, team));
     setLineup(raw ? migrate(raw) : []);
+    setFinalizedState(localStorage.getItem(finalKey(gameId, team)) === "1");
   }, [gameId, team]);
 
   const persist = useCallback(
     (next: LineupSlot[]) => {
       if (!gameId || !team) return;
-      setLineup(next);
+      const renumbered = next.map((s, i) => ({ ...s, order: i + 1 }));
+      setLineup(renumbered);
       try {
-        localStorage.setItem(key(gameId, team), JSON.stringify(next));
+        localStorage.setItem(key(gameId, team), JSON.stringify(renumbered));
+      } catch {
+        // ignore
+      }
+    },
+    [gameId, team],
+  );
+
+  const setFinalized = useCallback(
+    (v: boolean) => {
+      if (!gameId || !team) return;
+      setFinalizedState(v);
+      try {
+        localStorage.setItem(finalKey(gameId, team), v ? "1" : "0");
       } catch {
         // ignore
       }
@@ -118,8 +138,18 @@ export function usePitchLineup(gameId: string | undefined, team: string | undefi
 
   const remove = useCallback(
     (slotId: string) => {
-      const filtered = lineup.filter((s) => s.slotId !== slotId);
-      persist(filtered.map((s, i) => ({ ...s, order: i + 1 })));
+      persist(lineup.filter((s) => s.slotId !== slotId));
+    },
+    [lineup, persist],
+  );
+
+  const reorder = useCallback(
+    (fromIdx: number, toIdx: number) => {
+      if (fromIdx === toIdx) return;
+      const next = lineup.slice();
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      persist(next);
     },
     [lineup, persist],
   );
@@ -154,5 +184,6 @@ export function usePitchLineup(gameId: string | undefined, team: string | undefi
     [lineup, persist],
   );
 
-  return { lineup, add, update, remove, substitute };
+  return { lineup, add, update, remove, substitute, reorder, finalized, setFinalized };
 }
+
