@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/teams")({
+export const Route = createFileRoute("/teams/")({
   component: TeamsRoute,
 });
 
