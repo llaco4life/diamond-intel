@@ -80,7 +80,7 @@ function InvitePage() {
       const row = (data ?? [])[0] as { success: boolean; reason: string | null } | undefined;
       if (row?.success) {
         setRedeemed(true);
-        toast.success(`You've joined ${preview.org_name}!`);
+        toast.success(`You've joined ${preview.team_name ?? preview.org_name}!`);
         await refreshProfile();
         setTimeout(() => navigate({ to: "/", search: { restricted: undefined } }), 600);
       } else {
@@ -131,7 +131,7 @@ function InvitePage() {
       const row = (redeemData ?? [])[0] as { success: boolean; reason: string | null } | undefined;
       if (row?.success) {
         setRedeemed(true);
-        toast.success(`You've joined ${preview.org_name}!`);
+        toast.success(`You've joined ${preview.team_name ?? preview.org_name}!`);
         await refreshProfile();
         setTimeout(() => navigate({ to: "/", search: { restricted: undefined } }), 600);
         return;
