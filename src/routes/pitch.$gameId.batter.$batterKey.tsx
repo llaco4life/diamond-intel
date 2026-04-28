@@ -394,6 +394,13 @@ function BatterProfile() {
             </div>
           )}
 
+          <PreviousPABanner
+            entries={myEntries}
+            batterKey={batterKey}
+            batterTeam={batterTeam}
+            pitchTypes={pitchTypes}
+          />
+
           <CountDisplay
             balls={count.balls}
             strikes={count.strikes}
