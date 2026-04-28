@@ -23,6 +23,7 @@ interface TeamRow {
   name: string;
   age_group: string | null;
   season: string | null;
+  logo_url: string | null;
 }
 
 export const Route = createFileRoute("/teams/$teamId")({
