@@ -399,6 +399,7 @@ function BatterProfile() {
             batterKey={batterKey}
             batterTeam={batterTeam}
             pitchTypes={pitchTypes}
+            preFiltered
           />
 
           <CountDisplay
