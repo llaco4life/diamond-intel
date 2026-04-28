@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,13 @@ export const Route = createFileRoute("/pitch/$gameId")({
 });
 
 function PitchGameRoute() {
+  const { gameId } = Route.useParams();
+  const location = useLocation();
+
+  if (location.pathname.startsWith(`/pitch/${gameId}/batter/`)) {
+    return <Outlet />;
+  }
+
   return (
     <ProtectedShell>
       <PitchGameScreen />
