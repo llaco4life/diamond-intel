@@ -18,7 +18,9 @@ import {
   Lock,
   Unlock,
   Target,
+  ListPlus,
 } from "lucide-react";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
