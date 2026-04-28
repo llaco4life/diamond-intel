@@ -95,6 +95,9 @@ function PitchGameScreen() {
   const { entries } = usePitchEntries(gameId);
   const { lineup, add, update, remove, substitute, reorder, finalized, setFinalized } =
     usePitchLineup(gameId, batterTeam);
+  const { activeTeamId, activeTeam } = useActiveTeam();
+  const [rosterCount, setRosterCount] = useState(0);
+  const [loadingRoster, setLoadingRoster] = useState(false);
   const {
     index: currentBatterIndex,
     setIndex: setCurrentBatterIndex,
