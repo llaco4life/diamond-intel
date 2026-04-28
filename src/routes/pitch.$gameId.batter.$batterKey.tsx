@@ -102,6 +102,7 @@ function BatterProfile() {
   const [game, setGame] = useState<GameRow | null>(null);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
   const [activePitcherId, setActivePitcherId] = useState<string>("");
+  const [outs, setOuts] = useState(0);
 
   const { types: pitchTypes } = usePitchTypes();
   const { entries, refresh } = usePitchEntries(gameId);
@@ -112,7 +113,7 @@ function BatterProfile() {
     void (async () => {
       const { data: g } = await supabase
         .from("games")
-        .select("id,home_team,away_team,current_inning")
+        .select("id,home_team,away_team,current_inning,home_score,away_score")
         .eq("id", gameId)
         .maybeSingle();
       if (g) setGame(g as GameRow);
@@ -127,6 +128,67 @@ function BatterProfile() {
       if (active) setActivePitcherId(active.id);
     })();
   }, [gameId]);
+
+  // Sync persisted outs
+  useEffect(() => {
+    try {
+      const o = localStorage.getItem(`pitch-outs:${gameId}`);
+      if (o !== null) setOuts(Math.max(0, Math.min(3, Number(o) || 0)));
+    } catch {
+      // ignore
+    }
+  }, [gameId]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(`pitch-outs:${gameId}`, String(outs));
+    } catch {
+      // ignore
+    }
+  }, [outs, gameId]);
+
+  const changeScore = async (side: "home" | "away", delta: number) => {
+    if (!game) return;
+    const next = Math.max(0, (side === "home" ? game.home_score : game.away_score) + delta);
+    const patch = side === "home" ? { home_score: next } : { away_score: next };
+    setGame({ ...game, ...patch });
+    await supabase.from("games").update(patch).eq("id", gameId);
+  };
+
+  const advanceHalfInning = async () => {
+    if (!game) return;
+    const wasTop = batterTeam === game.away_team;
+    setOuts(0);
+    if (wasTop) {
+      try {
+        localStorage.setItem(`pitch-team:${gameId}`, game.home_team);
+      } catch {
+        // ignore
+      }
+      toast.success(`Bottom ${game.current_inning} — 3 outs, switching sides`);
+    } else {
+      const nextInning = (game.current_inning ?? 1) + 1;
+      try {
+        localStorage.setItem(`pitch-team:${gameId}`, game.away_team);
+      } catch {
+        // ignore
+      }
+      setGame({ ...game, current_inning: nextInning });
+      await supabase.from("games").update({ current_inning: nextInning }).eq("id", gameId);
+      toast.success(`Top ${nextInning} — new inning`);
+    }
+    navigate({ to: "/pitch/$gameId", params: { gameId } });
+  };
+
+  const handleChangeOuts = (delta: number) => {
+    setOuts((o) => {
+      const next = o + delta;
+      if (next >= 3) {
+        setTimeout(() => void advanceHalfInning(), 80);
+        return 3;
+      }
+      return Math.max(0, next);
+    });
+  };
 
   const myEntries = useMemo(() => {
     const keys = new Set<string>([batterKey]);
