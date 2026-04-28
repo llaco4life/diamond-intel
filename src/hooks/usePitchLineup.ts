@@ -23,6 +23,10 @@ function key(gameId: string, team: string) {
   return `pitch-lineup:${gameId}:${team}`;
 }
 
+function finalKey(gameId: string, team: string) {
+  return `pitch-lineup-finalized:${gameId}:${team}`;
+}
+
 function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `slot_${Math.random().toString(36).slice(2)}_${Date.now()}`;
