@@ -25,11 +25,16 @@ export function GameSetup({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (org && !homeTeam) setHomeTeam(org.name);
-  }, [org, homeTeam]);
+    if (activeTeam && !homeTeam) setHomeTeam(activeTeam.name);
+    else if (org && !homeTeam) setHomeTeam(org.name);
+  }, [org, activeTeam, homeTeam]);
 
   const start = async () => {
     if (!user || !org) return;
+    if (!activeTeamId) {
+      toast.error("Select a team first before creating a game.");
+      return;
+    }
     if (!homeTeam.trim() || !awayTeam.trim()) {
       toast.error("Home and away team names are required");
       return;
@@ -62,6 +67,7 @@ export function GameSetup({
         .insert({
           org_id: org.id,
           opponent_id: opponentId,
+          team_id: activeTeamId,
           game_type: "scout",
           tournament_name: tournament.trim() || null,
           home_team: homeTeam.trim(),
