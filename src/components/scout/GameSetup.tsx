@@ -109,7 +109,23 @@ export function GameSetup({
         Set up a scouting game. Your team will see it instantly.
       </p>
 
+      {!activeTeamId && (
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1">
+            <p className="font-semibold">Select a team first before creating a game.</p>
+            <p className="text-xs text-muted-foreground">Scout games must be tied to one of your teams.</p>
+          </div>
+          <Link to="/teams"><Button size="sm" variant="outline">Manage teams</Button></Link>
+        </div>
+      )}
+
       <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
+        {activeTeam && (
+          <p className="text-xs text-muted-foreground">
+            Tagging this game to <span className="font-semibold text-foreground">{activeTeam.name}</span>.
+          </p>
+        )}
         <div>
           <Label htmlFor="home-team">Home team name</Label>
           <Input
@@ -163,8 +179,8 @@ export function GameSetup({
           </div>
         )}
 
-        <Button onClick={start} disabled={submitting} size="lg" className="w-full">
-          {submitting ? "Starting…" : "Start Game"}
+        <Button onClick={start} disabled={submitting || !activeTeamId} size="lg" className="w-full">
+          {submitting ? "Starting…" : !activeTeamId ? "Select a team first" : "Start Game"}
         </Button>
       </section>
     </div>
