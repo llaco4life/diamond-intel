@@ -153,11 +153,24 @@ interface TeamMemberCounts {
   myRole: AppRole | null;
 }
 
+interface MemberRow {
+  user_id: string;
+  role: AppRole;
+  full_name: string;
+}
+
+interface RosterEntry {
+  id: string;
+  jersey_number: string;
+  name: string | null;
+}
+
 function ActiveTeamCard({ role }: { role: AppRole | null }) {
   const { activeTeam, activeTeamId, loading } = useActiveTeam();
   const { user } = useAuth();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [rosterCount, setRosterCount] = useState<number>(0);
+  const [roster, setRoster] = useState<RosterEntry[]>([]);
+  const [members, setMembers] = useState<MemberRow[]>([]);
   const [counts, setCounts] = useState<TeamMemberCounts>({
     head_coach: 0,
     assistant_coach: 0,
@@ -169,24 +182,39 @@ function ActiveTeamCard({ role }: { role: AppRole | null }) {
   useEffect(() => {
     if (!activeTeamId) {
       setLogoUrl(null);
-      setRosterCount(0);
+      setRoster([]);
+      setMembers([]);
       setCounts({ head_coach: 0, assistant_coach: 0, player: 0, total: 0, myRole: null });
       return;
     }
     void (async () => {
-      const [{ data: team }, { count }, { data: members }] = await Promise.all([
+      const [{ data: team }, { data: rosterRows }, { data: memberRows }] = await Promise.all([
         supabase.from("teams").select("logo_url").eq("id", activeTeamId).maybeSingle(),
         supabase
           .from("team_roster")
-          .select("id", { count: "exact", head: true })
-          .eq("team_id", activeTeamId),
+          .select("id,jersey_number,name,bat_order")
+          .eq("team_id", activeTeamId)
+          .order("bat_order", { ascending: true, nullsFirst: false })
+          .order("jersey_number"),
         supabase
           .from("team_memberships")
           .select("user_id, role")
           .eq("team_id", activeTeamId),
       ]);
+
       setLogoUrl((team as { logo_url?: string | null } | null)?.logo_url ?? null);
-      setRosterCount(count ?? 0);
+      setRoster((rosterRows ?? []).map((r) => ({ id: r.id, jersey_number: r.jersey_number, name: r.name })));
+
+      const userIds = (memberRows ?? []).map((m) => m.user_id);
+      let nameMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id,full_name")
+          .in("id", userIds);
+        for (const p of profs ?? []) nameMap[p.id] = p.full_name;
+      }
+
       const next: TeamMemberCounts = {
         head_coach: 0,
         assistant_coach: 0,
@@ -194,15 +222,20 @@ function ActiveTeamCard({ role }: { role: AppRole | null }) {
         total: 0,
         myRole: null,
       };
-      for (const m of members ?? []) {
+      const memberList: MemberRow[] = [];
+      for (const m of memberRows ?? []) {
         const r = m.role as AppRole;
         if (r === "head_coach" || r === "assistant_coach" || r === "player") next[r] += 1;
         next.total += 1;
         if (user && m.user_id === user.id) next.myRole = r;
+        memberList.push({ user_id: m.user_id, role: r, full_name: nameMap[m.user_id] ?? "Unknown" });
       }
-      // Fall back to org-wide role if no team membership row exists yet
       if (!next.myRole) next.myRole = role;
       setCounts(next);
+      // Sort: head_coach first, then assistant_coach, then player; within each, alphabetical
+      const rank: Record<AppRole, number> = { head_coach: 0, assistant_coach: 1, player: 2 };
+      memberList.sort((a, b) => rank[a.role] - rank[b.role] || a.full_name.localeCompare(b.full_name));
+      setMembers(memberList);
     })();
   }, [activeTeamId, role, user]);
 
@@ -229,6 +262,13 @@ function ActiveTeamCard({ role }: { role: AppRole | null }) {
     );
   }
 
+  const headCoaches = members.filter((m) => m.role === "head_coach");
+  const assistantCoaches = members.filter((m) => m.role === "assistant_coach");
+  const memberPlayers = members.filter((m) => m.role === "player");
+
+  const roleBadge = (r: AppRole) =>
+    r === "head_coach" ? "HC" : r === "assistant_coach" ? "AC" : "P";
+
   return (
     <section className="mb-4 rounded-2xl border-2 border-primary/30 bg-card p-5 shadow-card">
       <div className="mb-4 flex items-center gap-3">
@@ -250,11 +290,83 @@ function ActiveTeamCard({ role }: { role: AppRole | null }) {
 
       <div className="space-y-1.5 border-t border-border pt-3 text-sm">
         <Row label="My role" value={myRoleLabel} />
-        <Row label="Roster" value={`${rosterCount} player${rosterCount === 1 ? "" : "s"}`} />
+        <Row label="Roster" value={`${roster.length} player${roster.length === 1 ? "" : "s"}`} />
         <Row
           label="Members"
           value={`${counts.head_coach} HC · ${counts.assistant_coach} AC · ${counts.player} P`}
         />
+      </div>
+
+      {/* Coaches */}
+      <div className="mt-4 border-t border-border pt-3">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Coaches</h3>
+          {activeTeamId && (
+            <Link
+              to="/teams/$teamId/members"
+              params={{ teamId: activeTeamId }}
+              className="text-[11px] text-primary hover:underline"
+            >
+              Manage
+            </Link>
+          )}
+        </div>
+        {headCoaches.length + assistantCoaches.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No coaches on this team yet. Invite assistants from the team page.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {[...headCoaches, ...assistantCoaches].map((m) => (
+              <li key={m.user_id} className="flex items-center justify-between text-sm">
+                <span className="truncate text-foreground">{m.full_name}</span>
+                <span className="ml-2 shrink-0 rounded-md bg-primary-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                  {roleBadge(m.role)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Roster */}
+      <div className="mt-4 border-t border-border pt-3">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Roster</h3>
+          {activeTeamId && (
+            <Link
+              to="/teams/$teamId"
+              params={{ teamId: activeTeamId }}
+              className="text-[11px] text-primary hover:underline"
+            >
+              Edit
+            </Link>
+          )}
+        </div>
+        {roster.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No roster yet. Add players from the team page.
+          </p>
+        ) : (
+          <ul className="grid grid-cols-2 gap-1.5">
+            {roster.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5"
+              >
+                <span className="w-8 shrink-0 text-center font-mono text-xs font-bold text-primary">
+                  #{p.jersey_number}
+                </span>
+                <span className="truncate text-xs text-foreground">{p.name ?? "—"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {memberPlayers.length > 0 && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {memberPlayers.length} player account{memberPlayers.length === 1 ? "" : "s"} linked to this team.
+          </p>
+        )}
       </div>
 
       {activeTeamId && (
@@ -278,4 +390,5 @@ function ActiveTeamCard({ role }: { role: AppRole | null }) {
     </section>
   );
 }
+
 
