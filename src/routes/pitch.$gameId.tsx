@@ -316,30 +316,32 @@ function PitchGameScreen() {
         </div>
       )}
 
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          Lineup · {batterTeam}
-        </h2>
-        <span className="text-[10px] text-muted-foreground">Tap a batter to log</span>
-      </div>
-
-      <ul className="space-y-2">
-        {lineup.map((slot, i) => (
-          <li key={slot.slotId}>
-            <BatterCard
-              gameId={gameId}
-              batterTeam={batterTeam}
-              slot={slot}
-              entries={entries}
-              isCurrent={i === currentBatterIndex}
-              onTapToCurrent={() => setCurrentBatterIndex(i)}
-              onEdit={() => setEditSlot(slot)}
-              onSub={() => setSubSlot(slot)}
-              onRemove={() => handleDeleteSlot(slot)}
-            />
-          </li>
-        ))}
-      </ul>
+      <LineupSection
+        gameId={gameId}
+        batterTeam={batterTeam}
+        lineup={lineup}
+        entries={entries}
+        finalized={finalized}
+        currentBatterIndex={currentBatterIndex}
+        onSetCurrent={setCurrentBatterIndex}
+        onEdit={setEditSlot}
+        onSub={setSubSlot}
+        onRemove={handleDeleteSlot}
+        onReorder={reorder}
+        onToggleFinalized={() => {
+          if (finalized) {
+            if (!window.confirm("Unlocking the lineup may affect batting order flow. Continue?")) return;
+            setFinalized(false);
+          } else {
+            if (lineup.length === 0) {
+              toast.error("Add at least one batter first");
+              return;
+            }
+            setFinalized(true);
+            toast.success("Lineup finalized");
+          }
+        }}
+      />
 
       <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-border p-3">
         <div>
@@ -370,7 +372,7 @@ function PitchGameScreen() {
           }}
           className="h-10 gap-1"
         >
-          <Plus className="h-4 w-4" /> Add batter
+          <Plus className="h-4 w-4" /> {finalized ? "Add emergency batter" : "Add batter"}
         </Button>
       </div>
 
