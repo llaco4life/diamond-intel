@@ -93,11 +93,11 @@ function PitchGameScreen() {
   const { entries } = usePitchEntries(gameId);
   const { lineup, add, update, remove, substitute, reorder, finalized, setFinalized } =
     usePitchLineup(gameId, batterTeam);
-  const { index: currentBatterIndex, setIndex: setCurrentBatterIndex } = useCurrentBatter(
-    gameId,
-    batterTeam,
-    lineup.length,
-  );
+  const {
+    index: currentBatterIndex,
+    setIndex: setCurrentBatterIndex,
+    lastIndex: lastBatterIndex,
+  } = useCurrentBatter(gameId, batterTeam, lineup.length);
 
   const [editSlot, setEditSlot] = useState<LineupSlot | null>(null);
   const [subSlot, setSubSlot] = useState<LineupSlot | null>(null);
@@ -125,10 +125,65 @@ function PitchGameScreen() {
     })();
   }, [gameId]);
 
-  // Reset outs when inning changes
+  // Load persisted outs/team for this game
+  const outsKey = `pitch-outs:${gameId}`;
+  const teamKey = `pitch-team:${gameId}`;
   useEffect(() => {
+    try {
+      const o = localStorage.getItem(outsKey);
+      if (o !== null) setOuts(Math.max(0, Math.min(3, Number(o) || 0)));
+      const t = localStorage.getItem(teamKey);
+      if (t) setBatterTeam(t);
+    } catch {
+      // ignore
+    }
+  }, [outsKey, teamKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(outsKey, String(outs));
+    } catch {
+      // ignore
+    }
+  }, [outs, outsKey]);
+
+  useEffect(() => {
+    if (!batterTeam) return;
+    try {
+      localStorage.setItem(teamKey, batterTeam);
+    } catch {
+      // ignore
+    }
+  }, [batterTeam, teamKey]);
+
+  const advanceHalfInning = () => {
+    if (!game) return;
+    const wasTop = batterTeam === game.away_team;
     setOuts(0);
-  }, [inning, batterTeam]);
+    if (wasTop) {
+      // Top → Bottom: same inning, switch team
+      setBatterTeam(game.home_team);
+      toast.success(`Bottom ${inning} — 3 outs, switching sides`);
+    } else {
+      // Bottom → Top: next inning
+      const nextInning = inning + 1;
+      setBatterTeam(game.away_team);
+      void changeInning(nextInning);
+      toast.success(`Top ${nextInning} — new inning`);
+    }
+  };
+
+  const handleChangeOuts = (delta: number) => {
+    setOuts((o) => {
+      const next = o + delta;
+      if (next >= 3) {
+        // schedule half-inning advance
+        setTimeout(() => advanceHalfInning(), 50);
+        return 3;
+      }
+      return Math.max(0, next);
+    });
+  };
 
   const activePitcher = pitchers.find((p) => p.id === activePitcherId);
   const pitchCounts = useMemo(() => {
@@ -259,11 +314,16 @@ function PitchGameScreen() {
         pitcherLabel={pitcherLabel}
         pitchCount={totalPitchesThisPitcher}
         onChangeScore={changeScore}
-        onChangeOuts={(d) => setOuts((o) => Math.max(0, Math.min(3, o + d)))}
+        onChangeOuts={handleChangeOuts}
       />
 
-      <NextBatterBanner gameId={gameId} team={batterTeam} lineup={lineup} index={currentBatterIndex} />
-
+      <NextBatterBanner
+        gameId={gameId}
+        team={batterTeam}
+        lineup={lineup}
+        index={currentBatterIndex}
+        lastIndex={lastBatterIndex}
+      />
       <div className="mb-3 grid grid-cols-3 gap-2">
         <div>
           <Label className="text-[10px] uppercase">Inning</Label>
@@ -330,7 +390,11 @@ function PitchGameScreen() {
         entries={entries}
         finalized={finalized}
         currentBatterIndex={currentBatterIndex}
-        onSetCurrent={setCurrentBatterIndex}
+        onSetCurrent={(i) => {
+          setCurrentBatterIndex(i);
+          const s = lineup[i];
+          if (s) toast.success(`Current batter: #${s.jersey}${s.name ? ` ${s.name}` : ""}`);
+        }}
         onEdit={setEditSlot}
         onSub={setSubSlot}
         onRemove={handleDeleteSlot}
@@ -725,7 +789,7 @@ function BatterCard({
           }}
           className="mr-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
-          <Target className="h-3.5 w-3.5" /> Set as current
+          <Target className="h-3.5 w-3.5" /> Mark as at bat
         </button>
         <button
           type="button"

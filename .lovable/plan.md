@@ -1,93 +1,81 @@
-# Pitch Intel — Game Flow Upgrade
+I’ll fix the Pitch Intel flow so the lineup pointer, batter status, scoreboard, outs, and inning transitions are clear and work consistently.
 
-## 1. Fix batter card tap (root cause)
+## What “Set as current” should do
 
-In `src/routes/pitch.$gameId.tsx`, the batter card wraps the main row in a `<Link>` and places Edit/Sub/Remove buttons in a *sibling* footer. That works on desktop, but the footer buttons sit visually inside the same "card" and on touch devices the large card area can feel unresponsive due to the `active:scale-[0.99]` only applying on the inner Link, plus nested interactive regions cause hit-target ambiguity.
+“Set as current” should manually choose the batter who is currently at bat in the lineup flow. It should update the game flow banner and card badges, but it should not necessarily open the pitch tracking screen by itself. To remove confusion, I’ll make its effect visible immediately and label the flow more clearly.
 
-Fix:
-- Convert the whole card (`<div>` wrapper) into a single `<Link>` block that fills the card, with `to="/pitch/$gameId/batter/$batterKey"` and `params={{ gameId, batterKey: encodeURIComponent(slotKey) }}`.
-- Render Edit / Sub / Remove buttons as overlaid action buttons at the right side, each calling `e.preventDefault(); e.stopPropagation();` in their `onClick` so they never trigger navigation.
-- Verify the `slotKey` continues to round-trip through TanStack params (team names with spaces already work, as `Route.useParams()` decodes once).
+## Changes to implement
 
-## 2. Pitcher management parity with batters
+1. Make current batter state obvious on lineup screen
 
-Create a new lightweight `usePitchers(gameId)` hook OR keep the inline pitcher state but add full CRUD against the `pitchers` table:
-- **Add** — already exists; keep.
-- **Edit** — open a dialog (reuse pattern from `BatterEditDialog`) to edit jersey + name + notes; `UPDATE pitchers SET ...`.
-- **Remove** — confirm dialog ("Remove pitcher? Their logged pitches stay in history."), then `DELETE FROM pitchers WHERE id=...`. Pitch entries reference `pitcher_id` as text/uuid but have **no FK**, so deletes won't cascade — history is preserved.
-- **Substitute / change current** — single `UPDATE` flipping `is_active` flags. New pitcher becomes active; old one stays in the dropdown so historical entries remain attributable. The existing `switchPitcher` already handles this; expose it in the new compact UI.
+- Add a compact lineup flow summary above the cards:
+  ```text
+  Last batter: #24 Emma
+  Current batter: #7 Smith
+  Next batter: #12 Jones
+  On deck: #24 Emma
+  ```
+- When “Set as current” is tapped, update that summary immediately.
+- Show a success message like “Current batter set to #7 Smith”.
+- Keep tapping the main card area as the action to open the live Pitch Intel evaluation screen.
 
-New component: `src/components/pitch/PitcherManagerDialog.tsx` — list of pitchers with inline edit / delete / "Make active" actions plus an "Add pitcher" form.
+2. Track and display last batter
 
-## 3. Compact scoreboard banner
+- Extend the current batter helper so it stores both:
+  - current batter index
+  - last completed batter index
+- When “End at-bat → Next batter” is used, set the batter being ended as the last batter, then advance current to the next batter.
+- Show “Last batter” on the lineup banner and the live at-bat screen.
 
-Add `src/components/pitch/ScoreboardBanner.tsx` rendered at the top of `pitch.$gameId.tsx`:
+3. Show scoreboard and outs during pitch tracking
 
-```text
-┌─────────────────────────────────────────────┐
-│ Top 3rd · 1 out                             │
-│ Unity 2  —  Bulldogs 1     [-][+] [-][+]    │
-│ P: #22 Sara · 41 pitches                    │
-└─────────────────────────────────────────────┘
-```
+- Add the scoreboard banner to `/pitch/$gameId/batter/$batterKey`, not just the lineup screen.
+- Show inning, top/bottom, score, outs, and active pitcher pitch count while logging pitches.
+- This prevents the coach from losing game context once they enter the live at-bat evaluation screen.
 
-Data:
-- `home_team`, `away_team`, `home_score`, `away_score`, `current_inning` from `games`.
-- Top/bottom of inning derived from `batterTeam === away_team ? "Top" : "Bottom"`.
-- Outs: stored locally in component state (no DB column); resets when inning changes. (We can revisit persistence later.)
-- Active pitcher + pitch count from existing data.
+4. Make 3 outs end the inning
 
-Score editing: small `+` / `-` buttons next to each score, calling `UPDATE games SET home_score / away_score`.
+- Add an outs control that caps at 3.
+- When outs reach 3:
+  - reset outs to 0
+  - advance to the next half-inning
+  - switch top/bottom by changing the batting team
+  - after Bottom half ends, increment the inning number
+- Persist this game-flow state so it does not disappear on refresh or after edits.
+- Allow user to edit inning or outs in case of a mistake on entry is made
 
-## 4. Next-batter banner
+5. Persist game flow safely
 
-Add `src/components/pitch/NextBatterBanner.tsx` under the scoreboard:
+- Use a new lightweight game-flow storage helper/hook for:
+  - current batter index
+  - last batter index
+  - outs
+  - current batting team
+- Keep scores and inning in the existing game record.
+- Use local backup plus existing backend updates so the UI does not reset during app reloads.
 
-```text
-At bat:   #7 Smith
-On deck:  #12 Jones
-In hole:  #24 Emma
-```
+6. Reduce confusion around buttons
 
-Logic:
-- Track `currentBatterIndex` in component state on the game screen, persisted to `localStorage` under `pitch-current-batter:${gameId}:${team}`.
-- `current = lineup[idx]`, `next = lineup[(idx+1) % len]`, `onDeck = lineup[(idx+2) % len]`.
-- Tapping the banner navigates to current batter's profile (same Link target as the card).
+- Keep Edit / Sub / Remove isolated from navigation.
+- Make the card’s main area clearly say “Tap card to track pitches”.
+- Rename or visually clarify “Set as current” as a lineup-flow control, not a pitch-tracking navigation button.
 
-## 5. End At-Bat / Next Batter advance
+## Technical details
 
-In `pitch.$gameId.batter.$batterKey.tsx`:
-- Add an "End at-bat → next batter" button that appears once the active PA has an `ab_result` recorded (i.e. spray/AB picker has resolved). Already implicit when `activePa` becomes complete.
-- On click:
-  - Bump the lineup pointer in `localStorage` (`(idx + 1) % lineup.length`).
-  - Navigate back to `/pitch/$gameId` (lineup screen) **or** directly into the next batter's profile — choose direct navigation for speed.
-- Also show a passive "✓ At-bat saved — tap to advance to #X" banner once the PA is complete, so the coach has one obvious next step.
+Files to edit:
 
-Expose a tiny shared helper `src/hooks/useCurrentBatter.ts`:
-
-```ts
-export function useCurrentBatter(gameId, team, lineupLength) {
-  // reads/writes localStorage index, returns { index, advance, setIndex }
-}
-```
-
-Used by both the game screen banner and the batter screen advance button so they stay in sync.
-
-## Files to create / edit
-
-**New:**
-- `src/components/pitch/ScoreboardBanner.tsx`
-- `src/components/pitch/NextBatterBanner.tsx`
-- `src/components/pitch/PitcherManagerDialog.tsx`
 - `src/hooks/useCurrentBatter.ts`
+  - Store and expose `lastIndex`, `markCurrentComplete`, and reliable persisted state.
+- `src/components/pitch/NextBatterBanner.tsx`
+  - Add Last / Current / Next / On deck display.
+- `src/components/pitch/ScoreboardBanner.tsx`
+  - Support 3-out handling and clear inning/outs controls.
+- `src/routes/pitch.$gameId.tsx`
+  - Wire “Set as current” to visible feedback and the expanded batter flow banner.
+  - Persist batting team and outs instead of keeping them as fragile screen-only state.
+- `src/routes/pitch.$gameId.batter.$batterKey.tsx`
+  - Add scoreboard/outs banner to live pitch tracking.
+  - Wire “End at-bat → Next batter” to mark last batter and advance current.
+  - Ensure 3 outs advance the half-inning.
 
-**Edit:**
-- `src/routes/pitch.$gameId.tsx` — make whole card tappable with overlaid action buttons; mount scoreboard + next-batter banners; replace inline pitcher add UI with a "Manage pitchers" button opening the new dialog.
-- `src/routes/pitch.$gameId.batter.$batterKey.tsx` — add "End at-bat / next batter" CTA wired to `useCurrentBatter`.
-
-## Out of scope (not requested)
-
-- Persisting outs/balls/strikes server-side across reloads (kept local for now).
-- Adding new database columns. The plan reuses `games.home_score`, `games.away_score`, `games.current_inning`, and the existing `pitchers` and `pitch_entries` tables — **no schema changes**.
-
-Ready to implement on approval.
+No database schema change is required for this fix.

@@ -29,6 +29,7 @@ import { ResultPad } from "@/components/pitch/ResultPad";
 import { SprayChartModal } from "@/components/pitch/SprayChartModal";
 import { AbResultPicker } from "@/components/pitch/AbResultPicker";
 import { RecommendationBox } from "@/components/pitch/RecommendationBox";
+import { ScoreboardBanner } from "@/components/pitch/ScoreboardBanner";
 
 interface PitcherRow {
   id: string;
@@ -42,6 +43,8 @@ interface GameRow {
   home_team: string;
   away_team: string;
   current_inning: number;
+  home_score: number;
+  away_score: number;
 }
 
 export const Route = createFileRoute("/pitch/$gameId/batter/$batterKey")({
@@ -72,15 +75,20 @@ function BatterProfile() {
   const jersey = slot?.jersey ?? (isSlotKey ? "?" : parts[1]);
   const displayName = slot?.name;
 
-  const { index: currentBatterIndex, setIndex: setCurrentBatterIndex } = useCurrentBatter(
-    gameId,
-    batterTeam,
-    lineup.length,
-  );
+  const {
+    index: currentBatterIndex,
+    setIndex: setCurrentBatterIndex,
+    setLastIndex,
+  } = useCurrentBatter(gameId, batterTeam, lineup.length);
+
+  // Find this batter's index in the lineup so "last batter" is accurate
+  const myLineupIndex = slotId ? lineup.findIndex((s) => s.slotId === slotId) : -1;
 
   const goToNextBatter = () => {
     if (lineup.length === 0) return;
-    const nextIdx = (currentBatterIndex + 1) % lineup.length;
+    const fromIdx = myLineupIndex >= 0 ? myLineupIndex : currentBatterIndex;
+    setLastIndex(fromIdx);
+    const nextIdx = (fromIdx + 1) % lineup.length;
     setCurrentBatterIndex(nextIdx);
     const nextSlot = lineup[nextIdx];
     if (!nextSlot) return;
@@ -94,6 +102,7 @@ function BatterProfile() {
   const [game, setGame] = useState<GameRow | null>(null);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
   const [activePitcherId, setActivePitcherId] = useState<string>("");
+  const [outs, setOuts] = useState(0);
 
   const { types: pitchTypes } = usePitchTypes();
   const { entries, refresh } = usePitchEntries(gameId);
@@ -104,7 +113,7 @@ function BatterProfile() {
     void (async () => {
       const { data: g } = await supabase
         .from("games")
-        .select("id,home_team,away_team,current_inning")
+        .select("id,home_team,away_team,current_inning,home_score,away_score")
         .eq("id", gameId)
         .maybeSingle();
       if (g) setGame(g as GameRow);
@@ -119,6 +128,67 @@ function BatterProfile() {
       if (active) setActivePitcherId(active.id);
     })();
   }, [gameId]);
+
+  // Sync persisted outs
+  useEffect(() => {
+    try {
+      const o = localStorage.getItem(`pitch-outs:${gameId}`);
+      if (o !== null) setOuts(Math.max(0, Math.min(3, Number(o) || 0)));
+    } catch {
+      // ignore
+    }
+  }, [gameId]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(`pitch-outs:${gameId}`, String(outs));
+    } catch {
+      // ignore
+    }
+  }, [outs, gameId]);
+
+  const changeScore = async (side: "home" | "away", delta: number) => {
+    if (!game) return;
+    const next = Math.max(0, (side === "home" ? game.home_score : game.away_score) + delta);
+    const patch = side === "home" ? { home_score: next } : { away_score: next };
+    setGame({ ...game, ...patch });
+    await supabase.from("games").update(patch).eq("id", gameId);
+  };
+
+  const advanceHalfInning = async () => {
+    if (!game) return;
+    const wasTop = batterTeam === game.away_team;
+    setOuts(0);
+    if (wasTop) {
+      try {
+        localStorage.setItem(`pitch-team:${gameId}`, game.home_team);
+      } catch {
+        // ignore
+      }
+      toast.success(`Bottom ${game.current_inning} — 3 outs, switching sides`);
+    } else {
+      const nextInning = (game.current_inning ?? 1) + 1;
+      try {
+        localStorage.setItem(`pitch-team:${gameId}`, game.away_team);
+      } catch {
+        // ignore
+      }
+      setGame({ ...game, current_inning: nextInning });
+      await supabase.from("games").update({ current_inning: nextInning }).eq("id", gameId);
+      toast.success(`Top ${nextInning} — new inning`);
+    }
+    navigate({ to: "/pitch/$gameId", params: { gameId } });
+  };
+
+  const handleChangeOuts = (delta: number) => {
+    setOuts((o) => {
+      const next = o + delta;
+      if (next >= 3) {
+        setTimeout(() => void advanceHalfInning(), 80);
+        return 3;
+      }
+      return Math.max(0, next);
+    });
+  };
 
   const myEntries = useMemo(() => {
     const keys = new Set<string>([batterKey]);
@@ -259,6 +329,26 @@ function BatterProfile() {
           {game ? `${game.home_team} vs ${game.away_team}` : ""}
         </div>
       </header>
+
+      {game && (
+        <ScoreboardBanner
+          homeTeam={game.home_team}
+          awayTeam={game.away_team}
+          homeScore={game.home_score}
+          awayScore={game.away_score}
+          inning={game.current_inning ?? 1}
+          isTop={batterTeam === game.away_team}
+          outs={outs}
+          pitcherLabel={
+            activePitcher
+              ? `#${activePitcher.jersey_number}${activePitcher.name ? ` ${activePitcher.name}` : ""}`
+              : undefined
+          }
+          pitchCount={totalPitchesThisPitcher}
+          onChangeScore={changeScore}
+          onChangeOuts={handleChangeOuts}
+        />
+      )}
 
       <div className="mb-3 rounded-2xl border border-primary/40 bg-primary/5 p-3">
         <div className="flex items-center gap-3">
