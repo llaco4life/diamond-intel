@@ -41,7 +41,7 @@ function TeamDetailRoute() {
 
 function TeamDetailContent() {
   const { teamId } = Route.useParams();
-  const { role } = useAuth();
+  const { role, org } = useAuth();
   const isCoach = role === "head_coach" || role === "assistant_coach";
 
   const [team, setTeam] = useState<TeamRow | null>(null);
