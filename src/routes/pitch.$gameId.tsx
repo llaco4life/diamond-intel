@@ -84,7 +84,8 @@ function PitchGameScreen() {
   const [pitcherMgrOpen, setPitcherMgrOpen] = useState(false);
 
   const { entries } = usePitchEntries(gameId);
-  const { lineup, add, update, remove, substitute } = usePitchLineup(gameId, batterTeam);
+  const { lineup, add, update, remove, substitute, reorder, finalized, setFinalized } =
+    usePitchLineup(gameId, batterTeam);
   const { index: currentBatterIndex, setIndex: setCurrentBatterIndex } = useCurrentBatter(
     gameId,
     batterTeam,
