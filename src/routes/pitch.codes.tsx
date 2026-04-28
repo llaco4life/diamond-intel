@@ -307,6 +307,30 @@ function PitchCodes() {
             <Button onClick={addRow} className="gap-1"><Plus className="h-4 w-4" />Add</Button>
           </div>
 
+          {untagged.length > 0 && activeTeamId && (
+            <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-bold uppercase">Untagged Codes</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {untagged.length} legacy code{untagged.length === 1 ? "" : "s"} not tied to any team.
+                  </div>
+                </div>
+                <Button size="sm" onClick={assignUntagged}>
+                  Assign to Current Team
+                </Button>
+              </div>
+              <ul className="space-y-1 text-sm">
+                {untagged.map((u) => (
+                  <li key={u.id} className="flex items-center gap-2 rounded-md bg-card/60 px-2 py-1">
+                    <span className="w-12 text-center font-mono font-bold">{u.numeric_code}</span>
+                    <span className="flex-1 truncate text-muted-foreground">{labelOf(u.pitch_type_id)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <ul className="space-y-1.5">
             {rows.map((r) => (
               <li key={r.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
