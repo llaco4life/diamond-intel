@@ -75,15 +75,20 @@ function BatterProfile() {
   const jersey = slot?.jersey ?? (isSlotKey ? "?" : parts[1]);
   const displayName = slot?.name;
 
-  const { index: currentBatterIndex, setIndex: setCurrentBatterIndex } = useCurrentBatter(
-    gameId,
-    batterTeam,
-    lineup.length,
-  );
+  const {
+    index: currentBatterIndex,
+    setIndex: setCurrentBatterIndex,
+    setLastIndex,
+  } = useCurrentBatter(gameId, batterTeam, lineup.length);
+
+  // Find this batter's index in the lineup so "last batter" is accurate
+  const myLineupIndex = slotId ? lineup.findIndex((s) => s.slotId === slotId) : -1;
 
   const goToNextBatter = () => {
     if (lineup.length === 0) return;
-    const nextIdx = (currentBatterIndex + 1) % lineup.length;
+    const fromIdx = myLineupIndex >= 0 ? myLineupIndex : currentBatterIndex;
+    setLastIndex(fromIdx);
+    const nextIdx = (fromIdx + 1) % lineup.length;
     setCurrentBatterIndex(nextIdx);
     const nextSlot = lineup[nextIdx];
     if (!nextSlot) return;
