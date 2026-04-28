@@ -183,9 +183,14 @@ function InvitePage() {
           ) : (
             <>
               <div className="mb-4 rounded-xl bg-primary-soft p-4 text-center">
-                <p className="text-xs uppercase tracking-wider text-primary">You're invited to</p>
-                <p className="mt-1 text-lg font-bold text-foreground">{preview.org_name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs uppercase tracking-wider text-primary">You're invited to join</p>
+                <p className="mt-1 text-lg font-bold text-foreground">
+                  {preview.team_name ?? preview.org_name}
+                </p>
+                {preview.team_name && preview.org_name && (
+                  <p className="text-[11px] text-muted-foreground">{preview.org_name}</p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">
                   as {preview.role ? ROLE_LABEL[preview.role] : ""}
                 </p>
               </div>
