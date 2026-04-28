@@ -596,6 +596,10 @@ function BatterCard({
       params: { gameId, batterKey: slotKey },
     });
   };
+  const handleCardClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    openAtBat();
+  };
   const allKeys = new Set<string>([
     slotKey,
     ...slot.legacyJerseys.map((j) => makeBatterKey(batterTeam, j)),
@@ -628,6 +632,15 @@ function BatterCard({
 
   return (
     <div
+      role="link"
+      tabIndex={0}
+      onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openAtBat();
+        }
+      }}
       className={`relative rounded-2xl border bg-card shadow-sm transition ${
         isCurrent ? "border-primary ring-2 ring-primary/40" : "border-border"
       }`}
@@ -637,6 +650,7 @@ function BatterCard({
           <button
             type="button"
             aria-label="Drag to reorder"
+            onClick={(e) => e.stopPropagation()}
             className="flex w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-l-2xl text-muted-foreground hover:bg-secondary active:cursor-grabbing"
             {...(dragHandleProps ?? {})}
           >
@@ -644,18 +658,7 @@ function BatterCard({
           </button>
         )}
 
-        <div
-          role="link"
-          tabIndex={0}
-          onClick={openAtBat}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              openAtBat();
-            }
-          }}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 p-4 pr-2 outline-none transition active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-primary"
-        >
+        <div className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 p-4 pr-2 transition active:scale-[0.99]">
           <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <span className="text-[9px] font-bold opacity-80">Spot {slot.order}</span>
             <span className="text-lg font-black tabular-nums leading-none">#{slot.jersey}</span>
@@ -721,28 +724,40 @@ function BatterCard({
       <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 px-2 py-1.5">
         <button
           type="button"
-          onClick={onTapToCurrent}
+          onClick={(e) => {
+            e.stopPropagation();
+            onTapToCurrent();
+          }}
           className="mr-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
           <Target className="h-3.5 w-3.5" /> Set as current
         </button>
         <button
           type="button"
-          onClick={onEdit}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
         >
           <Pencil className="h-3.5 w-3.5" /> Edit
         </button>
         <button
           type="button"
-          onClick={onSub}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSub();
+          }}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
         >
           <Repeat className="h-3.5 w-3.5" /> Sub
         </button>
         <button
           type="button"
-          onClick={onRemove}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-destructive"
         >
           <X className="h-3.5 w-3.5" /> Remove
