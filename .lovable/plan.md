@@ -1,81 +1,74 @@
-I’ll fix the Pitch Intel flow so the lineup pointer, batter status, scoreboard, outs, and inning transitions are clear and work consistently.
+## First — your data is safe
 
-## What “Set as current” should do
+Nothing was lost. Checked the database directly:
 
-“Set as current” should manually choose the batter who is currently at bat in the lineup flow. It should update the game flow banner and card badges, but it should not necessarily open the pitch tracking screen by itself. To remove confusion, I’ll make its effect visible immediately and label the flow more clearly.
+- **2 teams exist**: Unity 12u and Unity 14u
+- **6 games** still in DB (all currently untagged — `team_id = NULL`)
+- **300 pitch code mappings** still in DB (also untagged)
+- **Coach memberships**: 1 user is mapped to each team
 
-## Changes to implement
+The reason it "looks empty" is that none of the existing games or pitch codes are linked to a team yet, so when a team is active, the team-scoped views filter them out. We'll backfill them to Unity 12u so 14u starts clean for this weekend.
 
-1. Make current batter state obvious on lineup screen
+## What's broken
 
-- Add a compact lineup flow summary above the cards:
-  ```text
-  Last batter: #24 Emma
-  Current batter: #7 Smith
-  Next batter: #12 Jones
-  On deck: #24 Emma
-  ```
-- When “Set as current” is tapped, update that summary immediately.
-- Show a success message like “Current batter set to #7 Smith”.
-- Keep tapping the main card area as the action to open the live Pitch Intel evaluation screen.
+**1. "Set active" does nothing visible.**
+The active-team state lives in a hook (`useActiveTeam`) that's instantiated separately in the header switcher and the teams page. Each copy has its own local state, so clicking "Set active" updates the DB and that page, but the header chip and the rest of the app never see the change. On top of that, an init effect re-runs every time the auth profile reloads and resets the active team back to a stale value — fighting the user's click.
 
-2. Track and display last batter
+**2. No per-team card.**
+There's no view that shows "this is your active team's roster + coaches" side by side. The Profile page has an Active Team summary but doesn't list the roster or coach names.
 
-- Extend the current batter helper so it stores both:
-  - current batter index
-  - last completed batter index
-- When “End at-bat → Next batter” is used, set the batter being ended as the last batter, then advance current to the next batter.
-- Show “Last batter” on the lineup banner and the live at-bat screen.
+**3. Existing data isn't tied to a team.**
+All 6 games and 300 pitch codes have `team_id = NULL`, so when Unity 14u is active they correctly disappear, but when Unity 12u is active they also disappear (the queries filter by team_id).
 
-3. Show scoreboard and outs during pitch tracking
+## Plan
 
-- Add the scoreboard banner to `/pitch/$gameId/batter/$batterKey`, not just the lineup screen.
-- Show inning, top/bottom, score, outs, and active pitcher pitch count while logging pitches.
-- This prevents the coach from losing game context once they enter the live at-bat evaluation screen.
+### 1. Backfill existing data to Unity 12u (one-time, safe)
 
-4. Make 3 outs end the inning
+Set `team_id = '30afcd75…' (Unity 12u)` on every row that's currently NULL in:
+- `games` (6 rows)
+- `pitch_code_map` (300 rows)
+- `pitchers` (via their game) and `at_bats` (via their game) — these are scoped through `game_id`, so updating `games.team_id` is enough; no schema change needed for them.
+- `scout_observations` — same, scoped through `game_id`.
 
-- Add an outs control that caps at 3.
-- When outs reach 3:
-  - reset outs to 0
-  - advance to the next half-inning
-  - switch top/bottom by changing the batting team
-  - after Bottom half ends, increment the inning number
-- Persist this game-flow state so it does not disappear on refresh or after edits.
-- Allow user to edit inning or outs in case of a mistake on entry is made
+Result: every existing game, scout note, and pitch code will appear under Unity 12u. Unity 14u starts with a clean slate.
 
-5. Persist game flow safely
+### 2. Fix active-team switching (the real bug)
 
-- Use a new lightweight game-flow storage helper/hook for:
-  - current batter index
-  - last batter index
-  - outs
-  - current batting team
-- Keep scores and inning in the existing game record.
-- Use local backup plus existing backend updates so the UI does not reset during app reloads.
+Replace the per-component `useActiveTeam` state with a single shared context provider mounted once in `__root.tsx`:
 
-6. Reduce confusion around buttons
+- New `ActiveTeamProvider` holds `teams`, `activeTeamId`, `setActiveTeamId` once for the whole app.
+- `useActiveTeam()` becomes a thin `useContext` consumer — every component reads the same value.
+- Remove the init effect that fights user clicks. Initialization runs **once** when teams first load; after that, only explicit `setActiveTeamId` calls change it.
+- Clicking "Set active" in `/teams`, picking from the header dropdown, or the team detail page all update the same state, so the header chip, profile card, scout mode, and pitch intel all switch together immediately.
 
-- Keep Edit / Sub / Remove isolated from navigation.
-- Make the card’s main area clearly say “Tap card to track pitches”.
-- Rename or visually clarify “Set as current” as a lineup-flow control, not a pitch-tracking navigation button.
+### 3. Per-team Active Team card (roster + coaches)
 
-## Technical details
+Upgrade the Active Team card on `/profile` and add a compact version to `/teams/$teamId`:
 
-Files to edit:
+- **Header**: logo, team name, age group · season, your role on this team
+- **Roster section**: list of jersey # + name from `team_roster` for the active team (with link to /teams/$teamId to edit)
+- **Coaches section**: names + roles pulled from `team_memberships` joined to `profiles`, grouped Head Coach / Assistant Coach / Players
+- **Empty states**: "No roster yet — add players" with link to team detail; "No assistant coaches yet — invite from team page"
 
-- `src/hooks/useCurrentBatter.ts`
-  - Store and expose `lastIndex`, `markCurrentComplete`, and reliable persisted state.
-- `src/components/pitch/NextBatterBanner.tsx`
-  - Add Last / Current / Next / On deck display.
-- `src/components/pitch/ScoreboardBanner.tsx`
-  - Support 3-out handling and clear inning/outs controls.
-- `src/routes/pitch.$gameId.tsx`
-  - Wire “Set as current” to visible feedback and the expanded batter flow banner.
-  - Persist batting team and outs instead of keeping them as fragile screen-only state.
-- `src/routes/pitch.$gameId.batter.$batterKey.tsx`
-  - Add scoreboard/outs banner to live pitch tracking.
-  - Wire “End at-bat → Next batter” to mark last batter and advance current.
-  - Ensure 3 outs advance the half-inning.
+So Unity 12u shows its players + coaches, Unity 14u shows its (empty for now) — clear separation.
 
-No database schema change is required for this fix.
+### 4. Small guardrails
+
+- Header `TeamSwitcher` shows a checkmark on the active team and switches instantly.
+- Active team selection persists across reloads (already does via profile + localStorage; the bug was just the re-init).
+- When you switch to Unity 14u, Pitch Intel and Scout Mode show empty (correct — that team has no games yet).
+
+## Files to change
+
+- **DB migration**: backfill `games.team_id` and `pitch_code_map.team_id` for NULL rows → Unity 12u.
+- **`src/hooks/useActiveTeam.ts`** → split into `ActiveTeamProvider` + `useActiveTeam` hook.
+- **`src/routes/__root.tsx`** → wrap app in `ActiveTeamProvider`.
+- **`src/routes/profile.tsx`** → expand Active Team card with roster + coaches lists.
+- **`src/routes/teams.$teamId.tsx`** → add coaches list section above roster.
+- **`src/components/TeamSwitcher.tsx`** → no logic change, just consumes the shared context.
+
+## What you'll see after
+
+- Click "Set active" on Unity 14u → header chip flips to "Unity 14u" instantly, profile card updates, Pitch Intel shows empty (clean slate for the weekend).
+- Switch back to Unity 12u → all your existing scout notes, games, and pitch codes are right there.
+- Each team's card shows only its own roster and coaches.
