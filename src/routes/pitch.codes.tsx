@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, Download, Upload, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, Download, Upload, Plus, Trash2, AlertCircle } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { toast } from "sonner";
 import { usePitchTypes } from "@/hooks/usePitchTypes";
 import { usePitchCodeMap } from "@/hooks/usePitchCodeMap";
