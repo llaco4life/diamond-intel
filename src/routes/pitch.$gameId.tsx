@@ -423,26 +423,169 @@ function PitchGameScreen() {
   );
 }
 
+function LineupSection({
+  gameId,
+  batterTeam,
+  lineup,
+  entries,
+  finalized,
+  currentBatterIndex,
+  onSetCurrent,
+  onEdit,
+  onSub,
+  onRemove,
+  onReorder,
+  onToggleFinalized,
+}: {
+  gameId: string;
+  batterTeam: string;
+  lineup: LineupSlot[];
+  entries: PitchEntryRow[];
+  finalized: boolean;
+  currentBatterIndex: number;
+  onSetCurrent: (i: number) => void;
+  onEdit: (s: LineupSlot) => void;
+  onSub: (s: LineupSlot) => void;
+  onRemove: (s: LineupSlot) => void;
+  onReorder: (from: number, to: number) => void;
+  onToggleFinalized: () => void;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const from = lineup.findIndex((s) => s.slotId === active.id);
+    const to = lineup.findIndex((s) => s.slotId === over.id);
+    if (from < 0 || to < 0) return;
+    onReorder(from, to);
+    // Keep the current batter pointing at the same slot if it moved
+    if (currentBatterIndex === from) onSetCurrent(to);
+    else if (from < currentBatterIndex && to >= currentBatterIndex) onSetCurrent(currentBatterIndex - 1);
+    else if (from > currentBatterIndex && to <= currentBatterIndex) onSetCurrent(currentBatterIndex + 1);
+  };
+
+  const ids = useMemo(() => lineup.map((s) => s.slotId), [lineup]);
+
+  return (
+    <>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Lineup · {batterTeam}
+          </h2>
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+              finalized
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+            }`}
+          >
+            {finalized ? "Finalized" : "Setup mode"}
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant={finalized ? "outline" : "default"}
+          className="h-8 gap-1 text-xs"
+          onClick={onToggleFinalized}
+        >
+          {finalized ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+          {finalized ? "Unlock lineup" : "Finalize lineup"}
+        </Button>
+      </div>
+
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        {finalized
+          ? "Lineup is locked. End At-Bat advances through the finalized order and wraps back to spot 1 after the last batter."
+          : "Set your batting order (drag to reorder), then finalize lineup to begin game flow. Lineup order follows the order batters were added; after the last batter, it wraps back to the top."}
+      </p>
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+          <ul className="space-y-2">
+            {lineup.map((slot, i) => (
+              <SortableBatterCard
+                key={slot.slotId}
+                gameId={gameId}
+                batterTeam={batterTeam}
+                slot={slot}
+                entries={entries}
+                isCurrent={i === currentBatterIndex}
+                draggable={!finalized}
+                isLast={i === lineup.length - 1}
+                onTapToCurrent={() => onSetCurrent(i)}
+                onEdit={() => onEdit(slot)}
+                onSub={() => onSub(slot)}
+                onRemove={() => onRemove(slot)}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
+    </>
+  );
+}
+
+function SortableBatterCard(props: {
+  gameId: string;
+  batterTeam: string;
+  slot: LineupSlot;
+  entries: PitchEntryRow[];
+  isCurrent: boolean;
+  draggable: boolean;
+  isLast: boolean;
+  onTapToCurrent: () => void;
+  onEdit: () => void;
+  onSub: () => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.slot.slotId,
+    disabled: !props.draggable,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <li ref={setNodeRef} style={style}>
+      <BatterCard {...props} dragHandleProps={props.draggable ? { ...attributes, ...listeners } : null} />
+    </li>
+  );
+}
+
 function BatterCard({
   gameId,
   batterTeam,
   slot,
   entries,
   isCurrent,
+  draggable,
+  isLast,
   onTapToCurrent,
   onEdit,
   onSub,
   onRemove,
+  dragHandleProps,
 }: {
   gameId: string;
   batterTeam: string;
   slot: LineupSlot;
   entries: PitchEntryRow[];
   isCurrent: boolean;
+  draggable: boolean;
+  isLast: boolean;
   onTapToCurrent: () => void;
   onEdit: () => void;
   onSub: () => void;
   onRemove: () => void;
+  dragHandleProps: Record<string, unknown> | null;
 }) {
   const slotKey = makeBatterKey(batterTeam, `slot:${slot.slotId}`);
   const allKeys = new Set<string>([
@@ -475,99 +618,123 @@ function BatterCard({
 
   const lastSub = slot.subs[slot.subs.length - 1];
 
-  const stop = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
   return (
-    <Link
-      to="/pitch/$gameId/batter/$batterKey"
-      params={{ gameId, batterKey: encodeURIComponent(slotKey) }}
-      onClick={onTapToCurrent}
-      className={`relative block rounded-2xl border bg-card shadow-sm transition active:scale-[0.99] ${
-        isCurrent ? "border-primary ring-2 ring-primary/40" : "border-border hover:border-primary"
+    <div
+      className={`relative rounded-2xl border bg-card shadow-sm transition ${
+        isCurrent ? "border-primary ring-2 ring-primary/40" : "border-border"
       }`}
     >
-      <div className="flex items-center gap-3 p-4 pr-2">
-        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <span className="text-[9px] font-bold opacity-80">#{slot.order}</span>
-          <span className="text-lg font-black tabular-nums leading-none">#{slot.jersey}</span>
-        </div>
+      <div className="flex items-stretch">
+        {draggable && (
+          <button
+            type="button"
+            aria-label="Drag to reorder"
+            className="flex w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-l-2xl text-muted-foreground hover:bg-secondary active:cursor-grabbing"
+            {...(dragHandleProps ?? {})}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-sm font-bold">
-              {slot.name ? slot.name : `#${slot.jersey}`}
-            </span>
-            <span className="text-[10px] text-muted-foreground">{batterTeam}</span>
-            <span className="text-[10px] text-muted-foreground">{totalPas} PA</span>
-            {isCurrent && (
-              <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                At bat
-              </span>
-            )}
-            {activePa && (
-              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
-                Live
-              </span>
-            )}
-            {hardContact && (
-              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
-                <AlertTriangle className="h-3 w-3" /> hard contact
-              </span>
-            )}
+        <Link
+          to="/pitch/$gameId/batter/$batterKey"
+          params={{ gameId, batterKey: encodeURIComponent(slotKey) }}
+          onClick={onTapToCurrent}
+          className="flex min-w-0 flex-1 items-center gap-3 p-4 pr-2 active:scale-[0.99]"
+        >
+          <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <span className="text-[9px] font-bold opacity-80">Spot {slot.order}</span>
+            <span className="text-lg font-black tabular-nums leading-none">#{slot.jersey}</span>
           </div>
 
-          {lastSub && (
-            <div className="mt-0.5 text-[10px] text-muted-foreground">
-              Subbed in for #{lastSub.jersey}{lastSub.name ? ` ${lastSub.name}` : ""} — Inning {lastSub.inning}
-              {lastSub.note ? ` · ${lastSub.note}` : ""}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-muted-foreground tabular-nums">{slot.order}.</span>
+              <span className="truncate text-sm font-bold">
+                {slot.name ? slot.name : `#${slot.jersey}`}
+              </span>
+              <span className="text-[10px] text-muted-foreground">{batterTeam}</span>
+              <span className="text-[10px] text-muted-foreground">{totalPas} PA</span>
+              {isCurrent && (
+                <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                  At bat
+                </span>
+              )}
+              {isLast && (
+                <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                  Last · wraps to 1
+                </span>
+              )}
+              {activePa && (
+                <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                  Live
+                </span>
+              )}
+              {hardContact && (
+                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
+                  <AlertTriangle className="h-3 w-3" /> hard contact
+                </span>
+              )}
             </div>
-          )}
 
-          <div className="mt-1 text-xs text-muted-foreground">
-            {lastResult ? (
-              <>
-                Last: <span className="font-mono font-semibold text-foreground">{lastResult.ab_result}</span>
-                {lastResult.spray_zone ? ` → ${lastResult.spray_zone}` : ""}
-                {lastResult.contact_quality ? ` · ${lastResult.contact_quality}` : ""}
-              </>
-            ) : (
-              <>No prior at-bat</>
+            {lastSub && (
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                Subbed in for #{lastSub.jersey}{lastSub.name ? ` ${lastSub.name}` : ""} — Inning {lastSub.inning}
+                {lastSub.note ? ` · ${lastSub.note}` : ""}
+              </div>
+            )}
+
+            <div className="mt-1 text-xs text-muted-foreground">
+              {lastResult ? (
+                <>
+                  Last: <span className="font-mono font-semibold text-foreground">{lastResult.ab_result}</span>
+                  {lastResult.spray_zone ? ` → ${lastResult.spray_zone}` : ""}
+                  {lastResult.contact_quality ? ` · ${lastResult.contact_quality}` : ""}
+                </>
+              ) : (
+                <>No prior at-bat</>
+              )}
+            </div>
+            {slot.note && (
+              <div className="mt-0.5 text-[10px] italic text-muted-foreground">{slot.note}</div>
             )}
           </div>
-          {slot.note && (
-            <div className="mt-0.5 text-[10px] italic text-muted-foreground">{slot.note}</div>
-          )}
-        </div>
 
-        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </Link>
       </div>
 
-      <div className="flex items-center justify-end gap-1 border-t border-border/60 px-2 py-1.5">
+      <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 px-2 py-1.5">
         <button
           type="button"
-          onClick={(e) => { stop(e); onEdit(); }}
+          onClick={onTapToCurrent}
+          className="mr-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+        >
+          <Target className="h-3.5 w-3.5" /> Set as current
+        </button>
+        <button
+          type="button"
+          onClick={onEdit}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
         >
           <Pencil className="h-3.5 w-3.5" /> Edit
         </button>
         <button
           type="button"
-          onClick={(e) => { stop(e); onSub(); }}
+          onClick={onSub}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
         >
           <Repeat className="h-3.5 w-3.5" /> Sub
         </button>
         <button
           type="button"
-          onClick={(e) => { stop(e); onRemove(); }}
+          onClick={onRemove}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-destructive"
         >
           <X className="h-3.5 w-3.5" /> Remove
         </button>
       </div>
-    </Link>
+    </div>
   );
 }
+
