@@ -29,6 +29,7 @@ import { ResultPad } from "@/components/pitch/ResultPad";
 import { SprayChartModal } from "@/components/pitch/SprayChartModal";
 import { AbResultPicker } from "@/components/pitch/AbResultPicker";
 import { RecommendationBox } from "@/components/pitch/RecommendationBox";
+import { ScoreboardBanner } from "@/components/pitch/ScoreboardBanner";
 
 interface PitcherRow {
   id: string;
