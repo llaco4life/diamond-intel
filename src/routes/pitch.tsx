@@ -38,6 +38,7 @@ function relativeTime(iso: string): string {
 
 function PitchLobbyContent() {
   const { org, user } = useAuth();
+  const { activeTeam, activeTeamId } = useActiveTeam();
   const navigate = useNavigate();
   const [active, setActive] = useState<GameRow[]>([]);
   const [recent, setRecent] = useState<GameRow[]>([]);
@@ -53,22 +54,23 @@ function PitchLobbyContent() {
     if (!org) return;
     let cancelled = false;
     void (async () => {
+      const baseActive = supabase
+        .from("games")
+        .select("*")
+        .eq("org_id", org.id)
+        .eq("game_type", "pitch")
+        .eq("status", "active");
+      const baseRecent = supabase
+        .from("games")
+        .select("*")
+        .eq("org_id", org.id)
+        .eq("game_type", "pitch")
+        .eq("status", "ended");
+      const aQ = activeTeamId ? baseActive.eq("team_id", activeTeamId) : baseActive;
+      const rQ = activeTeamId ? baseRecent.eq("team_id", activeTeamId) : baseRecent;
       const [{ data: a }, { data: r }] = await Promise.all([
-        supabase
-          .from("games")
-          .select("*")
-          .eq("org_id", org.id)
-          .eq("game_type", "pitch")
-          .eq("status", "active")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("games")
-          .select("*")
-          .eq("org_id", org.id)
-          .eq("game_type", "pitch")
-          .eq("status", "ended")
-          .order("created_at", { ascending: false })
-          .limit(3),
+        aQ.order("created_at", { ascending: false }),
+        rQ.order("created_at", { ascending: false }).limit(3),
       ]);
       if (cancelled) return;
       setActive((a as GameRow[] | null) ?? []);
@@ -78,11 +80,12 @@ function PitchLobbyContent() {
     return () => {
       cancelled = true;
     };
-  }, [org]);
+  }, [org, activeTeamId]);
 
   useEffect(() => {
-    if (org && !home) setHome(org.name);
-  }, [org, home]);
+    if (activeTeam && !home) setHome(activeTeam.name);
+    else if (!activeTeam && org && !home) setHome(org.name);
+  }, [org, activeTeam, home]);
 
   const start = async () => {
     if (!org || !user) return;
