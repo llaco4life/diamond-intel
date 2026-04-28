@@ -114,6 +114,10 @@ export function usePitchLineup(gameId: string | undefined, team: string | undefi
 
       if (data?.lineup && Array.isArray(data.lineup)) {
         const remoteLineup = normalize(data.lineup as LineupSlot[]);
+        if (remoteLineup.length === 0 && localLineup.length > 0) {
+          await saveRemote(gameId, team, localLineup, localFinalized);
+          return;
+        }
         setLineup(remoteLineup);
         setFinalizedState(Boolean(data.finalized));
         try {
