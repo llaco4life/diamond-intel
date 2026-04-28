@@ -50,10 +50,12 @@ function TeamDetailContent() {
   const [roster, setRoster] = useState<RosterRow[]>([]);
   const [newJersey, setNewJersey] = useState("");
   const [newName, setNewName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const [{ data: t }, { data: r }] = await Promise.all([
-      supabase.from("teams").select("id,name,age_group,season").eq("id", teamId).maybeSingle(),
+      supabase.from("teams").select("id,name,age_group,season,logo_url").eq("id", teamId).maybeSingle(),
       supabase
         .from("team_roster")
         .select("*")
