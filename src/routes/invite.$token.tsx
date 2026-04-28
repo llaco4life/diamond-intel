@@ -14,7 +14,8 @@ export const Route = createFileRoute("/invite/$token")({
 
 type Preview = {
   org_name: string | null;
-  role: "player" | "assistant_coach" | null;
+  team_name: string | null;
+  role: "player" | "assistant_coach" | "head_coach" | null;
   is_valid: boolean;
   reason: string | null;
 };
@@ -22,6 +23,7 @@ type Preview = {
 const ROLE_LABEL = {
   player: "Player",
   assistant_coach: "Assistant Coach",
+  head_coach: "Head Coach",
 } as const;
 
 const REASON_MESSAGE: Record<string, string> = {
