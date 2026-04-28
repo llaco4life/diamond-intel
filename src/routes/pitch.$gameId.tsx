@@ -374,6 +374,7 @@ function PitchGameScreen() {
         lineup={lineup}
         index={currentBatterIndex}
         lastIndex={lastBatterIndex}
+        entries={entries}
       />
       <div className="mb-3 grid grid-cols-3 gap-2">
         <div>
