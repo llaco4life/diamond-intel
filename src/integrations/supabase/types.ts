@@ -831,6 +831,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          logo_url: string | null
           name: string
           org_id: string
           season: string | null
@@ -841,6 +842,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          logo_url?: string | null
           name: string
           org_id: string
           season?: string | null
@@ -851,6 +853,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          logo_url?: string | null
           name?: string
           org_id?: string
           season?: string | null
