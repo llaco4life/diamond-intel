@@ -42,6 +42,8 @@ interface GameRow {
   home_team: string;
   away_team: string;
   current_inning: number;
+  home_score: number;
+  away_score: number;
 }
 
 export const Route = createFileRoute("/pitch/$gameId/batter/$batterKey")({
