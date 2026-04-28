@@ -107,6 +107,52 @@ function PitchGameScreen() {
   const [editSlot, setEditSlot] = useState<LineupSlot | null>(null);
   const [subSlot, setSubSlot] = useState<LineupSlot | null>(null);
 
+  // Count active team roster for showing the "Load Saved Roster" button
+  useEffect(() => {
+    if (!activeTeamId) {
+      setRosterCount(0);
+      return;
+    }
+    void (async () => {
+      const { count } = await supabase
+        .from("team_roster")
+        .select("id", { count: "exact", head: true })
+        .eq("team_id", activeTeamId);
+      setRosterCount(count ?? 0);
+    })();
+  }, [activeTeamId]);
+
+  const loadSavedRoster = async () => {
+    if (!activeTeamId || finalized) return;
+    setLoadingRoster(true);
+    const { data, error } = await supabase
+      .from("team_roster")
+      .select("jersey_number,name,bat_order")
+      .eq("team_id", activeTeamId);
+    setLoadingRoster(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const sorted = (data ?? []).slice().sort((a, b) => {
+      const ao = a.bat_order ?? 999;
+      const bo = b.bat_order ?? 999;
+      if (ao !== bo) return ao - bo;
+      return (a.jersey_number ?? "").localeCompare(b.jersey_number ?? "", undefined, { numeric: true });
+    });
+    const existing = new Set(lineup.map((s) => s.jersey));
+    let added = 0;
+    for (const p of sorted) {
+      const j = (p.jersey_number ?? "").trim();
+      if (!j || existing.has(j)) continue;
+      add(j, p.name ?? undefined);
+      existing.add(j);
+      added += 1;
+    }
+    if (added === 0) toast.info("Roster already loaded.");
+    else toast.success(`Loaded ${added} player${added === 1 ? "" : "s"} from roster`);
+  };
+
   useEffect(() => {
     void (async () => {
       const { data: g } = await supabase
