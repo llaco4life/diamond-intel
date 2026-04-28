@@ -14,7 +14,8 @@ export const Route = createFileRoute("/invite/$token")({
 
 type Preview = {
   org_name: string | null;
-  role: "player" | "assistant_coach" | null;
+  team_name: string | null;
+  role: "player" | "assistant_coach" | "head_coach" | null;
   is_valid: boolean;
   reason: string | null;
 };
@@ -22,6 +23,7 @@ type Preview = {
 const ROLE_LABEL = {
   player: "Player",
   assistant_coach: "Assistant Coach",
+  head_coach: "Head Coach",
 } as const;
 
 const REASON_MESSAGE: Record<string, string> = {
@@ -50,11 +52,12 @@ function InvitePage() {
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase.rpc("get_invite_preview", { _token: token });
+      const fallback: Preview = { org_name: null, team_name: null, role: null, is_valid: false, reason: "not_found" };
       if (error) {
-        setPreview({ org_name: null, role: null, is_valid: false, reason: "not_found" });
+        setPreview(fallback);
       } else {
         const row = (data ?? [])[0] as Preview | undefined;
-        setPreview(row ?? { org_name: null, role: null, is_valid: false, reason: "not_found" });
+        setPreview(row ?? fallback);
       }
       setLoadingPreview(false);
     })();
@@ -77,7 +80,7 @@ function InvitePage() {
       const row = (data ?? [])[0] as { success: boolean; reason: string | null } | undefined;
       if (row?.success) {
         setRedeemed(true);
-        toast.success(`You've joined ${preview.org_name}!`);
+        toast.success(`You've joined ${preview.team_name ?? preview.org_name}!`);
         await refreshProfile();
         setTimeout(() => navigate({ to: "/", search: { restricted: undefined } }), 600);
       } else {
@@ -128,7 +131,7 @@ function InvitePage() {
       const row = (redeemData ?? [])[0] as { success: boolean; reason: string | null } | undefined;
       if (row?.success) {
         setRedeemed(true);
-        toast.success(`You've joined ${preview.org_name}!`);
+        toast.success(`You've joined ${preview.team_name ?? preview.org_name}!`);
         await refreshProfile();
         setTimeout(() => navigate({ to: "/", search: { restricted: undefined } }), 600);
         return;
@@ -180,9 +183,14 @@ function InvitePage() {
           ) : (
             <>
               <div className="mb-4 rounded-xl bg-primary-soft p-4 text-center">
-                <p className="text-xs uppercase tracking-wider text-primary">You're invited to</p>
-                <p className="mt-1 text-lg font-bold text-foreground">{preview.org_name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs uppercase tracking-wider text-primary">You're invited to join</p>
+                <p className="mt-1 text-lg font-bold text-foreground">
+                  {preview.team_name ?? preview.org_name}
+                </p>
+                {preview.team_name && preview.org_name && (
+                  <p className="text-[11px] text-muted-foreground">{preview.org_name}</p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">
                   as {preview.role ? ROLE_LABEL[preview.role] : ""}
                 </p>
               </div>

@@ -1,12 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Copy, Check, LogOut, Users } from "lucide-react";
+import { Copy, Check, LogOut, Users, Pencil, Settings, ImageIcon } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, AppRole } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { InviteLinksSection } from "@/components/profile/InviteLinksSection";
 import { toast } from "sonner";
@@ -63,20 +64,18 @@ function ProfilePage() {
       <p className="mb-6 text-sm text-muted-foreground">Manage your account and team</p>
 
       <section className="mb-4 rounded-2xl border bg-card p-5 shadow-card">
-        <div className="mb-4 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary">
             {profile?.full_name?.[0]?.toUpperCase() ?? "?"}
           </div>
-          <div>
-            <p className="font-semibold text-foreground">{profile?.full_name}</p>
-            <p className="text-sm text-muted-foreground">{roleLabel}</p>
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-foreground">{profile?.full_name}</p>
+            <p className="text-sm text-muted-foreground">{roleLabel}{org ? ` · ${org.name}` : ""}</p>
           </div>
         </div>
-        <div className="space-y-1.5 border-t border-border pt-4 text-sm">
-          <Row label="Team" value={org?.name ?? "—"} />
-          <Row label="Role" value={roleLabel} />
-        </div>
       </section>
+
+      <ActiveTeamCard role={role} />
 
       {isHeadCoach && org && (
         <section className="mb-4 rounded-2xl border-2 border-primary/30 bg-primary-soft p-5 shadow-card">
@@ -119,9 +118,6 @@ function ProfilePage() {
 
       {isHeadCoach && org && <InviteLinksSection orgId={org.id} />}
 
-      {(role === "head_coach" || role === "assistant_coach") && org && (
-        <RosterSection orgId={org.id} />
-      )}
 
       <section className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
         <h2 className="mb-3 text-sm font-semibold">My game history</h2>
@@ -149,157 +145,137 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-interface Member {
-  id: string;
-  full_name: string;
-  jersey_number: string | null;
-  created_at: string;
-  role: AppRole;
+interface TeamMemberCounts {
+  head_coach: number;
+  assistant_coach: number;
+  player: number;
+  total: number;
+  myRole: AppRole | null;
 }
 
-const ROLE_RANK: Record<AppRole, number> = {
-  head_coach: 0,
-  assistant_coach: 1,
-  player: 2,
-};
-
-const ROLE_META: Record<AppRole, { label: string; bg: string }> = {
-  head_coach: { label: "Head Coach", bg: "#1D9E75" },
-  assistant_coach: { label: "Assistant Coach", bg: "#0F6E56" },
-  player: { label: "Player", bg: "#5DCAA5" },
-};
-
-function formatJoined(iso: string): string {
-  const d = new Date(iso);
-  return `Joined ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-}
-
-function RosterSection({ orgId }: { orgId: string }) {
-  const [members, setMembers] = useState<Member[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+function ActiveTeamCard({ role }: { role: AppRole | null }) {
+  const { activeTeam, activeTeamId, loading } = useActiveTeam();
+  const { user } = useAuth();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [rosterCount, setRosterCount] = useState<number>(0);
+  const [counts, setCounts] = useState<TeamMemberCounts>({
+    head_coach: 0,
+    assistant_coach: 0,
+    player: 0,
+    total: 0,
+    myRole: null,
+  });
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data: profiles, error: pErr } = await supabase
-        .from("profiles")
-        .select("id, full_name, jersey_number, created_at")
-        .eq("org_id", orgId);
-
-      if (pErr) {
-        if (!cancelled) setError(pErr.message);
-        return;
+    if (!activeTeamId) {
+      setLogoUrl(null);
+      setRosterCount(0);
+      setCounts({ head_coach: 0, assistant_coach: 0, player: 0, total: 0, myRole: null });
+      return;
+    }
+    void (async () => {
+      const [{ data: team }, { count }, { data: members }] = await Promise.all([
+        supabase.from("teams").select("logo_url").eq("id", activeTeamId).maybeSingle(),
+        supabase
+          .from("team_roster")
+          .select("id", { count: "exact", head: true })
+          .eq("team_id", activeTeamId),
+        supabase
+          .from("team_memberships")
+          .select("user_id, role")
+          .eq("team_id", activeTeamId),
+      ]);
+      setLogoUrl((team as { logo_url?: string | null } | null)?.logo_url ?? null);
+      setRosterCount(count ?? 0);
+      const next: TeamMemberCounts = {
+        head_coach: 0,
+        assistant_coach: 0,
+        player: 0,
+        total: 0,
+        myRole: null,
+      };
+      for (const m of members ?? []) {
+        const r = m.role as AppRole;
+        if (r === "head_coach" || r === "assistant_coach" || r === "player") next[r] += 1;
+        next.total += 1;
+        if (user && m.user_id === user.id) next.myRole = r;
       }
-      const ids = (profiles ?? []).map((p) => p.id);
-      if (ids.length === 0) {
-        if (!cancelled) setMembers([]);
-        return;
-      }
-
-      const { data: roles, error: rErr } = await supabase
-        .from("user_roles")
-        .select("user_id, role")
-        .in("user_id", ids);
-
-      if (rErr) {
-        if (!cancelled) setError(rErr.message);
-        return;
-      }
-
-      const roleMap = new Map<string, AppRole>(
-        (roles ?? []).map((r) => [r.user_id, r.role as AppRole])
-      );
-
-      const merged: Member[] = (profiles ?? []).map((p) => ({
-        id: p.id,
-        full_name: p.full_name,
-        jersey_number: p.jersey_number,
-        created_at: p.created_at,
-        role: roleMap.get(p.id) ?? "player",
-      }));
-
-      merged.sort((a, b) => {
-        const r = ROLE_RANK[a.role] - ROLE_RANK[b.role];
-        if (r !== 0) return r;
-        if (a.role === "player") return a.full_name.localeCompare(b.full_name);
-        return 0;
-      });
-
-      if (!cancelled) setMembers(merged);
+      // Fall back to org-wide role if no team membership row exists yet
+      if (!next.myRole) next.myRole = role;
+      setCounts(next);
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [orgId]);
+  }, [activeTeamId, role, user]);
 
-  const count = members?.length ?? 0;
-  const onlyMe = count <= 1;
+  const myRoleLabel =
+    counts.myRole === "head_coach"
+      ? "Head Coach"
+      : counts.myRole === "assistant_coach"
+      ? "Assistant Coach"
+      : counts.myRole === "player"
+      ? "Player"
+      : "—";
+
+  if (!loading && !activeTeam) {
+    return (
+      <section className="mb-4 rounded-2xl border border-dashed border-border bg-card p-5 text-center shadow-card">
+        <p className="text-sm font-semibold">No active team</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Pick or create a team to start scouting and tracking pitches.
+        </p>
+        <Link to="/teams" className="mt-3 inline-block">
+          <Button size="sm">Manage teams</Button>
+        </Link>
+      </section>
+    );
+  }
 
   return (
-    <section className="mb-4 rounded-2xl border bg-card p-5 shadow-card">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold">Team Roster</h2>
+    <section className="mb-4 rounded-2xl border-2 border-primary/30 bg-card p-5 shadow-card">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-soft">
+          {logoUrl ? (
+            <img src={logoUrl} alt={activeTeam?.name ?? "Team logo"} className="h-full w-full object-cover" />
+          ) : (
+            <ImageIcon className="h-6 w-6 text-primary/60" />
+          )}
         </div>
-        {members && (
-          <span className="text-xs font-medium text-muted-foreground">
-            {count} {count === 1 ? "member" : "members"}
-          </span>
-        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-primary">Active team</div>
+          <div className="truncate text-base font-bold text-foreground">{activeTeam?.name ?? "—"}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {[activeTeam?.age_group, activeTeam?.season].filter(Boolean).join(" · ") || "No age group / season"}
+          </div>
+        </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">Couldn't load roster: {error}</p>}
+      <div className="space-y-1.5 border-t border-border pt-3 text-sm">
+        <Row label="My role" value={myRoleLabel} />
+        <Row label="Roster" value={`${rosterCount} player${rosterCount === 1 ? "" : "s"}`} />
+        <Row
+          label="Members"
+          value={`${counts.head_coach} HC · ${counts.assistant_coach} AC · ${counts.player} P`}
+        />
+      </div>
 
-      {!error && members === null && (
-        <div className="space-y-2">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-14 animate-pulse rounded-xl bg-muted/50" />
-          ))}
+      {activeTeamId && (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Link to="/teams/$teamId" params={{ teamId: activeTeamId }}>
+            <Button size="sm" variant="outline" className="w-full gap-1.5">
+              <Pencil className="h-3.5 w-3.5" /> Edit team
+            </Button>
+          </Link>
+          <Link to="/teams/$teamId/members" params={{ teamId: activeTeamId }}>
+            <Button size="sm" variant="outline" className="w-full gap-1.5">
+              <Users className="h-3.5 w-3.5" /> Manage members
+            </Button>
+          </Link>
         </div>
       )}
 
-      {!error && members && onlyMe && (
-        <div className="rounded-xl border border-dashed border-border bg-background/40 p-5 text-center">
-          <p className="text-sm text-muted-foreground">
-            No players have joined yet. Share your join code to get started.
-          </p>
-        </div>
-      )}
-
-      {!error && members && !onlyMe && (
-        <ul className="space-y-2">
-          {members.map((m) => (
-            <li
-              key={m.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-background/40 p-3"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
-                {m.full_name?.[0]?.toUpperCase() ?? "?"}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {m.full_name}
-                  </p>
-                  {m.jersey_number && (
-                    <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold text-foreground">
-                      #{m.jersey_number}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">{formatJoined(m.created_at)}</p>
-              </div>
-              <span
-                className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white"
-                style={{ backgroundColor: ROLE_META[m.role].bg }}
-              >
-                {ROLE_META[m.role].label}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <Link to="/teams" className="mt-3 flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Settings className="h-3 w-3" /> Switch or create team
+      </Link>
     </section>
   );
 }
+

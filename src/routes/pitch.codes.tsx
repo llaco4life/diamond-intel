@@ -45,11 +45,46 @@ function PitchCodes() {
   const [newType, setNewType] = useState("");
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [untagged, setUntagged] = useState<{ id: string; numeric_code: string; pitch_type_id: string }[]>([]);
 
   // Reset selected pitcher when team changes so we don't show stale codes
   useEffect(() => {
     setPitcherId("");
   }, [activeTeamId]);
+
+  // Load untagged (team_id IS NULL) rows for this pitcher
+  useEffect(() => {
+    if (!org || !pitcherId || !activeTeamId) {
+      setUntagged([]);
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from("pitch_code_map")
+        .select("id,numeric_code,pitch_type_id")
+        .eq("org_id", org.id)
+        .eq("pitcher_id", pitcherId)
+        .is("team_id", null)
+        .order("numeric_code");
+      setUntagged((data ?? []) as typeof untagged);
+    })();
+  }, [org, pitcherId, activeTeamId, rows]);
+
+  const assignUntagged = async () => {
+    if (!activeTeamId || untagged.length === 0) return;
+    const ids = untagged.map((u) => u.id);
+    const { error } = await supabase
+      .from("pitch_code_map")
+      .update({ team_id: activeTeamId })
+      .in("id", ids);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Assigned ${ids.length} code${ids.length === 1 ? "" : "s"} to ${activeTeam?.name ?? "team"}`);
+    setUntagged([]);
+    void refresh();
+  };
 
   useEffect(() => {
     if (!org) return;
@@ -271,6 +306,30 @@ function PitchCodes() {
             </Select>
             <Button onClick={addRow} className="gap-1"><Plus className="h-4 w-4" />Add</Button>
           </div>
+
+          {untagged.length > 0 && activeTeamId && (
+            <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-bold uppercase">Untagged Codes</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {untagged.length} legacy code{untagged.length === 1 ? "" : "s"} not tied to any team.
+                  </div>
+                </div>
+                <Button size="sm" onClick={assignUntagged}>
+                  Assign to Current Team
+                </Button>
+              </div>
+              <ul className="space-y-1 text-sm">
+                {untagged.map((u) => (
+                  <li key={u.id} className="flex items-center gap-2 rounded-md bg-card/60 px-2 py-1">
+                    <span className="w-12 text-center font-mono font-bold">{u.numeric_code}</span>
+                    <span className="flex-1 truncate text-muted-foreground">{labelOf(u.pitch_type_id)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <ul className="space-y-1.5">
             {rows.map((r) => (

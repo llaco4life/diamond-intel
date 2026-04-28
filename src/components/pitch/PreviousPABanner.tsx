@@ -5,6 +5,8 @@ interface Props {
   batterKey: string;
   batterTeam: string;
   pitchTypes: PitchTypeRow[];
+  /** When true, `entries` is already filtered to this batter — skip internal filter. */
+  preFiltered?: boolean;
 }
 
 interface BuiltPA {
@@ -41,8 +43,10 @@ function buildLastPA(entries: PitchEntryRow[]): BuiltPA | null {
   };
 }
 
-export function PreviousPABanner({ entries, batterKey, batterTeam, pitchTypes }: Props) {
-  const filtered = entries.filter((e) => e.batter_key === batterKey && e.batter_team === batterTeam);
+export function PreviousPABanner({ entries, batterKey, batterTeam, pitchTypes, preFiltered }: Props) {
+  const filtered = preFiltered
+    ? entries
+    : entries.filter((e) => e.batter_key === batterKey && e.batter_team === batterTeam);
   const pa = buildLastPA(filtered);
   const labelMap = new Map(pitchTypes.map((t) => [t.id, t.label]));
 

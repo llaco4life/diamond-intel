@@ -18,7 +18,9 @@ import {
   Lock,
   Unlock,
   Target,
+  ListPlus,
 } from "lucide-react";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -93,6 +95,9 @@ function PitchGameScreen() {
   const { entries } = usePitchEntries(gameId);
   const { lineup, add, update, remove, substitute, reorder, finalized, setFinalized } =
     usePitchLineup(gameId, batterTeam);
+  const { activeTeamId, activeTeam } = useActiveTeam();
+  const [rosterCount, setRosterCount] = useState(0);
+  const [loadingRoster, setLoadingRoster] = useState(false);
   const {
     index: currentBatterIndex,
     setIndex: setCurrentBatterIndex,
@@ -101,6 +106,52 @@ function PitchGameScreen() {
 
   const [editSlot, setEditSlot] = useState<LineupSlot | null>(null);
   const [subSlot, setSubSlot] = useState<LineupSlot | null>(null);
+
+  // Count active team roster for showing the "Load Saved Roster" button
+  useEffect(() => {
+    if (!activeTeamId) {
+      setRosterCount(0);
+      return;
+    }
+    void (async () => {
+      const { count } = await supabase
+        .from("team_roster")
+        .select("id", { count: "exact", head: true })
+        .eq("team_id", activeTeamId);
+      setRosterCount(count ?? 0);
+    })();
+  }, [activeTeamId]);
+
+  const loadSavedRoster = async () => {
+    if (!activeTeamId || finalized) return;
+    setLoadingRoster(true);
+    const { data, error } = await supabase
+      .from("team_roster")
+      .select("jersey_number,name,bat_order")
+      .eq("team_id", activeTeamId);
+    setLoadingRoster(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const sorted = (data ?? []).slice().sort((a, b) => {
+      const ao = a.bat_order ?? 999;
+      const bo = b.bat_order ?? 999;
+      if (ao !== bo) return ao - bo;
+      return (a.jersey_number ?? "").localeCompare(b.jersey_number ?? "", undefined, { numeric: true });
+    });
+    const existing = new Set(lineup.map((s) => s.jersey));
+    let added = 0;
+    for (const p of sorted) {
+      const j = (p.jersey_number ?? "").trim();
+      if (!j || existing.has(j)) continue;
+      add(j, p.name ?? undefined);
+      existing.add(j);
+      added += 1;
+    }
+    if (added === 0) toast.info("Roster already loaded.");
+    else toast.success(`Loaded ${added} player${added === 1 ? "" : "s"} from roster`);
+  };
 
   useEffect(() => {
     void (async () => {
@@ -323,6 +374,7 @@ function PitchGameScreen() {
         lineup={lineup}
         index={currentBatterIndex}
         lastIndex={lastBatterIndex}
+        entries={entries}
       />
       <div className="mb-3 grid grid-cols-3 gap-2">
         <div>
@@ -413,6 +465,21 @@ function PitchGameScreen() {
           }
         }}
       />
+
+      {!finalized && activeTeamId && rosterCount > 0 && (
+        <div className="mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5"
+            onClick={loadSavedRoster}
+            disabled={loadingRoster}
+          >
+            <ListPlus className="h-4 w-4" />
+            {loadingRoster ? "Loading…" : `Load Saved Roster (${activeTeam?.name ?? "team"} · ${rosterCount})`}
+          </Button>
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-border p-3">
         <div>
