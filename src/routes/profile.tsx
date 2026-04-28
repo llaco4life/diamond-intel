@@ -64,20 +64,18 @@ function ProfilePage() {
       <p className="mb-6 text-sm text-muted-foreground">Manage your account and team</p>
 
       <section className="mb-4 rounded-2xl border bg-card p-5 shadow-card">
-        <div className="mb-4 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary">
             {profile?.full_name?.[0]?.toUpperCase() ?? "?"}
           </div>
-          <div>
-            <p className="font-semibold text-foreground">{profile?.full_name}</p>
-            <p className="text-sm text-muted-foreground">{roleLabel}</p>
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-foreground">{profile?.full_name}</p>
+            <p className="text-sm text-muted-foreground">{roleLabel}{org ? ` · ${org.name}` : ""}</p>
           </div>
         </div>
-        <div className="space-y-1.5 border-t border-border pt-4 text-sm">
-          <Row label="Team" value={org?.name ?? "—"} />
-          <Row label="Role" value={roleLabel} />
-        </div>
       </section>
+
+      <ActiveTeamCard role={role} />
 
       {isHeadCoach && org && (
         <section className="mb-4 rounded-2xl border-2 border-primary/30 bg-primary-soft p-5 shadow-card">
