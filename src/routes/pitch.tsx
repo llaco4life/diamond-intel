@@ -89,6 +89,10 @@ function PitchLobbyContent() {
 
   const start = async () => {
     if (!org || !user) return;
+    if (!activeTeamId) {
+      toast.error("Select a team first.");
+      return;
+    }
     if (!home.trim() || !away.trim()) {
       toast.error("Both team names are required");
       return;
@@ -118,6 +122,7 @@ function PitchLobbyContent() {
         .insert({
           org_id: org.id,
           opponent_id: opponentId,
+          team_id: activeTeamId,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           game_type: "pitch" as any,
           home_team: home.trim(),
