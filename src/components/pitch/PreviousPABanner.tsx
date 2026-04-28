@@ -43,8 +43,10 @@ function buildLastPA(entries: PitchEntryRow[]): BuiltPA | null {
   };
 }
 
-export function PreviousPABanner({ entries, batterKey, batterTeam, pitchTypes }: Props) {
-  const filtered = entries.filter((e) => e.batter_key === batterKey && e.batter_team === batterTeam);
+export function PreviousPABanner({ entries, batterKey, batterTeam, pitchTypes, preFiltered }: Props) {
+  const filtered = preFiltered
+    ? entries
+    : entries.filter((e) => e.batter_key === batterKey && e.batter_team === batterTeam);
   const pa = buildLastPA(filtered);
   const labelMap = new Map(pitchTypes.map((t) => [t.id, t.label]));
 
