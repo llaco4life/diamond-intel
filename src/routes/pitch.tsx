@@ -189,8 +189,33 @@ function PitchLobbyContent() {
         </Link>
       </header>
 
+      {!activeTeamId && (
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1">
+            <p className="font-semibold">Select a team first.</p>
+            <p className="text-xs text-muted-foreground">
+              Pitch Intel games and pitch code imports must be tied to one of your teams.
+            </p>
+          </div>
+          <Link to="/teams">
+            <Button size="sm" variant="outline">Manage teams</Button>
+          </Link>
+        </div>
+      )}
+
       {!creating ? (
-        <Button onClick={() => setCreating(true)} className="mb-5 h-12 w-full gap-2 text-base">
+        <Button
+          onClick={() => {
+            if (!activeTeamId) {
+              toast.error("Select a team first.");
+              return;
+            }
+            setCreating(true);
+          }}
+          className="mb-5 h-12 w-full gap-2 text-base"
+          disabled={!activeTeamId}
+        >
           <Plus className="h-5 w-5" />
           Start a Pitch Intel game
         </Button>
