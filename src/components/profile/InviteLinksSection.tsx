@@ -12,6 +12,7 @@ type InviteRole = Extract<AppRole, "player" | "assistant_coach">;
 interface InviteLink {
   id: string;
   org_id: string;
+  team_id: string | null;
   role: InviteRole;
   token: string;
   max_uses: number | null;
@@ -26,13 +27,22 @@ const DEFAULT_MAX_USES: Record<InviteRole, number> = {
   assistant_coach: 5,
 };
 
-const ROLE_META: Record<InviteRole, { label: string; cta: string; icon: typeof Users }> = {
-  player: { label: "Player invite", cta: "Invite Player", icon: Users },
-  assistant_coach: { label: "Assistant coach invite", cta: "Invite Assistant Coach", icon: UserPlus },
+const ROLE_META: Record<InviteRole, { label: string; cta: string; icon: typeof Users; help: string }> = {
+  player: {
+    label: "Player / Parent invite",
+    cta: "Create Player invite",
+    icon: Users,
+    help: "Players & parents — Learning Mode and limited visibility.",
+  },
+  assistant_coach: {
+    label: "Assistant Coach invite",
+    cta: "Create Coach invite",
+    icon: UserPlus,
+    help: "Assistant coaches — full Pitch Intel, Scout, Reports access.",
+  },
 };
 
 function generateToken(): string {
-  // URL-safe random token
   const bytes = new Uint8Array(18);
   crypto.getRandomValues(bytes);
   return btoa(String.fromCharCode(...bytes))
@@ -41,15 +51,11 @@ function generateToken(): string {
     .replace(/=+$/, "");
 }
 
-// Always use the published app domain for invite links so they work for
-// recipients (not the Lovable editor preview URL the coach happens to be on).
 const PUBLISHED_APP_ORIGIN = "https://diamond-intel.lovable.app";
 
 function inviteUrl(token: string): string {
   if (typeof window === "undefined") return `${PUBLISHED_APP_ORIGIN}/invite/${token}`;
   const origin = window.location.origin;
-  // If the coach is viewing the app inside the Lovable editor/preview, those
-  // hosts redirect strangers into Lovable's own auth. Force the published URL.
   const isLovableInternal =
     origin.includes("id-preview--") ||
     origin.includes("lovableproject.com") ||
@@ -65,7 +71,14 @@ function statusFor(link: InviteLink): { label: string; tone: "active" | "revoked
   return { label: "Active", tone: "active" };
 }
 
-export function InviteLinksSection({ orgId }: { orgId: string }) {
+interface Props {
+  orgId: string;
+  /** When provided, invites are scoped to this team. */
+  teamId?: string | null;
+  title?: string;
+}
+
+export function InviteLinksSection({ orgId, teamId = null, title }: Props) {
   const { user } = useAuth();
   const [links, setLinks] = useState<InviteLink[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,11 +90,13 @@ export function InviteLinksSection({ orgId }: { orgId: string }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const load = async () => {
-    const { data, error: err } = await supabase
+    let q = supabase
       .from("org_invite_links")
       .select("*")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false });
+    q = teamId ? q.eq("team_id", teamId) : q.is("team_id", null);
+    const { data, error: err } = await q;
     if (err) {
       setError(err.message);
       return;
@@ -92,7 +107,7 @@ export function InviteLinksSection({ orgId }: { orgId: string }) {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId]);
+  }, [orgId, teamId]);
 
   const createInvite = async (role: InviteRole) => {
     if (!user) return;
@@ -102,6 +117,7 @@ export function InviteLinksSection({ orgId }: { orgId: string }) {
     const token = generateToken();
     const { error: err } = await supabase.from("org_invite_links").insert({
       org_id: orgId,
+      team_id: teamId,
       role,
       token,
       created_by: user.id,
@@ -139,12 +155,14 @@ export function InviteLinksSection({ orgId }: { orgId: string }) {
 
   return (
     <section className="mb-4 rounded-2xl border bg-card p-5 shadow-card">
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-2">
         <Link2 className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">Invite Links</h2>
+        <h2 className="text-sm font-semibold">{title ?? "Invite Links"}</h2>
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
-        Share a one-tap link to onboard new teammates. They'll be added to your org with the right role automatically.
+        {teamId
+          ? "Each invite is tied to this team. New members will be added to this team only."
+          : "Invites here are not tied to any team. Prefer creating invites from a specific team."}
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -153,15 +171,16 @@ export function InviteLinksSection({ orgId }: { orgId: string }) {
           const Icon = meta.icon;
           return (
             <div key={r} className="rounded-xl border border-border bg-background/40 p-3">
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-1 flex items-center gap-2">
                 <Icon className="h-4 w-4 text-primary" />
                 <p className="text-sm font-semibold">{meta.label}</p>
               </div>
-              <Label htmlFor={`max-${r}`} className="text-xs text-muted-foreground">
+              <p className="mb-2 text-[11px] text-muted-foreground">{meta.help}</p>
+              <Label htmlFor={`max-${r}-${teamId ?? "none"}`} className="text-xs text-muted-foreground">
                 Max uses
               </Label>
               <Input
-                id={`max-${r}`}
+                id={`max-${r}-${teamId ?? "none"}`}
                 type="number"
                 min={1}
                 value={maxUses[r]}

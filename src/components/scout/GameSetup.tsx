@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
@@ -13,6 +16,7 @@ export function GameSetup({
   onCreated,
 }: { onCancel?: () => void; onCreated?: (game: GameRow) => void } = {}) {
   const { user, org } = useAuth();
+  const { activeTeam, activeTeamId } = useActiveTeam();
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [tournament, setTournament] = useState("");
@@ -21,11 +25,16 @@ export function GameSetup({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (org && !homeTeam) setHomeTeam(org.name);
-  }, [org, homeTeam]);
+    if (activeTeam && !homeTeam) setHomeTeam(activeTeam.name);
+    else if (org && !homeTeam) setHomeTeam(org.name);
+  }, [org, activeTeam, homeTeam]);
 
   const start = async () => {
     if (!user || !org) return;
+    if (!activeTeamId) {
+      toast.error("Select a team first before creating a game.");
+      return;
+    }
     if (!homeTeam.trim() || !awayTeam.trim()) {
       toast.error("Home and away team names are required");
       return;
@@ -58,6 +67,7 @@ export function GameSetup({
         .insert({
           org_id: org.id,
           opponent_id: opponentId,
+          team_id: activeTeamId,
           game_type: "scout",
           tournament_name: tournament.trim() || null,
           home_team: homeTeam.trim(),
@@ -99,7 +109,23 @@ export function GameSetup({
         Set up a scouting game. Your team will see it instantly.
       </p>
 
+      {!activeTeamId && (
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1">
+            <p className="font-semibold">Select a team first before creating a game.</p>
+            <p className="text-xs text-muted-foreground">Scout games must be tied to one of your teams.</p>
+          </div>
+          <Link to="/teams"><Button size="sm" variant="outline">Manage teams</Button></Link>
+        </div>
+      )}
+
       <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
+        {activeTeam && (
+          <p className="text-xs text-muted-foreground">
+            Tagging this game to <span className="font-semibold text-foreground">{activeTeam.name}</span>.
+          </p>
+        )}
         <div>
           <Label htmlFor="home-team">Home team name</Label>
           <Input
@@ -153,8 +179,8 @@ export function GameSetup({
           </div>
         )}
 
-        <Button onClick={start} disabled={submitting} size="lg" className="w-full">
-          {submitting ? "Starting…" : "Start Game"}
+        <Button onClick={start} disabled={submitting || !activeTeamId} size="lg" className="w-full">
+          {submitting ? "Starting…" : !activeTeamId ? "Select a team first" : "Start Game"}
         </Button>
       </section>
     </div>

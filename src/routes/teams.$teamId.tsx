@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ChevronLeft, Plus, Trash2, Save, Upload, ImageIcon } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Save, Upload, ImageIcon, UserCog } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { InviteLinksSection } from "@/components/profile/InviteLinksSection";
 import { toast } from "sonner";
 
 interface RosterRow {
@@ -40,7 +41,7 @@ function TeamDetailRoute() {
 
 function TeamDetailContent() {
   const { teamId } = Route.useParams();
-  const { role } = useAuth();
+  const { role, org } = useAuth();
   const isCoach = role === "head_coach" || role === "assistant_coach";
 
   const [team, setTeam] = useState<TeamRow | null>(null);
@@ -267,6 +268,22 @@ function TeamDetailContent() {
           )}
         </ul>
       </section>
+
+      {isCoach && (
+        <div className="mt-4">
+          <Link to="/teams/$teamId/members" params={{ teamId }}>
+            <Button variant="outline" className="w-full gap-1.5">
+              <UserCog className="h-4 w-4" /> Manage members
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {isCoach && org && (
+        <div className="mt-4">
+          <InviteLinksSection orgId={org.id} teamId={teamId} title="Team invite links" />
+        </div>
+      )}
     </div>
   );
 }
