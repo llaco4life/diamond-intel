@@ -14,9 +14,31 @@ import {
   Pencil,
   Repeat,
   Users,
+  GripVertical,
+  Lock,
+  Unlock,
+  Target,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
 import { usePitchLineup, type LineupSlot } from "@/hooks/usePitchLineup";
