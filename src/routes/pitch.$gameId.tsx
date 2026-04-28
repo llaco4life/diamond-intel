@@ -587,7 +587,15 @@ function BatterCard({
   onRemove: () => void;
   dragHandleProps: Record<string, unknown> | null;
 }) {
+  const navigate = useNavigate();
   const slotKey = makeBatterKey(batterTeam, `slot:${slot.slotId}`);
+  const openAtBat = () => {
+    onTapToCurrent();
+    navigate({
+      to: "/pitch/$gameId/batter/$batterKey",
+      params: { gameId, batterKey: slotKey },
+    });
+  };
   const allKeys = new Set<string>([
     slotKey,
     ...slot.legacyJerseys.map((j) => makeBatterKey(batterTeam, j)),
@@ -636,11 +644,17 @@ function BatterCard({
           </button>
         )}
 
-        <Link
-          to="/pitch/$gameId/batter/$batterKey"
-          params={{ gameId, batterKey: encodeURIComponent(slotKey) }}
-          onClick={onTapToCurrent}
-          className="flex min-w-0 flex-1 items-center gap-3 p-4 pr-2 active:scale-[0.99]"
+        <div
+          role="link"
+          tabIndex={0}
+          onClick={openAtBat}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openAtBat();
+            }
+          }}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 p-4 pr-2 outline-none transition active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-primary"
         >
           <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <span className="text-[9px] font-bold opacity-80">Spot {slot.order}</span>
@@ -701,7 +715,7 @@ function BatterCard({
           </div>
 
           <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
-        </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 px-2 py-1.5">
