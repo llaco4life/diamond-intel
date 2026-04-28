@@ -390,7 +390,11 @@ function PitchGameScreen() {
         entries={entries}
         finalized={finalized}
         currentBatterIndex={currentBatterIndex}
-        onSetCurrent={setCurrentBatterIndex}
+        onSetCurrent={(i) => {
+          setCurrentBatterIndex(i);
+          const s = lineup[i];
+          if (s) toast.success(`Current batter: #${s.jersey}${s.name ? ` ${s.name}` : ""}`);
+        }}
         onEdit={setEditSlot}
         onSub={setSubSlot}
         onRemove={handleDeleteSlot}
