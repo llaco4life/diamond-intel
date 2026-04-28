@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface SubRecord {
   jersey: string;
@@ -62,29 +63,92 @@ function migrate(raw: string): LineupSlot[] {
   return [];
 }
 
+function normalize(slots: LineupSlot[]): LineupSlot[] {
+  return slots
+    .filter((s) => typeof s.jersey === "string" && s.jersey.trim())
+    .map((s, i) => ({
+      ...s,
+      slotId: s.slotId ?? uuid(),
+      order: i + 1,
+      jersey: s.jersey.trim(),
+      name: s.name?.trim() || undefined,
+      note: s.note?.trim() || undefined,
+      legacyJerseys: s.legacyJerseys?.length ? s.legacyJerseys : [s.jersey],
+      subs: s.subs ?? [],
+    }));
+}
+
+async function saveRemote(gameId: string, team: string, lineup: LineupSlot[], finalized: boolean) {
+  await (supabase as any).from("pitch_lineups").upsert(
+    {
+      game_id: gameId,
+      team,
+      lineup,
+      finalized,
+    },
+    { onConflict: "game_id,team" },
+  );
+}
+
 export function usePitchLineup(gameId: string | undefined, team: string | undefined) {
   const [lineup, setLineup] = useState<LineupSlot[]>([]);
   const [finalized, setFinalizedState] = useState(false);
 
   useEffect(() => {
     if (!gameId || !team) return;
+    let cancelled = false;
     const raw = localStorage.getItem(key(gameId, team));
-    setLineup(raw ? migrate(raw) : []);
-    setFinalizedState(localStorage.getItem(finalKey(gameId, team)) === "1");
+    const localLineup = raw ? normalize(migrate(raw)) : [];
+    const localFinalized = localStorage.getItem(finalKey(gameId, team)) === "1";
+    setLineup(localLineup);
+    setFinalizedState(localFinalized);
+
+    void (async () => {
+      const { data } = await (supabase as any)
+        .from("pitch_lineups")
+        .select("lineup,finalized")
+        .eq("game_id", gameId)
+        .eq("team", team)
+        .maybeSingle();
+      if (cancelled) return;
+
+      if (data?.lineup && Array.isArray(data.lineup)) {
+        const remoteLineup = normalize(data.lineup as LineupSlot[]);
+        if (remoteLineup.length === 0 && localLineup.length > 0) {
+          await saveRemote(gameId, team, localLineup, localFinalized);
+          return;
+        }
+        setLineup(remoteLineup);
+        setFinalizedState(Boolean(data.finalized));
+        try {
+          localStorage.setItem(key(gameId, team), JSON.stringify(remoteLineup));
+          localStorage.setItem(finalKey(gameId, team), data.finalized ? "1" : "0");
+        } catch {
+          // ignore
+        }
+      } else if (localLineup.length > 0 || localFinalized) {
+        await saveRemote(gameId, team, localLineup, localFinalized);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [gameId, team]);
 
   const persist = useCallback(
     (next: LineupSlot[]) => {
       if (!gameId || !team) return;
-      const renumbered = next.map((s, i) => ({ ...s, order: i + 1 }));
+      const renumbered = normalize(next);
       setLineup(renumbered);
       try {
         localStorage.setItem(key(gameId, team), JSON.stringify(renumbered));
       } catch {
         // ignore
       }
+      void saveRemote(gameId, team, renumbered, finalized);
     },
-    [gameId, team],
+    [finalized, gameId, team],
   );
 
   const setFinalized = useCallback(
@@ -96,8 +160,9 @@ export function usePitchLineup(gameId: string | undefined, team: string | undefi
       } catch {
         // ignore
       }
+      void saveRemote(gameId, team, lineup, v);
     },
-    [gameId, team],
+    [gameId, lineup, team],
   );
 
   const add = useCallback(
