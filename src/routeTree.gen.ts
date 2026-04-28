@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TeamsRouteImport } from './routes/teams'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ScoutRouteImport } from './routes/scout'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -21,6 +20,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DevelopmentRouteImport } from './routes/development'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TeamsIndexRouteImport } from './routes/teams.index'
 import { Route as TeamsTeamIdRouteImport } from './routes/teams.$teamId'
 import { Route as PitchCodesRouteImport } from './routes/pitch.codes'
 import { Route as PitchGameIdRouteImport } from './routes/pitch.$gameId'
@@ -30,11 +30,6 @@ import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$
 import { Route as LearningSummarySessionIdRouteImport } from './routes/learning.summary.$sessionId'
 import { Route as PitchGameIdBatterBatterKeyRouteImport } from './routes/pitch.$gameId.batter.$batterKey'
 
-const TeamsRoute = TeamsRouteImport.update({
-  id: '/teams',
-  path: '/teams',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -90,10 +85,15 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeamsIndexRoute = TeamsIndexRouteImport.update({
+  id: '/teams/',
+  path: '/teams/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TeamsTeamIdRoute = TeamsTeamIdRouteImport.update({
-  id: '/$teamId',
-  path: '/$teamId',
-  getParentRoute: () => TeamsRoute,
+  id: '/teams/$teamId',
+  path: '/teams/$teamId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PitchCodesRoute = PitchCodesRouteImport.update({
   id: '/codes',
@@ -145,11 +145,11 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
-  '/teams': typeof TeamsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
   '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
+  '/teams/': typeof TeamsIndexRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
   '/teams/$teamId/members': typeof TeamsTeamIdMembersRoute
@@ -167,11 +167,11 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
-  '/teams': typeof TeamsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
   '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
+  '/teams': typeof TeamsIndexRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
   '/teams/$teamId/members': typeof TeamsTeamIdMembersRoute
@@ -190,11 +190,11 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
-  '/teams': typeof TeamsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
   '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
+  '/teams/': typeof TeamsIndexRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
   '/teams/$teamId/members': typeof TeamsTeamIdMembersRoute
@@ -214,11 +214,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
-    | '/teams'
     | '/invite/$token'
     | '/pitch/$gameId'
     | '/pitch/codes'
     | '/teams/$teamId'
+    | '/teams/'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
     | '/teams/$teamId/members'
@@ -236,11 +236,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
-    | '/teams'
     | '/invite/$token'
     | '/pitch/$gameId'
     | '/pitch/codes'
     | '/teams/$teamId'
+    | '/teams'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
     | '/teams/$teamId/members'
@@ -258,11 +258,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
-    | '/teams'
     | '/invite/$token'
     | '/pitch/$gameId'
     | '/pitch/codes'
     | '/teams/$teamId'
+    | '/teams/'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
     | '/teams/$teamId/members'
@@ -281,19 +281,13 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   ScoutRoute: typeof ScoutRouteWithChildren
   SignupRoute: typeof SignupRoute
-  TeamsRoute: typeof TeamsRouteWithChildren
   InviteTokenRoute: typeof InviteTokenRoute
+  TeamsTeamIdRoute: typeof TeamsTeamIdRouteWithChildren
+  TeamsIndexRoute: typeof TeamsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/teams': {
-      id: '/teams'
-      path: '/teams'
-      fullPath: '/teams'
-      preLoaderRoute: typeof TeamsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -371,12 +365,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teams/': {
+      id: '/teams/'
+      path: '/teams'
+      fullPath: '/teams/'
+      preLoaderRoute: typeof TeamsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/teams/$teamId': {
       id: '/teams/$teamId'
-      path: '/$teamId'
+      path: '/teams/$teamId'
       fullPath: '/teams/$teamId'
       preLoaderRoute: typeof TeamsTeamIdRouteImport
-      parentRoute: typeof TeamsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/pitch/codes': {
       id: '/pitch/codes'
@@ -488,16 +489,6 @@ const TeamsTeamIdRouteWithChildren = TeamsTeamIdRoute._addFileChildren(
   TeamsTeamIdRouteChildren,
 )
 
-interface TeamsRouteChildren {
-  TeamsTeamIdRoute: typeof TeamsTeamIdRouteWithChildren
-}
-
-const TeamsRouteChildren: TeamsRouteChildren = {
-  TeamsTeamIdRoute: TeamsTeamIdRouteWithChildren,
-}
-
-const TeamsRouteWithChildren = TeamsRoute._addFileChildren(TeamsRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
@@ -510,9 +501,19 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ScoutRoute: ScoutRouteWithChildren,
   SignupRoute: SignupRoute,
-  TeamsRoute: TeamsRouteWithChildren,
   InviteTokenRoute: InviteTokenRoute,
+  TeamsTeamIdRoute: TeamsTeamIdRouteWithChildren,
+  TeamsIndexRoute: TeamsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
