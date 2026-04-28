@@ -333,6 +333,7 @@ export type Database = {
           org_id: string
           revoked_at: string | null
           role: Database["public"]["Enums"]["app_role"]
+          team_id: string | null
           token: string
           updated_at: string
           uses_count: number
@@ -346,6 +347,7 @@ export type Database = {
           org_id: string
           revoked_at?: string | null
           role: Database["public"]["Enums"]["app_role"]
+          team_id?: string | null
           token: string
           updated_at?: string
           uses_count?: number
@@ -359,6 +361,7 @@ export type Database = {
           org_id?: string
           revoked_at?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          team_id?: string | null
           token?: string
           updated_at?: string
           uses_count?: number
@@ -784,6 +787,30 @@ export type Database = {
           },
         ]
       }
+      team_memberships: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       team_roster: {
         Row: {
           bat_order: number | null
@@ -895,6 +922,7 @@ export type Database = {
           org_name: string
           reason: string
           role: Database["public"]["Enums"]["app_role"]
+          team_name: string
         }[]
       }
       get_my_org_id: { Args: never; Returns: string }
