@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { ProtectedShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { toast } from "sonner";
-import { Target, Settings, Plus } from "lucide-react";
+import { Target, Settings, Plus, AlertCircle } from "lucide-react";
 import { DeleteGameButton } from "@/components/DeleteGameButton";
 import type { GameRow } from "@/hooks/useActiveGame";
 
