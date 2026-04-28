@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { GameRow } from "@/hooks/useActiveGame";
@@ -13,6 +16,7 @@ export function GameSetup({
   onCreated,
 }: { onCancel?: () => void; onCreated?: (game: GameRow) => void } = {}) {
   const { user, org } = useAuth();
+  const { activeTeam, activeTeamId } = useActiveTeam();
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [tournament, setTournament] = useState("");
