@@ -268,6 +268,22 @@ function TeamDetailContent() {
           )}
         </ul>
       </section>
+
+      {isCoach && (
+        <div className="mt-4">
+          <Link to="/teams/$teamId/members" params={{ teamId }}>
+            <Button variant="outline" className="w-full gap-1.5">
+              <UserCog className="h-4 w-4" /> Manage members
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {isCoach && org && (
+        <div className="mt-4">
+          <InviteLinksSection orgId={org.id} teamId={teamId} title="Team invite links" />
+        </div>
+      )}
     </div>
   );
 }
