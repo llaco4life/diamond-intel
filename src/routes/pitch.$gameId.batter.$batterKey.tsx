@@ -106,7 +106,7 @@ function BatterProfile() {
 
   const { types: pitchTypes } = usePitchTypes();
   const { entries, refresh } = usePitchEntries(gameId);
-  const { rows: codeMap } = usePitchCodeMap(activePitcherId);
+  const { rows: codeMap } = usePitchCodeMap(activePitcherId, (game as unknown as { team_id?: string | null })?.team_id ?? null);
 
   // Load game + active pitcher
   useEffect(() => {
