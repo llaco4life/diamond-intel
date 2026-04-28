@@ -511,6 +511,47 @@ export type Database = {
         }
         Relationships: []
       }
+      pitch_lineups: {
+        Row: {
+          created_at: string
+          finalized: boolean
+          game_id: string
+          id: string
+          lineup: Json
+          team: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          finalized?: boolean
+          game_id: string
+          id?: string
+          lineup?: Json
+          team: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          finalized?: boolean
+          game_id?: string
+          id?: string
+          lineup?: Json
+          team?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pitch_lineups_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pitch_types: {
         Row: {
           code: string
