@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { BottomNav } from "./BottomNav";
 import { Logo } from "./Logo";
+import { TeamSwitcher } from "./TeamSwitcher";
 
 function LoadingScreen() {
   return (
@@ -54,6 +55,9 @@ export function ProtectedShell({
 
   return (
     <div className="min-h-screen bg-background pb-20">
+      <div className="sticky top-0 z-40 flex items-center justify-end gap-2 border-b border-border/50 bg-background/80 px-3 py-2 backdrop-blur">
+        <TeamSwitcher />
+      </div>
       {children}
       <BottomNav />
     </div>

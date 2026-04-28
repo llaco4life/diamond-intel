@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { ProtectedShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { toast } from "sonner";
-import { Target, Settings, Plus } from "lucide-react";
+import { Target, Settings, Plus, AlertCircle } from "lucide-react";
 import { DeleteGameButton } from "@/components/DeleteGameButton";
 import type { GameRow } from "@/hooks/useActiveGame";
 
@@ -37,6 +38,7 @@ function relativeTime(iso: string): string {
 
 function PitchLobbyContent() {
   const { org, user } = useAuth();
+  const { activeTeam, activeTeamId } = useActiveTeam();
   const navigate = useNavigate();
   const [active, setActive] = useState<GameRow[]>([]);
   const [recent, setRecent] = useState<GameRow[]>([]);
@@ -52,22 +54,23 @@ function PitchLobbyContent() {
     if (!org) return;
     let cancelled = false;
     void (async () => {
+      const baseActive = supabase
+        .from("games")
+        .select("*")
+        .eq("org_id", org.id)
+        .eq("game_type", "pitch")
+        .eq("status", "active");
+      const baseRecent = supabase
+        .from("games")
+        .select("*")
+        .eq("org_id", org.id)
+        .eq("game_type", "pitch")
+        .eq("status", "ended");
+      const aQ = activeTeamId ? baseActive.eq("team_id", activeTeamId) : baseActive;
+      const rQ = activeTeamId ? baseRecent.eq("team_id", activeTeamId) : baseRecent;
       const [{ data: a }, { data: r }] = await Promise.all([
-        supabase
-          .from("games")
-          .select("*")
-          .eq("org_id", org.id)
-          .eq("game_type", "pitch")
-          .eq("status", "active")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("games")
-          .select("*")
-          .eq("org_id", org.id)
-          .eq("game_type", "pitch")
-          .eq("status", "ended")
-          .order("created_at", { ascending: false })
-          .limit(3),
+        aQ.order("created_at", { ascending: false }),
+        rQ.order("created_at", { ascending: false }).limit(3),
       ]);
       if (cancelled) return;
       setActive((a as GameRow[] | null) ?? []);
@@ -77,14 +80,19 @@ function PitchLobbyContent() {
     return () => {
       cancelled = true;
     };
-  }, [org]);
+  }, [org, activeTeamId]);
 
   useEffect(() => {
-    if (org && !home) setHome(org.name);
-  }, [org, home]);
+    if (activeTeam && !home) setHome(activeTeam.name);
+    else if (!activeTeam && org && !home) setHome(org.name);
+  }, [org, activeTeam, home]);
 
   const start = async () => {
     if (!org || !user) return;
+    if (!activeTeamId) {
+      toast.error("Select a team first.");
+      return;
+    }
     if (!home.trim() || !away.trim()) {
       toast.error("Both team names are required");
       return;
@@ -114,6 +122,7 @@ function PitchLobbyContent() {
         .insert({
           org_id: org.id,
           opponent_id: opponentId,
+          team_id: activeTeamId,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           game_type: "pitch" as any,
           home_team: home.trim(),
@@ -180,8 +189,33 @@ function PitchLobbyContent() {
         </Link>
       </header>
 
+      {!activeTeamId && (
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1">
+            <p className="font-semibold">Select a team first.</p>
+            <p className="text-xs text-muted-foreground">
+              Pitch Intel games and pitch code imports must be tied to one of your teams.
+            </p>
+          </div>
+          <Link to="/teams">
+            <Button size="sm" variant="outline">Manage teams</Button>
+          </Link>
+        </div>
+      )}
+
       {!creating ? (
-        <Button onClick={() => setCreating(true)} className="mb-5 h-12 w-full gap-2 text-base">
+        <Button
+          onClick={() => {
+            if (!activeTeamId) {
+              toast.error("Select a team first.");
+              return;
+            }
+            setCreating(true);
+          }}
+          className="mb-5 h-12 w-full gap-2 text-base"
+          disabled={!activeTeamId}
+        >
           <Plus className="h-5 w-5" />
           Start a Pitch Intel game
         </Button>

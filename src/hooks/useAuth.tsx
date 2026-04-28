@@ -9,6 +9,7 @@ export interface Profile {
   full_name: string;
   org_id: string | null;
   jersey_number: string | null;
+  active_team_id?: string | null;
 }
 
 export interface Organization {

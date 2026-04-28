@@ -221,6 +221,7 @@ export type Database = {
           opponent_id: string | null
           org_id: string
           status: Database["public"]["Enums"]["game_status"]
+          team_id: string | null
           time_limit_minutes: number | null
           timer_started_at: string | null
           tournament_name: string | null
@@ -242,6 +243,7 @@ export type Database = {
           opponent_id?: string | null
           org_id: string
           status?: Database["public"]["Enums"]["game_status"]
+          team_id?: string | null
           time_limit_minutes?: number | null
           timer_started_at?: string | null
           tournament_name?: string | null
@@ -263,6 +265,7 @@ export type Database = {
           opponent_id?: string | null
           org_id?: string
           status?: Database["public"]["Enums"]["game_status"]
+          team_id?: string | null
           time_limit_minutes?: number | null
           timer_started_at?: string | null
           tournament_name?: string | null
@@ -280,6 +283,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -420,6 +430,7 @@ export type Database = {
           org_id: string
           pitch_type_id: string
           pitcher_id: string
+          team_id: string | null
         }
         Insert: {
           created_at?: string
@@ -428,6 +439,7 @@ export type Database = {
           org_id: string
           pitch_type_id: string
           pitcher_id: string
+          team_id?: string | null
         }
         Update: {
           created_at?: string
@@ -436,8 +448,17 @@ export type Database = {
           org_id?: string
           pitch_type_id?: string
           pitcher_id?: string
+          team_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pitch_code_map_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pitch_entries: {
         Row: {
@@ -622,6 +643,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_team_id: string | null
           created_at: string
           full_name: string
           id: string
@@ -629,6 +651,7 @@ export type Database = {
           org_id: string | null
         }
         Insert: {
+          active_team_id?: string | null
           created_at?: string
           full_name: string
           id: string
@@ -636,6 +659,7 @@ export type Database = {
           org_id?: string | null
         }
         Update: {
+          active_team_id?: string | null
           created_at?: string
           full_name?: string
           id?: string
@@ -643,6 +667,13 @@ export type Database = {
           org_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_active_team_id_fkey"
+            columns: ["active_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_org_id_fkey"
             columns: ["org_id"]
@@ -752,6 +783,80 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      team_roster: {
+        Row: {
+          bat_order: number | null
+          created_at: string
+          id: string
+          jersey_number: string
+          name: string | null
+          position: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          bat_order?: number | null
+          created_at?: string
+          id?: string
+          jersey_number: string
+          name?: string | null
+          position?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          bat_order?: number | null
+          created_at?: string
+          id?: string
+          jersey_number?: string
+          name?: string | null
+          position?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_roster_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          age_group: string | null
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          org_id: string
+          season: string | null
+          updated_at: string
+        }
+        Insert: {
+          age_group?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          org_id: string
+          season?: string | null
+          updated_at?: string
+        }
+        Update: {
+          age_group?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          org_id?: string
+          season?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

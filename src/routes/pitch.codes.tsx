@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, Download, Upload, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, Download, Upload, Plus, Trash2, AlertCircle } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { toast } from "sonner";
 import { usePitchTypes } from "@/hooks/usePitchTypes";
 import { usePitchCodeMap } from "@/hooks/usePitchCodeMap";
@@ -35,25 +36,35 @@ function PitchCodesRoute() {
 
 function PitchCodes() {
   const { org } = useAuth();
+  const { activeTeamId, activeTeam } = useActiveTeam();
   const { types: pitchTypes } = usePitchTypes();
   const [pitchers, setPitchers] = useState<PitcherOpt[]>([]);
   const [pitcherId, setPitcherId] = useState<string>("");
-  const { rows, refresh } = usePitchCodeMap(pitcherId);
+  const { rows, refresh } = usePitchCodeMap(pitcherId, activeTeamId);
   const [newCode, setNewCode] = useState("");
   const [newType, setNewType] = useState("");
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  // Reset selected pitcher when team changes so we don't show stale codes
+  useEffect(() => {
+    setPitcherId("");
+  }, [activeTeamId]);
+
   useEffect(() => {
     if (!org) return;
     void (async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("pitchers")
-        .select("id,jersey_number,name,game_id,games:game_id(home_team,away_team,org_id)")
+        .select("id,jersey_number,name,game_id,games:game_id(home_team,away_team,org_id,team_id)")
         .order("created_at", { ascending: false });
+      const { data } = await q;
       const list = (data ?? [])
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((p: any) => p.games?.org_id === org.id)
+        // Scope to active team's games (or untagged if no active team)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((p: any) => (activeTeamId ? p.games?.team_id === activeTeamId : true))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((p: any) => ({
           id: p.id,
@@ -74,12 +85,22 @@ function PitchCodes() {
       setPitchers(dedup);
       if (dedup.length > 0 && !pitcherId) setPitcherId(dedup[0].id);
     })();
-  }, [org, pitcherId]);
+  }, [org, pitcherId, activeTeamId]);
 
   const addRow = async () => {
     if (!org || !pitcherId || !newCode.trim() || !newType) return;
+    if (!activeTeamId) {
+      toast.error("Select a team first.");
+      return;
+    }
     const { error } = await supabase.from("pitch_code_map").upsert(
-      { org_id: org.id, pitcher_id: pitcherId, numeric_code: newCode.trim(), pitch_type_id: newType },
+      {
+        org_id: org.id,
+        pitcher_id: pitcherId,
+        team_id: activeTeamId,
+        numeric_code: newCode.trim(),
+        pitch_type_id: newType,
+      },
       { onConflict: "pitcher_id,numeric_code" },
     );
     if (error) {
@@ -102,12 +123,20 @@ function PitchCodes() {
   };
 
   const handleFile = async (file: File) => {
+    if (!activeTeamId) {
+      toast.error("Select a team first.");
+      return;
+    }
     const preview = await parseImportFile(file, pitchTypes);
     setImportPreview(preview);
   };
 
   const applyImport = async () => {
     if (!org || !pitcherId || !importPreview) return;
+    if (!activeTeamId) {
+      toast.error("Select a team first.");
+      return;
+    }
     const valid = importPreview.filter((r) => !r.invalid && r.pitch_type_id);
     if (valid.length === 0) {
       toast.error("No valid rows to import");
@@ -116,6 +145,7 @@ function PitchCodes() {
     const payload = valid.map((r) => ({
       org_id: org.id,
       pitcher_id: pitcherId,
+      team_id: activeTeamId,
       numeric_code: r.numeric_code,
       pitch_type_id: r.pitch_type_id!,
     }));
@@ -146,11 +176,27 @@ function PitchCodes() {
       <h1 className="mb-1 text-2xl font-bold">Pitcher Pitch Codes</h1>
       <p className="mb-4 text-sm text-muted-foreground">
         Map each pitcher's numeric codes (what they flash from the mound) to a pitch type.
+        {activeTeam && <> Codes are saved for <span className="font-semibold">{activeTeam.name}</span>.</>}
       </p>
 
+      {!activeTeamId && (
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1">
+            <p className="font-semibold">Select a team first.</p>
+            <p className="text-xs text-muted-foreground">
+              Pitch code imports must be tied to one of your teams.
+            </p>
+          </div>
+          <Link to="/teams">
+            <Button size="sm" variant="outline">Manage teams</Button>
+          </Link>
+        </div>
+      )}
+
       <div className="mb-4">
-        <Select value={pitcherId} onValueChange={setPitcherId}>
-          <SelectTrigger><SelectValue placeholder="Select a pitcher" /></SelectTrigger>
+        <Select value={pitcherId} onValueChange={setPitcherId} disabled={!activeTeamId}>
+          <SelectTrigger><SelectValue placeholder={activeTeamId ? "Select a pitcher" : "Select a team first"} /></SelectTrigger>
           <SelectContent>
             {pitchers.map((p) => (
               <SelectItem key={p.id} value={p.id}>
