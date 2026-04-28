@@ -118,9 +118,6 @@ function ProfilePage() {
 
       {isHeadCoach && org && <InviteLinksSection orgId={org.id} />}
 
-      {(role === "head_coach" || role === "assistant_coach") && org && (
-        <RosterSection orgId={org.id} />
-      )}
 
       <section className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
         <h2 className="mb-3 text-sm font-semibold">My game history</h2>
