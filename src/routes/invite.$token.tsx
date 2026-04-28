@@ -52,11 +52,12 @@ function InvitePage() {
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase.rpc("get_invite_preview", { _token: token });
+      const fallback: Preview = { org_name: null, team_name: null, role: null, is_valid: false, reason: "not_found" };
       if (error) {
-        setPreview({ org_name: null, role: null, is_valid: false, reason: "not_found" });
+        setPreview(fallback);
       } else {
         const row = (data ?? [])[0] as Preview | undefined;
-        setPreview(row ?? { org_name: null, role: null, is_valid: false, reason: "not_found" });
+        setPreview(row ?? fallback);
       }
       setLoadingPreview(false);
     })();
