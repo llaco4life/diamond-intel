@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ChevronLeft, Plus, Trash2, Save, Upload, ImageIcon, UserCog } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Save, Upload, ImageIcon, UserCog, Pencil, X, Check } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,10 @@ function TeamDetailContent() {
   const [newJersey, setNewJersey] = useState("");
   const [newName, setNewName] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editJersey, setEditJersey] = useState("");
+  const [editName, setEditName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -112,11 +116,44 @@ function TeamDetailContent() {
   };
 
   const removeBatter = async (id: string) => {
+    if (!confirm("Remove this player from the roster?")) return;
     const { error } = await supabase.from("team_roster").delete().eq("id", id);
     if (error) {
       toast.error(error.message);
       return;
     }
+    await load();
+  };
+
+  const startEdit = (b: RosterRow) => {
+    setEditingId(b.id);
+    setEditJersey(b.jersey_number);
+    setEditName(b.name ?? "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditJersey("");
+    setEditName("");
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editJersey.trim()) {
+      toast.error("Jersey number required");
+      return;
+    }
+    setSavingEdit(true);
+    const { error } = await supabase
+      .from("team_roster")
+      .update({ jersey_number: editJersey.trim(), name: editName.trim() || null })
+      .eq("id", id);
+    setSavingEdit(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Player updated");
+    cancelEdit();
     await load();
   };
 
@@ -249,18 +286,52 @@ function TeamDetailContent() {
         )}
 
         <ul className="space-y-1.5">
-          {roster.map((b, i) => (
-            <li key={b.id} className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
-              <span className="w-8 text-center text-xs text-muted-foreground">{i + 1}.</span>
-              <span className="w-12 text-center font-mono font-bold">#{b.jersey_number}</span>
-              <span className="flex-1 truncate text-sm">{b.name ?? "—"}</span>
-              {isCoach && (
-                <Button size="icon" variant="ghost" onClick={() => void removeBatter(b.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              )}
-            </li>
-          ))}
+          {roster.map((b, i) => {
+            const isEditing = editingId === b.id;
+            return (
+              <li key={b.id} className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                <span className="w-6 shrink-0 text-center text-xs text-muted-foreground">{i + 1}.</span>
+                {isEditing ? (
+                  <>
+                    <Input
+                      value={editJersey}
+                      onChange={(e) => setEditJersey(e.target.value)}
+                      className="w-14 px-1 text-center font-mono"
+                      placeholder="#"
+                    />
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="flex-1"
+                      placeholder="Name"
+                      autoFocus
+                    />
+                    <Button size="icon" variant="ghost" onClick={() => void saveEdit(b.id)} disabled={savingEdit} title="Save">
+                      <Check className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={cancelEdit} disabled={savingEdit} title="Cancel">
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-12 shrink-0 text-center font-mono font-bold">#{b.jersey_number}</span>
+                    <span className="flex-1 truncate text-sm">{b.name ?? "—"}</span>
+                    {isCoach && (
+                      <>
+                        <Button size="icon" variant="ghost" onClick={() => startEdit(b)} title="Edit player">
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => void removeBatter(b.id)} title="Remove player">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+              </li>
+            );
+          })}
           {roster.length === 0 && (
             <li className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
               No roster yet. Add batters above.
