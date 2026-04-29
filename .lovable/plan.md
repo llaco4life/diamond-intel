@@ -1,74 +1,91 @@
-## First — your data is safe
+# Refine Signup → 2-Step Onboarding (revised)
 
-Nothing was lost. Checked the database directly:
+Goal: cut Step 1 to name/email/password only, then have users either create a team (head coach) or accept an invite link (everyone else). Permissions are derived from the invite, never from a self-selected role.
 
-- **2 teams exist**: Unity 12u and Unity 14u
-- **6 games** still in DB (all currently untagged — `team_id = NULL`)
-- **300 pitch code mappings** still in DB (also untagged)
-- **Coach memberships**: 1 user is mapped to each team
+## User flow
 
-The reason it "looks empty" is that none of the existing games or pitch codes are linked to a team yet, so when a team is active, the team-scoped views filter them out. We'll backfill them to Unity 12u so 14u starts clean for this weekend.
+```text
+/signup
+   └─ Step 1: Full Name • Email • Password • [Continue →]
+                │
+                ▼ (account created + auto sign-in)
+/onboarding
+   └─ "How are you joining?"
+        ├─ Head Coach              → "Create Your First Team"
+        │                            (Team Name, Age Group) → [Create Team]
+        │
+        └─ Joining an existing team → "Paste your invite link"
+                                       (full /invite/<token> URL or token)
+                                       → redirect to /invite/<token>
+                                       (existing flow assigns role + team)
+```
 
-## What's broken
+Coach permissions can only come from a coach-scoped invite link issued in `Profile → Invite Links`. There is no self-select Assistant Coach / Player path.
 
-**1. "Set active" does nothing visible.**
-The active-team state lives in a hook (`useActiveTeam`) that's instantiated separately in the header switcher and the teams page. Each copy has its own local state, so clicking "Set active" updates the DB and that page, but the header chip and the rest of the app never see the change. On top of that, an init effect re-runs every time the auth profile reloads and resets the active team back to a stale value — fighting the user's click.
+## Why this design
 
-**2. No per-team card.**
-There's no view that shows "this is your active team's roster + coaches" side by side. The Profile page has an Active Team summary but doesn't list the roster or coach names.
+The existing `org_invite_links` table already encodes role + team, and `redeem_invite` enforces it server-side. Reusing it means:
+- Assistant coach access requires a head coach to issue a coach invite.
+- Player access requires a player invite.
+- No new code path can grant coach permissions from user selection alone.
 
-**3. Existing data isn't tied to a team.**
-All 6 games and 300 pitch codes have `team_id = NULL`, so when Unity 14u is active they correctly disappear, but when Unity 12u is active they also disappear (the queries filter by team_id).
+## What changes
 
-## Plan
+### 1. Auth config
+- Enable auto-confirm on email signups so Step 1 immediately yields a session.
 
-### 1. Backfill existing data to Unity 12u (one-time, safe)
+### 2. `src/routes/signup.tsx` — Step 1 only
+- Strip to Full Name, Email, Password, `[Continue →]`.
+- No role / org / join-code metadata sent.
+- On success, route to `/onboarding`.
+- Keep "Already have an account? Sign in" link.
 
-Set `team_id = '30afcd75…' (Unity 12u)` on every row that's currently NULL in:
-- `games` (6 rows)
-- `pitch_code_map` (300 rows)
-- `pitchers` (via their game) and `at_bats` (via their game) — these are scoped through `game_id`, so updating `games.team_id` is enough; no schema change needed for them.
-- `scout_observations` — same, scoped through `game_id`.
+### 3. New route `src/routes/onboarding.tsx`
+Guarded: requires a signed-in user; if `profile.org_id` already set, redirect to `/home`.
 
-Result: every existing game, scout note, and pitch code will appear under Unity 12u. Unity 14u starts with a clean slate.
+Local state `view: 'choice' | 'create' | 'invite'`.
 
-### 2. Fix active-team switching (the real bug)
+- **Choice view** — heading "How are you joining?". Two large cards, no default:
+  - "I'm a head coach setting up a new team" → `create`
+  - "I'm joining an existing team" → `invite`
+  - Small note: "Assistant coaches and players need an invite link from their head coach."
+- **Create view** (Head Coach) — heading "Create Your First Team". Fields: Team Name, Age Group (preset dropdown: 8U, 10U, 12U, 14U, 16U, 18U, JV, Varsity, College, Adult). `[Create Team]` calls `completeAsHeadCoach` server fn, refreshes profile, routes to `/home`.
+- **Invite view** — heading "Join Your Team". Single field: paste the invite link (or the token portion). On submit, parse the token and `navigate({ to: '/invite/$token', params: { token } })`. The existing `/invite/$token` page previews the invite, shows team name + role, and redeems via `redeem_invite` (which is the only path that grants the role + team membership). Show a clear error if the URL isn't a valid invite link format.
 
-Replace the per-component `useActiveTeam` state with a single shared context provider mounted once in `__root.tsx`:
+Small "Back" link from each sub-view returns to the choice view.
 
-- New `ActiveTeamProvider` holds `teams`, `activeTeamId`, `setActiveTeamId` once for the whole app.
-- `useActiveTeam()` becomes a thin `useContext` consumer — every component reads the same value.
-- Remove the init effect that fights user clicks. Initialization runs **once** when teams first load; after that, only explicit `setActiveTeamId` calls change it.
-- Clicking "Set active" in `/teams`, picking from the header dropdown, or the team detail page all update the same state, so the header chip, profile card, scout mode, and pitch intel all switch together immediately.
+### 4. New server function `src/server/onboarding.functions.ts`
+- `completeAsHeadCoach({ teamName, ageGroup })` — uses `requireSupabaseAuth` and calls a new SQL security-definer function `complete_head_coach_onboarding(_team_name text, _age_group text)` that, in one transaction:
+  - creates `organizations` (with generated join_code),
+  - creates `teams` (org_id, name, age_group; `set_team_join_code` trigger fills join_code),
+  - upserts `profiles` (org_id, active_team_id, full_name from auth metadata),
+  - inserts `user_roles(role='head_coach')`,
+  - inserts `team_memberships(role='head_coach')`.
+- No `completeAsPlayer` / `completeAsAssistantCoach` server fn — that path goes through the existing `/invite/$token` redeem flow only.
 
-### 3. Per-team Active Team card (roster + coaches)
+### 5. `handle_new_user` trigger update
+- If `raw_user_meta_data` does not include `role` (the new Step 1 path) and is not an `invited` flow, the trigger should simply `RETURN NEW` and create no profile / role / team rows. Onboarding handles those later.
+- Keep the existing `invited=true` + `invite_token` branch unchanged so `/invite/$token` keeps working.
+- Keep the legacy head-coach branch fallback (in case any older client still sends `role=head_coach` + `org_name`).
 
-Upgrade the Active Team card on `/profile` and add a compact version to `/teams/$teamId`:
+### 6. Routing guard
+- In the post-login landing route (`/home`), if `user && !loading && !profile?.org_id`, redirect to `/onboarding`. Protects users who close the tab between Step 1 and Step 2.
 
-- **Header**: logo, team name, age group · season, your role on this team
-- **Roster section**: list of jersey # + name from `team_roster` for the active team (with link to /teams/$teamId to edit)
-- **Coaches section**: names + roles pulled from `team_memberships` joined to `profiles`, grouped Head Coach / Assistant Coach / Players
-- **Empty states**: "No roster yet — add players" with link to team detail; "No assistant coaches yet — invite from team page"
+### 7. Invite link UX (small)
+- In `Profile → Invite Links` (`src/components/profile/InviteLinksSection.tsx`), make sure the share copy clearly labels "Coach invite" vs "Player invite" so head coaches send the right link. (Read the file first; only touch labels/copy if needed.)
 
-So Unity 12u shows its players + coaches, Unity 14u shows its (empty for now) — clear separation.
+## Out of scope
+- No changes to `/login`, `/forgot-password`, broader auth.
+- No pricing, no AI onboarding.
+- "Season" deferred (editable in team settings later).
+- "Parent" role dropped.
+- No generic team join-code field for assistants/players in onboarding — invite link only.
 
-### 4. Small guardrails
-
-- Header `TeamSwitcher` shows a checkmark on the active team and switches instantly.
-- Active team selection persists across reloads (already does via profile + localStorage; the bug was just the re-init).
-- When you switch to Unity 14u, Pitch Intel and Scout Mode show empty (correct — that team has no games yet).
-
-## Files to change
-
-- **DB migration**: backfill `games.team_id` and `pitch_code_map.team_id` for NULL rows → Unity 12u.
-- **`src/hooks/useActiveTeam.ts`** → split into `ActiveTeamProvider` + `useActiveTeam` hook.
-- **`src/routes/__root.tsx`** → wrap app in `ActiveTeamProvider`.
-- **`src/routes/profile.tsx`** → expand Active Team card with roster + coaches lists.
-- **`src/routes/teams.$teamId.tsx`** → add coaches list section above roster.
-- **`src/components/TeamSwitcher.tsx`** → no logic change, just consumes the shared context.
-
-## What you'll see after
-
-- Click "Set active" on Unity 14u → header chip flips to "Unity 14u" instantly, profile card updates, Pitch Intel shows empty (clean slate for the weekend).
-- Switch back to Unity 12u → all your existing scout notes, games, and pitch codes are right there.
-- Each team's card shows only its own roster and coaches.
+## Files touched
+- edit: `src/routes/signup.tsx` (3 fields)
+- new: `src/routes/onboarding.tsx`
+- new: `src/server/onboarding.functions.ts`
+- migration: update `handle_new_user`; add `complete_head_coach_onboarding` SQL function
+- edit: `src/routes/home.tsx` (redirect to `/onboarding` when org_id missing)
+- maybe edit: `src/components/profile/InviteLinksSection.tsx` (clarify "Coach invite" vs "Player invite" labels)
+- config: enable email auto-confirm

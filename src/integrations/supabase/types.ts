@@ -917,6 +917,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_head_coach_onboarding: {
+        Args: { _age_group: string; _team_name: string }
+        Returns: {
+          org_id: string
+          reason: string
+          success: boolean
+          team_id: string
+        }[]
+      }
       generate_join_code: { Args: never; Returns: string }
       get_invite_preview: {
         Args: { _token: string }
