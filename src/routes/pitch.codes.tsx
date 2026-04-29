@@ -220,7 +220,17 @@ function PitchCodes() {
           <ul className="space-y-1.5">
             {rows.map((r) => (
               <li key={r.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-                <span className="w-12 text-center font-mono font-bold">{r.numeric_code}</span>
+                <Input
+                  defaultValue={r.numeric_code}
+                  onBlur={(e) => {
+                    const v = e.target.value.replace(/[^0-9A-Za-z]/g, "").slice(0, 4);
+                    if (v !== r.numeric_code) void updateCode(r.id, v);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                  }}
+                  className="w-16 text-center font-mono font-bold"
+                />
                 <Select value={r.pitch_type_id} onValueChange={(v) => updateRow(r.id, v)}>
                   <SelectTrigger className="flex-1 h-9"><SelectValue>{labelOf(r.pitch_type_id)}</SelectValue></SelectTrigger>
                   <SelectContent>
