@@ -7,19 +7,19 @@ const reasons = [
     description: "Your scouting lives in your pocket — searchable, sortable, and always with you.",
   },
   {
-    icon: Link2,
-    title: "Keep scouting notes connected by game",
-    description: "Every note ties back to the opponent, inning, and pitcher — not a loose page.",
-  },
-  {
     icon: History,
-    title: "See what worked last at-bat before she steps in again",
-    description: "Pull up a hitter's last AB, last pitch sequence, and last result in one tap.",
+    title: "Know what happened last at-bat before the next pitch",
+    description: "Pull up a hitter's last AB and pitch sequence in one tap.",
   },
   {
     icon: Layers,
-    title: "Manage multiple teams without mixing data",
+    title: "Keep multiple teams organized without chaos",
     description: "Each team gets its own roster, scouting, and join code. Switch in one click.",
+  },
+  {
+    icon: Link2,
+    title: "Turn scouting notes into actual game decisions",
+    description: "Notes tie back to opponent, inning, and pitcher — ready when it matters.",
   },
 ];
 
