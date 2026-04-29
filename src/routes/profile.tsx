@@ -81,10 +81,10 @@ function ProfilePage() {
       {isHeadCoach && org && (
         <section className="mb-4 rounded-2xl border-2 border-primary/30 bg-primary-soft p-5 shadow-card">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">
-            Team Join Code
+            Organization Join Code
           </h2>
           <p className="mt-1 text-xs text-foreground/70">
-            Share this with your assistant coaches and players so they can join your team.
+            Org-wide code for first-time signups. Once joined, assign members to a team. For team-specific invites, use the links below.
           </p>
           <div className="mt-4 flex items-center gap-3">
             <div className="flex-1 rounded-xl bg-card px-4 py-4 text-center font-mono text-3xl font-bold tracking-[0.4em] text-foreground shadow-sm">
