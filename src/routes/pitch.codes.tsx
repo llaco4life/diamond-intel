@@ -34,6 +34,7 @@ function PitchCodes() {
   const [newCode, setNewCode] = useState("");
   const [newType, setNewType] = useState("");
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const fileInput = useRef<HTMLInputElement>(null);
 
   const labelOf = (id: string) => pitchTypes.find((p) => p.id === id)?.label ?? "—";
