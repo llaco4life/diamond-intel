@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
+import { useOpponentHistory } from "@/hooks/useOpponentHistory";
 import { usePitchLineup } from "@/hooks/usePitchLineup";
 import { useCurrentBatter } from "@/hooks/useCurrentBatter";
 import { makeBatterKey } from "@/lib/pitchIntel/types";
@@ -46,6 +47,8 @@ interface GameRow {
   current_inning: number;
   home_score: number;
   away_score: number;
+  team_id: string | null;
+  game_date: string;
 }
 
 export const Route = createFileRoute("/pitch/$gameId/batter/$batterKey")({
@@ -107,14 +110,20 @@ function BatterProfile() {
 
   const { types: pitchTypes } = usePitchTypes();
   const { entries, refresh } = usePitchEntries(gameId);
-  const { rows: codeMap } = usePitchCodeMap(activePitcherId, (game as unknown as { team_id?: string | null })?.team_id ?? null);
+  const { rows: codeMap } = usePitchCodeMap(activePitcherId, game?.team_id ?? null);
+  const { historicalEntries, gameDateById, gameCount: historicalGameCount } = useOpponentHistory(
+    gameId,
+    game?.team_id ?? null,
+    batterTeam,
+    game?.game_date,
+  );
 
   // Load game + active pitcher
   useEffect(() => {
     void (async () => {
       const { data: g } = await supabase
         .from("games")
-        .select("id,home_team,away_team,current_inning,home_score,away_score")
+        .select("id,home_team,away_team,current_inning,home_score,away_score,team_id,game_date")
         .eq("id", gameId)
         .maybeSingle();
       if (g) setGame(g as GameRow);
@@ -418,6 +427,9 @@ function BatterProfile() {
               pitcherId={activePitcherId}
               balls={count.balls}
               strikes={count.strikes}
+              historicalEntries={historicalEntries}
+              gameDateById={gameDateById}
+              historicalGameCount={historicalGameCount}
             />
           )}
 

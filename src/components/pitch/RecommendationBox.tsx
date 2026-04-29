@@ -1,6 +1,6 @@
 import { recommend } from "@/lib/pitchIntel/recommend";
 import type { PitchEntryRow, PitchTypeRow } from "@/lib/pitchIntel/types";
-import { Sparkles, ThumbsDown, Target } from "lucide-react";
+import { Sparkles, ThumbsDown, Target, History } from "lucide-react";
 
 interface Props {
   pitchTypes: PitchTypeRow[];
@@ -10,6 +10,9 @@ interface Props {
   pitcherId: string;
   balls: number;
   strikes: number;
+  historicalEntries?: PitchEntryRow[];
+  gameDateById?: Map<string, string>;
+  historicalGameCount?: number;
 }
 
 export function RecommendationBox(props: Props) {
@@ -19,7 +22,21 @@ export function RecommendationBox(props: Props) {
     pitcherId: props.pitcherId,
     balls: props.balls,
     strikes: props.strikes,
+    historicalEntries: props.historicalEntries,
+    gameDateById: props.gameDateById,
+    historicalGameCount: props.historicalGameCount,
   });
+
+  const s = out.sources;
+  const sourceLine = s && (s.todayCount + s.historyCount) > 0
+    ? `${s.todayCount + s.historyCount} pitches · ${s.todayCount} today${
+        s.historyCount > 0
+          ? ` · ${s.historyCount} from ${s.gameCount} prior game${s.gameCount === 1 ? "" : "s"}${
+              s.oldestDays !== null ? ` (last ${s.oldestDays}d)` : ""
+            }`
+          : ""
+      }`
+    : null;
 
   return (
     <div className="space-y-2 rounded-xl border border-border bg-card p-3">
@@ -33,10 +50,22 @@ export function RecommendationBox(props: Props) {
         </span>
       </div>
 
+      {sourceLine && (
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <History className="h-3 w-3" />
+          <span>{sourceLine}</span>
+        </div>
+      )}
+
       {out.emptyMessage ? (
         <p className="text-sm text-muted-foreground">{out.emptyMessage}</p>
       ) : (
         <>
+          {out.historyOnly && (
+            <p className="text-[11px] italic text-muted-foreground">
+              Based on prior matchups vs {props.batterTeam}.
+            </p>
+          )}
           {out.bestChase && (
             <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
               <div className="flex items-center gap-2 text-[11px] font-bold uppercase text-emerald-700 dark:text-emerald-300">

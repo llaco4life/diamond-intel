@@ -8,6 +8,13 @@ export interface PitchRec {
   samples: number;
 }
 
+export interface RecommendationSources {
+  todayCount: number;
+  historyCount: number;
+  gameCount: number;
+  oldestDays: number | null;
+}
+
 export interface RecommendationOutput {
   situation: CountSituation;
   situationLabel: string;
@@ -16,6 +23,8 @@ export interface RecommendationOutput {
   avoid: PitchRec[];
   confidence: "low" | "medium" | "high";
   emptyMessage?: string;
+  sources?: RecommendationSources;
+  historyOnly?: boolean;
 }
 
 interface ScoredSample {
@@ -24,7 +33,6 @@ interface ScoredSample {
 }
 
 function scoreEntry(e: PitchEntryRow): number {
-  // Outcome-based scoring (higher = pitcher wins).
   let s = 0;
   switch (e.result) {
     case "swinging_strike": s += 3; break;
@@ -45,32 +53,42 @@ function scoreEntry(e: PitchEntryRow): number {
 }
 
 function applyCountAdjustment(score: number, sit: CountSituation): number {
-  // Situation-aware reweighting per spec.
   if (sit === "full") return score * 1.0;
   if (sit === "two_strike") return score >= 0 ? score * 1.2 : score;
-  if (sit === "behind") {
-    // Pitcher behind: penalize ball-heavy outcomes more
-    return score * 1.0;
-  }
+  if (sit === "behind") return score * 1.0;
   return score;
+}
+
+function recencyMultiplier(ageDays: number): number {
+  if (ageDays <= 0) return 1.0;
+  if (ageDays <= 14) return 0.7;
+  if (ageDays <= 45) return 0.45;
+  if (ageDays <= 120) return 0.25;
+  return 0;
+}
+
+interface RecommendCtx {
+  batterKey: string;
+  batterTeam: string;
+  pitcherId: string;
+  balls: number;
+  strikes: number;
+  historicalEntries?: PitchEntryRow[];
+  gameDateById?: Map<string, string>;
+  historicalGameCount?: number;
 }
 
 export function recommend(
   pitchTypes: PitchTypeRow[],
   entries: PitchEntryRow[],
-  ctx: {
-    batterKey: string;
-    batterTeam: string;
-    pitcherId: string;
-    balls: number;
-    strikes: number;
-  },
+  ctx: RecommendCtx,
 ): RecommendationOutput {
   const situation = classifyCount(ctx.balls, ctx.strikes);
   const samples: ScoredSample[] = [];
 
-  for (const e of entries) {
-    if (!e.pitch_type_id) continue;
+  // Today's entries — full weight, base situational weighting.
+  const collect = (e: PitchEntryRow, recency: number) => {
+    if (!e.pitch_type_id) return;
     const sameBatter = e.batter_key === ctx.batterKey;
     const samePitcher = e.pitcher_id === ctx.pitcherId;
     const sameTeam = e.batter_team.toLowerCase() === ctx.batterTeam.toLowerCase();
@@ -82,8 +100,37 @@ export function recommend(
     else if (sameBatter && samePitcher) weight = 2;
     else if (sameBatter && sameSit) weight = 2;
     else if (sameTeam && sameSit) weight = 1;
-    if (weight > 0) samples.push({ weight, entry: e });
+    else if (sameBatter) weight = 1; // history: same batter even without sit match
+    if (weight > 0) samples.push({ weight: weight * recency, entry: e });
+  };
+
+  for (const e of entries) collect(e, 1.0);
+
+  const today = new Date();
+  let oldestDays: number | null = null;
+  const history = ctx.historicalEntries ?? [];
+  const dateMap = ctx.gameDateById ?? new Map<string, string>();
+  for (const e of history) {
+    const dateStr = dateMap.get(e.game_id);
+    if (!dateStr) continue;
+    const ageDays = Math.max(
+      0,
+      Math.floor((today.getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)),
+    );
+    const r = recencyMultiplier(ageDays);
+    if (r === 0) continue;
+    if (oldestDays === null || ageDays > oldestDays) oldestDays = ageDays;
+    collect(e, r);
   }
+
+  const todayCount = entries.length;
+  const historyCount = history.length;
+  const sources: RecommendationSources = {
+    todayCount,
+    historyCount,
+    gameCount: ctx.historicalGameCount ?? 0,
+    oldestDays,
+  };
 
   const totalSamples = samples.length;
 
@@ -97,10 +144,10 @@ export function recommend(
       confidence: "low",
       emptyMessage:
         "Not enough history yet — start with fastball away, see how she reacts.",
+      sources,
     };
   }
 
-  // Aggregate per pitch type
   const agg = new Map<string, { score: number; samples: number }>();
   for (const { weight, entry } of samples) {
     const key = entry.pitch_type_id!;
@@ -124,7 +171,6 @@ export function recommend(
   const recommended = ranked.filter((r) => r.score > 0).slice(0, 2);
   const avoid = ranked.filter((r) => r.score < 0).slice(-2).reverse();
 
-  // Best chase: highest swinging-strike rate pitch in two-strike / ahead counts
   let bestChase: PitchRec | null = null;
   if (situation === "two_strike" || situation === "ahead") {
     const chaseAgg = new Map<string, { sw: number; total: number }>();
@@ -157,5 +203,7 @@ export function recommend(
     bestChase,
     avoid,
     confidence,
+    sources,
+    historyOnly: todayCount === 0 && historyCount > 0,
   };
 }
