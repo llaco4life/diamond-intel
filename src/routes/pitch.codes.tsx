@@ -252,9 +252,32 @@ function PitchCodes() {
             <Button onClick={addRow} className="gap-1"><Plus className="h-4 w-4" />Add</Button>
           </div>
 
+          {rows.length > 0 && (
+            <div className="mb-2 flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={selected.size > 0 && selected.size === rows.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+                {selected.size > 0
+                  ? `${selected.size} selected`
+                  : "Select all"}
+              </label>
+              {selected.size > 0 && (
+                <Button variant="destructive" size="sm" className="gap-1" onClick={deleteSelected}>
+                  <Trash2 className="h-4 w-4" /> Delete selected
+                </Button>
+              )}
+            </div>
+          )}
+
           <ul className="space-y-1.5">
             {rows.map((r) => (
               <li key={r.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+                <Checkbox
+                  checked={selected.has(r.id)}
+                  onCheckedChange={() => toggleSelected(r.id)}
+                />
                 <Input
                   defaultValue={r.numeric_code}
                   onBlur={(e) => {
