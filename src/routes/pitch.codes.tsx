@@ -47,6 +47,10 @@ function PitchCodes() {
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [untagged, setUntagged] = useState<{ id: string; numeric_code: string; pitch_type_id: string }[]>([]);
+  const [newPitcherJersey, setNewPitcherJersey] = useState("");
+  const [newPitcherName, setNewPitcherName] = useState("");
+  const [addingPitcher, setAddingPitcher] = useState(false);
+  const [pitchersTick, setPitchersTick] = useState(0);
 
   // Reset selected pitcher when team changes so we don't show stale codes
   useEffect(() => {
