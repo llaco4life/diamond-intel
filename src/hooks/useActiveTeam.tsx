@@ -9,6 +9,7 @@ export interface Team {
   age_group: string | null;
   season: string | null;
   logo_url: string | null;
+  join_code: string;
 }
 
 interface ActiveTeamCtx {
