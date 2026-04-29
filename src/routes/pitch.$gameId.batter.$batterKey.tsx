@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
+import { useOpponentHistory } from "@/hooks/useOpponentHistory";
 import { usePitchLineup } from "@/hooks/usePitchLineup";
 import { useCurrentBatter } from "@/hooks/useCurrentBatter";
 import { makeBatterKey } from "@/lib/pitchIntel/types";
@@ -109,7 +110,13 @@ function BatterProfile() {
 
   const { types: pitchTypes } = usePitchTypes();
   const { entries, refresh } = usePitchEntries(gameId);
-  const { rows: codeMap } = usePitchCodeMap(activePitcherId, (game as unknown as { team_id?: string | null })?.team_id ?? null);
+  const { rows: codeMap } = usePitchCodeMap(activePitcherId, game?.team_id ?? null);
+  const { historicalEntries, gameDateById, gameCount: historicalGameCount } = useOpponentHistory(
+    gameId,
+    game?.team_id ?? null,
+    batterTeam,
+    game?.game_date,
+  );
 
   // Load game + active pitcher
   useEffect(() => {
@@ -420,6 +427,9 @@ function BatterProfile() {
               pitcherId={activePitcherId}
               balls={count.balls}
               strikes={count.strikes}
+              historicalEntries={historicalEntries}
+              gameDateById={gameDateById}
+              historicalGameCount={historicalGameCount}
             />
           )}
 
