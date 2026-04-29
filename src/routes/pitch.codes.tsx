@@ -17,9 +17,10 @@ interface PitcherOpt {
   id: string;
   jersey_number: string;
   name: string | null;
-  game_id: string;
+  game_id: string | null;
   home_team: string;
   away_team: string;
+  source: "roster" | "game";
 }
 
 export const Route = createFileRoute("/pitch/codes")({
@@ -46,6 +47,10 @@ function PitchCodes() {
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [untagged, setUntagged] = useState<{ id: string; numeric_code: string; pitch_type_id: string }[]>([]);
+  const [newPitcherJersey, setNewPitcherJersey] = useState("");
+  const [newPitcherName, setNewPitcherName] = useState("");
+  const [addingPitcher, setAddingPitcher] = useState(false);
+  const [pitchersTick, setPitchersTick] = useState(0);
 
   // Reset selected pitcher when team changes so we don't show stale codes
   useEffect(() => {
@@ -89,15 +94,15 @@ function PitchCodes() {
   useEffect(() => {
     if (!org) return;
     void (async () => {
-      let q = supabase
+      // Bucket A: pitchers attached to this team's games
+      const gameQ = supabase
         .from("pitchers")
-        .select("id,jersey_number,name,game_id,games:game_id(home_team,away_team,org_id,team_id)")
+        .select("id,jersey_number,name,game_id,team_id,games:game_id(home_team,away_team,org_id,team_id)")
         .order("created_at", { ascending: false });
-      const { data } = await q;
-      const list = (data ?? [])
+      const { data: gameData } = await gameQ;
+      const fromGames: PitcherOpt[] = (gameData ?? [])
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((p: any) => p.games?.org_id === org.id)
-        // Scope to active team's games (or untagged if no active team)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((p: any) => (activeTeamId ? p.games?.team_id === activeTeamId : true))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,10 +113,33 @@ function PitchCodes() {
           game_id: p.game_id,
           home_team: p.games?.home_team ?? "",
           away_team: p.games?.away_team ?? "",
+          source: "game" as const,
         }));
-      // De-dupe by jersey + name (same pitcher across games)
+
+      // Bucket B: roster pitchers tied directly to the active team (no game)
+      let fromRoster: PitcherOpt[] = [];
+      if (activeTeamId) {
+        const { data: rosterData } = await supabase
+          .from("pitchers")
+          .select("id,jersey_number,name,game_id,team_id")
+          .eq("team_id", activeTeamId)
+          .is("game_id", null)
+          .order("created_at", { ascending: false });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fromRoster = (rosterData ?? []).map((p: any) => ({
+          id: p.id,
+          jersey_number: p.jersey_number,
+          name: p.name,
+          game_id: null,
+          home_team: "",
+          away_team: "Team roster",
+          source: "roster" as const,
+        }));
+      }
+
+      // De-dupe by jersey + name (roster takes precedence so codes carry over)
       const seen = new Set<string>();
-      const dedup = list.filter((p) => {
+      const dedup = [...fromRoster, ...fromGames].filter((p) => {
         const k = `${p.jersey_number}#${p.name ?? ""}`;
         if (seen.has(k)) return false;
         seen.add(k);
@@ -120,7 +148,42 @@ function PitchCodes() {
       setPitchers(dedup);
       if (dedup.length > 0 && !pitcherId) setPitcherId(dedup[0].id);
     })();
-  }, [org, pitcherId, activeTeamId]);
+  }, [org, pitcherId, activeTeamId, pitchersTick]);
+
+  const addPitcherToRoster = async () => {
+    if (!org || !activeTeamId) {
+      toast.error("Select a team first.");
+      return;
+    }
+    const jersey = newPitcherJersey.trim();
+    if (!jersey) {
+      toast.error("Jersey number required.");
+      return;
+    }
+    setAddingPitcher(true);
+    const { data, error } = await supabase
+      .from("pitchers")
+      .insert({
+        team_id: activeTeamId,
+        game_id: null,
+        jersey_number: jersey,
+        name: newPitcherName.trim() || null,
+        is_active: false,
+      })
+      .select("id")
+      .single();
+    setAddingPitcher(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Pitcher added");
+    setNewPitcherJersey("");
+    setNewPitcherName("");
+    setPitchersTick((t) => t + 1);
+    if (data?.id) setPitcherId(data.id);
+  };
+
 
   const addRow = async () => {
     if (!org || !pitcherId || !newCode.trim() || !newType) return;
@@ -229,9 +292,35 @@ function PitchCodes() {
         </div>
       )}
 
+      {activeTeamId && (
+        <div className="mb-3 rounded-xl border border-border bg-card p-3">
+          <div className="mb-2 text-xs font-bold uppercase">Add pitcher to {activeTeam?.name ?? "team"}</div>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              placeholder="Jersey #"
+              value={newPitcherJersey}
+              onChange={(e) => setNewPitcherJersey(e.target.value.replace(/[^0-9A-Za-z]/g, "").slice(0, 4))}
+              className="w-24 text-center font-mono font-bold"
+            />
+            <Input
+              placeholder="Name (optional)"
+              value={newPitcherName}
+              onChange={(e) => setNewPitcherName(e.target.value.slice(0, 60))}
+              className="flex-1 min-w-[140px]"
+            />
+            <Button onClick={addPitcherToRoster} disabled={addingPitcher} className="gap-1">
+              <Plus className="h-4 w-4" />Add pitcher
+            </Button>
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Roster pitchers are saved on this team so you can map codes before a game starts.
+          </p>
+        </div>
+      )}
+
       <div className="mb-4">
-        <Select value={pitcherId} onValueChange={setPitcherId} disabled={!activeTeamId}>
-          <SelectTrigger><SelectValue placeholder={activeTeamId ? "Select a pitcher" : "Select a team first"} /></SelectTrigger>
+        <Select value={pitcherId} onValueChange={setPitcherId} disabled={!activeTeamId || pitchers.length === 0}>
+          <SelectTrigger><SelectValue placeholder={activeTeamId ? (pitchers.length === 0 ? "Add a pitcher above" : "Select a pitcher") : "Select a team first"} /></SelectTrigger>
           <SelectContent>
             {pitchers.map((p) => (
               <SelectItem key={p.id} value={p.id}>
@@ -355,9 +444,9 @@ function PitchCodes() {
         </>
       )}
 
-      {pitchers.length === 0 && (
+      {activeTeamId && pitchers.length === 0 && (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No pitchers in the system yet. Start a Pitch Intel game and add a pitcher to begin.
+          No pitchers for {activeTeam?.name ?? "this team"} yet. Add one above to start mapping codes.
         </div>
       )}
     </div>
