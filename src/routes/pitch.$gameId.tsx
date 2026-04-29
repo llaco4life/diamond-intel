@@ -445,7 +445,7 @@ function PitchGameScreen() {
         </div>
       </div>
 
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -454,6 +454,32 @@ function PitchGameScreen() {
         >
           <Users className="h-3.5 w-3.5" /> Manage pitchers
         </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-9 gap-1 text-xs ml-auto"
+              disabled={endingGame}
+            >
+              <Flag className="h-3.5 w-3.5" />
+              {endingGame ? "Ending…" : "End Game"}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>End this game?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This marks the game as final. All logged pitches and at-bats are kept and will appear
+                under Recent games. You can't add new pitches after ending.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void endGame()}>End Game</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         {pitchers.length === 0 && (
           <span className="text-xs text-muted-foreground">Add a pitcher to start logging</span>
         )}
