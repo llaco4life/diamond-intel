@@ -6,6 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   ChevronLeft,
   Plus,
   X,
@@ -19,6 +30,7 @@ import {
   Unlock,
   Target,
   ListPlus,
+  Flag,
 } from "lucide-react";
 import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { supabase } from "@/integrations/supabase/client";
@@ -91,6 +103,7 @@ function PitchGameScreen() {
   const [batterTeam, setBatterTeam] = useState<string>("");
   const [outs, setOuts] = useState(0);
   const [pitcherMgrOpen, setPitcherMgrOpen] = useState(false);
+  const [endingGame, setEndingGame] = useState(false);
 
   const { entries } = usePitchEntries(gameId);
   const { lineup, add, update, remove, substitute, reorder, finalized, setFinalized } =
@@ -318,7 +331,28 @@ function PitchGameScreen() {
     }
   };
 
-  // Add batter
+  const endGame = async () => {
+    if (endingGame) return;
+    setEndingGame(true);
+    const { data, error } = await supabase
+      .from("games")
+      .update({ status: "ended" })
+      .eq("id", gameId)
+      .select("id, status")
+      .single();
+    if (error) {
+      setEndingGame(false);
+      toast.error(error.message);
+      return;
+    }
+    if (!data || data.status !== "ended") {
+      setEndingGame(false);
+      toast.error("Could not confirm the game ended. Please try again.");
+      return;
+    }
+    toast.success("Game ended");
+    navigate({ to: "/pitch" });
+  };
   const [newBatterJersey, setNewBatterJersey] = useState("");
   const [newBatterName, setNewBatterName] = useState("");
   const inningOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
@@ -411,7 +445,7 @@ function PitchGameScreen() {
         </div>
       </div>
 
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -420,6 +454,32 @@ function PitchGameScreen() {
         >
           <Users className="h-3.5 w-3.5" /> Manage pitchers
         </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-9 gap-1 text-xs ml-auto"
+              disabled={endingGame}
+            >
+              <Flag className="h-3.5 w-3.5" />
+              {endingGame ? "Ending…" : "End Game"}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>End this game?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This marks the game as final. All logged pitches and at-bats are kept and will appear
+                under Recent games. You can't add new pitches after ending.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void endGame()}>End Game</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         {pitchers.length === 0 && (
           <span className="text-xs text-muted-foreground">Add a pitcher to start logging</span>
         )}
