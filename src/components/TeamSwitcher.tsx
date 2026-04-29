@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Users, Plus } from "lucide-react";
 import {
   DropdownMenu,
@@ -12,6 +12,15 @@ import { useActiveTeam } from "@/hooks/useActiveTeam";
 
 export function TeamSwitcher() {
   const { teams, activeTeam, setActiveTeamId, loading } = useActiveTeam();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleTeamSelect = async (teamId: string) => {
+    await setActiveTeamId(teamId);
+    if (/^\/pitch\/(?!codes\b)/.test(location.pathname)) {
+      navigate({ to: "/pitch" });
+    }
+  };
 
   if (loading) return null;
 
@@ -39,7 +48,7 @@ export function TeamSwitcher() {
           teams.map((t) => (
             <DropdownMenuItem
               key={t.id}
-              onClick={() => void setActiveTeamId(t.id)}
+              onClick={() => void handleTeamSelect(t.id)}
               className={t.id === activeTeam?.id ? "bg-secondary font-semibold" : ""}
             >
               <div className="flex flex-col">

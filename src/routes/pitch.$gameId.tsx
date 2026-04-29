@@ -66,6 +66,7 @@ import { PitcherManagerDialog, type ManagedPitcher } from "@/components/pitch/Pi
 
 interface GameRow {
   id: string;
+  team_id: string | null;
   home_team: string;
   away_team: string;
   current_inning: number;
@@ -119,6 +120,7 @@ function PitchGameScreen() {
 
   const [editSlot, setEditSlot] = useState<LineupSlot | null>(null);
   const [subSlot, setSubSlot] = useState<LineupSlot | null>(null);
+  const gameMatchesActiveTeam = !game?.team_id || !activeTeamId || game.team_id === activeTeamId;
 
   // Count active team roster for showing the "Load Saved Roster" button
   useEffect(() => {
@@ -170,7 +172,7 @@ function PitchGameScreen() {
     void (async () => {
       const { data: g } = await supabase
         .from("games")
-        .select("id,home_team,away_team,current_inning,home_score,away_score")
+        .select("id,team_id,home_team,away_team,current_inning,home_score,away_score")
         .eq("id", gameId)
         .maybeSingle();
       if (!g) return;
@@ -365,6 +367,30 @@ function PitchGameScreen() {
 
   if (!game) {
     return <div className="mx-auto max-w-2xl px-4 pt-6 text-sm text-muted-foreground">Loading game…</div>;
+  }
+
+  if (!gameMatchesActiveTeam) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 pt-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate({ to: "/pitch" })}
+          className="-ml-2 h-8 gap-1 px-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" /> Pitch Intel
+        </Button>
+        <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <p className="font-semibold">This game belongs to a different active team.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Switch back to the team that started this game, or return to Pitch Intel to see games for {activeTeam?.name ?? "the selected team"}.
+          </p>
+          <Button className="mt-4 w-full" onClick={() => navigate({ to: "/pitch" })}>
+            View current team games
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const isTop = batterTeam === game.away_team;

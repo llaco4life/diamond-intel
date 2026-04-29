@@ -38,7 +38,7 @@ function relativeTime(iso: string): string {
 
 function PitchLobbyContent() {
   const { org, user } = useAuth();
-  const { activeTeam, activeTeamId } = useActiveTeam();
+  const { activeTeam, activeTeamId, loading: teamLoading } = useActiveTeam();
   const navigate = useNavigate();
   const [active, setActive] = useState<GameRow[]>([]);
   const [recent, setRecent] = useState<GameRow[]>([]);
@@ -51,26 +51,38 @@ function PitchLobbyContent() {
   const [resumingId, setResumingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!org) return;
+    if (!org || teamLoading) {
+      setActive([]);
+      setRecent([]);
+      setLoading(true);
+      return;
+    }
+    if (!activeTeamId) {
+      setActive([]);
+      setRecent([]);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
+    setLoading(true);
     void (async () => {
-      const baseActive = supabase
+      const activeQuery = supabase
         .from("games")
         .select("*")
         .eq("org_id", org.id)
+        .eq("team_id", activeTeamId)
         .eq("game_type", "pitch")
         .eq("status", "active");
-      const baseRecent = supabase
+      const recentQuery = supabase
         .from("games")
         .select("*")
         .eq("org_id", org.id)
+        .eq("team_id", activeTeamId)
         .eq("game_type", "pitch")
         .eq("status", "ended");
-      const aQ = activeTeamId ? baseActive.eq("team_id", activeTeamId) : baseActive;
-      const rQ = activeTeamId ? baseRecent.eq("team_id", activeTeamId) : baseRecent;
       const [{ data: a }, { data: r }] = await Promise.all([
-        aQ.order("created_at", { ascending: false }),
-        rQ.order("created_at", { ascending: false }).limit(3),
+        activeQuery.order("created_at", { ascending: false }),
+        recentQuery.order("created_at", { ascending: false }).limit(3),
       ]);
       if (cancelled) return;
       setActive((a as GameRow[] | null) ?? []);
@@ -80,12 +92,11 @@ function PitchLobbyContent() {
     return () => {
       cancelled = true;
     };
-  }, [org, activeTeamId]);
+  }, [org, activeTeamId, teamLoading]);
 
   useEffect(() => {
-    if (activeTeam && !home) setHome(activeTeam.name);
-    else if (!activeTeam && org && !home) setHome(org.name);
-  }, [org, activeTeam, home]);
+    setHome(activeTeam?.name ?? org?.name ?? "");
+  }, [org?.name, activeTeamId, activeTeam?.name]);
 
   const start = async () => {
     if (!org || !user) return;

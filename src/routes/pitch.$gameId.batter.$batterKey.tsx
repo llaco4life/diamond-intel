@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
@@ -73,6 +74,7 @@ function BatterProfile() {
   const slotId = isSlotKey ? parts.slice(2).join(":") : null;
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { activeTeamId, activeTeam } = useActiveTeam();
 
   const { lineup } = usePitchLineup(gameId, batterTeam);
   const slot = slotId ? lineup.find((s) => s.slotId === slotId) ?? null : null;
@@ -117,6 +119,7 @@ function BatterProfile() {
     batterTeam,
     game?.game_date,
   );
+  const gameMatchesActiveTeam = !game?.team_id || !activeTeamId || game.team_id === activeTeamId;
 
   // Load game + active pitcher
   useEffect(() => {
@@ -323,6 +326,30 @@ function BatterProfile() {
     setLastPendingPitchId(null);
     toast.success("At-bat saved");
   };
+
+  if (game && !gameMatchesActiveTeam) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 pt-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate({ to: "/pitch" })}
+          className="-ml-2 h-8 gap-1 px-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" /> Pitch Intel
+        </Button>
+        <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <p className="font-semibold">This game belongs to a different active team.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Switch back to the team that started this game, or return to Pitch Intel to see games for {activeTeam?.name ?? "the selected team"}.
+          </p>
+          <Button className="mt-4 w-full" onClick={() => navigate({ to: "/pitch" })}>
+            View current team games
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
