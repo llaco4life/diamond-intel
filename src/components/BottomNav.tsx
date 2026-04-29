@@ -10,7 +10,7 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { to: "/", label: "Home", icon: Home },
+  { to: "/home", label: "Home", icon: Home },
   { to: "/scout", label: "Scout", icon: Eye },
   { to: "/learning", label: "Learning", icon: GraduationCap },
   { to: "/pitch", label: "Pitch", icon: Target },
@@ -32,8 +32,8 @@ export function BottomNav() {
         {visible.map((item) => {
           const Icon = item.icon;
           const active =
-            item.to === "/"
-              ? location.pathname === "/"
+            item.to === "/home"
+              ? location.pathname === "/home"
               : location.pathname.startsWith(item.to);
           return (
             <Link
