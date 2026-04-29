@@ -117,7 +117,13 @@ function ProfilePage() {
         </section>
       )}
 
-      {isHeadCoach && org && <InviteLinksSection orgId={org.id} />}
+      {isHeadCoach && org && (
+        <InviteLinksSection
+          orgId={org.id}
+          teamId={activeTeamId}
+          title={activeTeam ? `Invite Links · ${activeTeam.name}` : "Invite Links"}
+        />
+      )}
 
 
       <section className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
