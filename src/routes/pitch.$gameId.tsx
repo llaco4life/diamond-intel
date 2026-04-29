@@ -274,6 +274,7 @@ function PitchGameScreen() {
       .from("pitchers")
       .insert({
         game_id: gameId,
+        team_id: (game as { team_id?: string | null }).team_id ?? null,
         jersey_number: jersey,
         name: name ?? null,
         team_side: batterTeam === game.away_team ? "away" : "home",
