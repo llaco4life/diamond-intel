@@ -858,6 +858,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          join_code: string
           logo_url: string | null
           name: string
           org_id: string
@@ -869,6 +870,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          join_code: string
           logo_url?: string | null
           name: string
           org_id: string
@@ -880,6 +882,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          join_code?: string
           logo_url?: string | null
           name?: string
           org_id?: string
