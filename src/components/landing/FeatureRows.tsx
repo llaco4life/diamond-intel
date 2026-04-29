@@ -2,24 +2,24 @@ import { LayoutDashboard, Sprout, Users } from "lucide-react";
 
 const features = [
   {
+    icon: Users,
+    title: "Multi-team Support",
+    description:
+      "Running 12U, 14U, and 16U? Each team gets its own roster, join code, coach permissions, and isolated data—switch in one tap.",
+    tone: "primary" as const,
+  },
+  {
     icon: LayoutDashboard,
     title: "Coach Dashboard",
     description:
-      "Scouting reports, opponent breakdowns, and player insights — organized by team and game so you can prep in minutes, not hours.",
-    tone: "primary" as const,
+      "Scouting reports, opponent breakdowns, and player insights—organized by team and game so you can prep in minutes, not hours.",
+    tone: "pink" as const,
   },
   {
     icon: Sprout,
     title: "Player Development Log",
     description:
-      "Every player has their own log: focus tags, at-bat reflections, and progress over time. Players own their growth, coaches see the trend.",
-    tone: "pink" as const,
-  },
-  {
-    icon: Users,
-    title: "Multi-team support",
-    description:
-      "Running 12U, 14U, and 16U? Each team gets its own roster, join code, and isolated data — switch with one tap from the header.",
+      "Every player has their own log: focus tags, at-bat reflections, and progress over time. Players own the work. Coaches see the pattern.",
     tone: "primary" as const,
   },
 ];
@@ -30,8 +30,11 @@ export function FeatureRows() {
       <div className="mx-auto max-w-6xl space-y-12 px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            A platform that grows with your program
+            Built for organizations, not just one lineup.
           </h2>
+          <p className="mt-3 text-muted-foreground">
+            Run multiple teams, coaches, and player development from one connected system.
+          </p>
         </div>
 
         {features.map((f, i) => {
