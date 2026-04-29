@@ -87,6 +87,39 @@ function PitchCodes() {
 
   const deleteRow = async (id: string) => {
     await supabase.from("pitch_code_map").delete().eq("id", id);
+    setSelected((s) => {
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    });
+    void refresh();
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === rows.length) setSelected(new Set());
+    else setSelected(new Set(rows.map((r) => r.id)));
+  };
+
+  const deleteSelected = async () => {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    if (!confirm(`Delete ${ids.length} code${ids.length === 1 ? "" : "s"}?`)) return;
+    const { error } = await supabase.from("pitch_code_map").delete().in("id", ids);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Deleted ${ids.length} code${ids.length === 1 ? "" : "s"}`);
+    setSelected(new Set());
     void refresh();
   };
 
