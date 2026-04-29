@@ -46,7 +46,7 @@ export function WhyCoachesSwitch() {
             return (
               <div
                 key={r.title}
-                className="flex gap-4 rounded-2xl border border-border bg-card p-5 shadow-card"
+                className="flex gap-4 rounded-2xl border border-border p-5 shadow-card bg-[#d3e44e]"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
                   <Icon className="h-5 w-5" />
