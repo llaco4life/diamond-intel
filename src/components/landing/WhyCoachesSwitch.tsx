@@ -43,10 +43,11 @@ export function WhyCoachesSwitch() {
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
           {reasons.map((r) => {
             const Icon = r.icon;
+            const isHighlighted = r.title === "Know what happened last at-bat before the next pitch";
             return (
               <div
                 key={r.title}
-                className="flex gap-4 rounded-2xl border border-border p-5 shadow-card bg-[#d3e44e]"
+                className={`flex gap-4 rounded-2xl border border-border p-5 shadow-card ${isHighlighted ? "bg-[#d3e44e]" : "bg-card"}`}
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
                   <Icon className="h-5 w-5" />
