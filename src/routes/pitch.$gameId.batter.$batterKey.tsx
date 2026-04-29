@@ -327,6 +327,30 @@ function BatterProfile() {
     toast.success("At-bat saved");
   };
 
+  if (game && !gameMatchesActiveTeam) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 pt-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate({ to: "/pitch" })}
+          className="-ml-2 h-8 gap-1 px-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" /> Pitch Intel
+        </Button>
+        <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <p className="font-semibold">This game belongs to a different active team.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Switch back to the team that started this game, or return to Pitch Intel to see games for {activeTeam?.name ?? "the selected team"}.
+          </p>
+          <Button className="mt-4 w-full" onClick={() => navigate({ to: "/pitch" })}>
+            View current team games
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
       <header className="mb-3 flex items-center justify-between">
