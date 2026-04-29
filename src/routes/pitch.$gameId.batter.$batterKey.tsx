@@ -46,6 +46,8 @@ interface GameRow {
   current_inning: number;
   home_score: number;
   away_score: number;
+  team_id: string | null;
+  game_date: string;
 }
 
 export const Route = createFileRoute("/pitch/$gameId/batter/$batterKey")({
@@ -114,7 +116,7 @@ function BatterProfile() {
     void (async () => {
       const { data: g } = await supabase
         .from("games")
-        .select("id,home_team,away_team,current_inning,home_score,away_score")
+        .select("id,home_team,away_team,current_inning,home_score,away_score,team_id,game_date")
         .eq("id", gameId)
         .maybeSingle();
       if (g) setGame(g as GameRow);
