@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { toast } from "sonner";
 
 import { usePitchEntries } from "@/hooks/usePitchEntries";
@@ -73,6 +74,7 @@ function BatterProfile() {
   const slotId = isSlotKey ? parts.slice(2).join(":") : null;
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { activeTeamId, activeTeam } = useActiveTeam();
 
   const { lineup } = usePitchLineup(gameId, batterTeam);
   const slot = slotId ? lineup.find((s) => s.slotId === slotId) ?? null : null;
@@ -117,6 +119,7 @@ function BatterProfile() {
     batterTeam,
     game?.game_date,
   );
+  const gameMatchesActiveTeam = !game?.team_id || !activeTeamId || game.team_id === activeTeamId;
 
   // Load game + active pitcher
   useEffect(() => {
