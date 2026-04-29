@@ -22,6 +22,7 @@ export const Route = createFileRoute("/profile")({
 
 function ProfilePage() {
   const { profile, org, role, signOut, refreshProfile } = useAuth();
+  const { activeTeam, activeTeamId } = useActiveTeam();
   const [jersey, setJersey] = useState(profile?.jersey_number ?? "");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -80,10 +81,10 @@ function ProfilePage() {
       {isHeadCoach && org && (
         <section className="mb-4 rounded-2xl border-2 border-primary/30 bg-primary-soft p-5 shadow-card">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">
-            Team Join Code
+            Organization Join Code
           </h2>
           <p className="mt-1 text-xs text-foreground/70">
-            Share this with your assistant coaches and players so they can join your team.
+            Org-wide code for first-time signups. Once joined, assign members to a team. For team-specific invites, use the links below.
           </p>
           <div className="mt-4 flex items-center gap-3">
             <div className="flex-1 rounded-xl bg-card px-4 py-4 text-center font-mono text-3xl font-bold tracking-[0.4em] text-foreground shadow-sm">
@@ -116,7 +117,13 @@ function ProfilePage() {
         </section>
       )}
 
-      {isHeadCoach && org && <InviteLinksSection orgId={org.id} />}
+      {isHeadCoach && org && (
+        <InviteLinksSection
+          orgId={org.id}
+          teamId={activeTeamId}
+          title={activeTeam ? `Invite Links · ${activeTeam.name}` : "Invite Links"}
+        />
+      )}
 
 
       <section className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
