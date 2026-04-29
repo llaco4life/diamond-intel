@@ -444,9 +444,9 @@ function PitchCodes() {
         </>
       )}
 
-      {pitchers.length === 0 && (
+      {activeTeamId && pitchers.length === 0 && (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No pitchers in the system yet. Start a Pitch Intel game and add a pitcher to begin.
+          No pitchers for {activeTeam?.name ?? "this team"} yet. Add one above to start mapping codes.
         </div>
       )}
     </div>
