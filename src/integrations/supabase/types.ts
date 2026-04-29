@@ -433,7 +433,7 @@ export type Database = {
           org_id: string
           pitch_type_id: string
           pitcher_id: string | null
-          team_id: string | null
+          team_id: string
         }
         Insert: {
           created_at?: string
@@ -442,7 +442,7 @@ export type Database = {
           org_id: string
           pitch_type_id: string
           pitcher_id?: string | null
-          team_id?: string | null
+          team_id: string
         }
         Update: {
           created_at?: string
@@ -451,7 +451,7 @@ export type Database = {
           org_id?: string
           pitch_type_id?: string
           pitcher_id?: string | null
-          team_id?: string | null
+          team_id?: string
         }
         Relationships: [
           {
