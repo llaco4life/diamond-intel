@@ -292,9 +292,35 @@ function PitchCodes() {
         </div>
       )}
 
+      {activeTeamId && (
+        <div className="mb-3 rounded-xl border border-border bg-card p-3">
+          <div className="mb-2 text-xs font-bold uppercase">Add pitcher to {activeTeam?.name ?? "team"}</div>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              placeholder="Jersey #"
+              value={newPitcherJersey}
+              onChange={(e) => setNewPitcherJersey(e.target.value.replace(/[^0-9A-Za-z]/g, "").slice(0, 4))}
+              className="w-24 text-center font-mono font-bold"
+            />
+            <Input
+              placeholder="Name (optional)"
+              value={newPitcherName}
+              onChange={(e) => setNewPitcherName(e.target.value.slice(0, 60))}
+              className="flex-1 min-w-[140px]"
+            />
+            <Button onClick={addPitcherToRoster} disabled={addingPitcher} className="gap-1">
+              <Plus className="h-4 w-4" />Add pitcher
+            </Button>
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Roster pitchers are saved on this team so you can map codes before a game starts.
+          </p>
+        </div>
+      )}
+
       <div className="mb-4">
-        <Select value={pitcherId} onValueChange={setPitcherId} disabled={!activeTeamId}>
-          <SelectTrigger><SelectValue placeholder={activeTeamId ? "Select a pitcher" : "Select a team first"} /></SelectTrigger>
+        <Select value={pitcherId} onValueChange={setPitcherId} disabled={!activeTeamId || pitchers.length === 0}>
+          <SelectTrigger><SelectValue placeholder={activeTeamId ? (pitchers.length === 0 ? "Add a pitcher above" : "Select a pitcher") : "Select a team first"} /></SelectTrigger>
           <SelectContent>
             {pitchers.map((p) => (
               <SelectItem key={p.id} value={p.id}>
