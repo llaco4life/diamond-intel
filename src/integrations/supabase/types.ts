@@ -432,7 +432,7 @@ export type Database = {
           numeric_code: string
           org_id: string
           pitch_type_id: string
-          pitcher_id: string
+          pitcher_id: string | null
           team_id: string | null
         }
         Insert: {
@@ -441,7 +441,7 @@ export type Database = {
           numeric_code: string
           org_id: string
           pitch_type_id: string
-          pitcher_id: string
+          pitcher_id?: string | null
           team_id?: string | null
         }
         Update: {
@@ -450,7 +450,7 @@ export type Database = {
           numeric_code?: string
           org_id?: string
           pitch_type_id?: string
-          pitcher_id?: string
+          pitcher_id?: string | null
           team_id?: string | null
         }
         Relationships: [

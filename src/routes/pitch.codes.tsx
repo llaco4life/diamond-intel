@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronLeft, Download, Upload, Plus, Trash2, AlertCircle } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -12,16 +12,6 @@ import { toast } from "sonner";
 import { usePitchTypes } from "@/hooks/usePitchTypes";
 import { usePitchCodeMap } from "@/hooks/usePitchCodeMap";
 import { downloadTemplate, parseImportFile, type ImportRow } from "@/lib/pitchIntel/codeTemplate";
-
-interface PitcherOpt {
-  id: string;
-  jersey_number: string;
-  name: string | null;
-  game_id: string | null;
-  home_team: string;
-  away_team: string;
-  source: "roster" | "game";
-}
 
 export const Route = createFileRoute("/pitch/codes")({
   component: PitchCodesRoute,
@@ -39,154 +29,16 @@ function PitchCodes() {
   const { org } = useAuth();
   const { activeTeamId, activeTeam } = useActiveTeam();
   const { types: pitchTypes } = usePitchTypes();
-  const [pitchers, setPitchers] = useState<PitcherOpt[]>([]);
-  const [pitcherId, setPitcherId] = useState<string>("");
-  const { rows, refresh } = usePitchCodeMap(pitcherId, activeTeamId);
+  const { rows, refresh } = usePitchCodeMap(activeTeamId);
   const [newCode, setNewCode] = useState("");
   const [newType, setNewType] = useState("");
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [untagged, setUntagged] = useState<{ id: string; numeric_code: string; pitch_type_id: string }[]>([]);
-  const [newPitcherJersey, setNewPitcherJersey] = useState("");
-  const [newPitcherName, setNewPitcherName] = useState("");
-  const [addingPitcher, setAddingPitcher] = useState(false);
-  const [pitchersTick, setPitchersTick] = useState(0);
 
-  // Reset selected pitcher when team changes so we don't show stale codes
-  useEffect(() => {
-    setPitcherId("");
-  }, [activeTeamId]);
-
-  // Load untagged (team_id IS NULL) rows for this pitcher
-  useEffect(() => {
-    if (!org || !pitcherId || !activeTeamId) {
-      setUntagged([]);
-      return;
-    }
-    void (async () => {
-      const { data } = await supabase
-        .from("pitch_code_map")
-        .select("id,numeric_code,pitch_type_id")
-        .eq("org_id", org.id)
-        .eq("pitcher_id", pitcherId)
-        .is("team_id", null)
-        .order("numeric_code");
-      setUntagged((data ?? []) as typeof untagged);
-    })();
-  }, [org, pitcherId, activeTeamId, rows]);
-
-  const assignUntagged = async () => {
-    if (!activeTeamId || untagged.length === 0) return;
-    const ids = untagged.map((u) => u.id);
-    const { error } = await supabase
-      .from("pitch_code_map")
-      .update({ team_id: activeTeamId })
-      .in("id", ids);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success(`Assigned ${ids.length} code${ids.length === 1 ? "" : "s"} to ${activeTeam?.name ?? "team"}`);
-    setUntagged([]);
-    void refresh();
-  };
-
-  useEffect(() => {
-    if (!org) return;
-    void (async () => {
-      // Bucket A: pitchers attached to this team's games
-      const gameQ = supabase
-        .from("pitchers")
-        .select("id,jersey_number,name,game_id,team_id,games:game_id(home_team,away_team,org_id,team_id)")
-        .order("created_at", { ascending: false });
-      const { data: gameData } = await gameQ;
-      const fromGames: PitcherOpt[] = (gameData ?? [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((p: any) => p.games?.org_id === org.id)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((p: any) => (activeTeamId ? p.games?.team_id === activeTeamId : true))
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((p: any) => ({
-          id: p.id,
-          jersey_number: p.jersey_number,
-          name: p.name,
-          game_id: p.game_id,
-          home_team: p.games?.home_team ?? "",
-          away_team: p.games?.away_team ?? "",
-          source: "game" as const,
-        }));
-
-      // Bucket B: roster pitchers tied directly to the active team (no game)
-      let fromRoster: PitcherOpt[] = [];
-      if (activeTeamId) {
-        const { data: rosterData } = await supabase
-          .from("pitchers")
-          .select("id,jersey_number,name,game_id,team_id")
-          .eq("team_id", activeTeamId)
-          .is("game_id", null)
-          .order("created_at", { ascending: false });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        fromRoster = (rosterData ?? []).map((p: any) => ({
-          id: p.id,
-          jersey_number: p.jersey_number,
-          name: p.name,
-          game_id: null,
-          home_team: "",
-          away_team: "Team roster",
-          source: "roster" as const,
-        }));
-      }
-
-      // De-dupe by jersey + name (roster takes precedence so codes carry over)
-      const seen = new Set<string>();
-      const dedup = [...fromRoster, ...fromGames].filter((p) => {
-        const k = `${p.jersey_number}#${p.name ?? ""}`;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
-      setPitchers(dedup);
-      if (dedup.length > 0 && !pitcherId) setPitcherId(dedup[0].id);
-    })();
-  }, [org, pitcherId, activeTeamId, pitchersTick]);
-
-  const addPitcherToRoster = async () => {
-    if (!org || !activeTeamId) {
-      toast.error("Select a team first.");
-      return;
-    }
-    const jersey = newPitcherJersey.trim();
-    if (!jersey) {
-      toast.error("Jersey number required.");
-      return;
-    }
-    setAddingPitcher(true);
-    const { data, error } = await supabase
-      .from("pitchers")
-      .insert({
-        team_id: activeTeamId,
-        game_id: null,
-        jersey_number: jersey,
-        name: newPitcherName.trim() || null,
-        is_active: false,
-      })
-      .select("id")
-      .single();
-    setAddingPitcher(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success("Pitcher added");
-    setNewPitcherJersey("");
-    setNewPitcherName("");
-    setPitchersTick((t) => t + 1);
-    if (data?.id) setPitcherId(data.id);
-  };
-
+  const labelOf = (id: string) => pitchTypes.find((p) => p.id === id)?.label ?? "—";
 
   const addRow = async () => {
-    if (!org || !pitcherId || !newCode.trim() || !newType) return;
+    if (!org || !newCode.trim() || !newType) return;
     if (!activeTeamId) {
       toast.error("Select a team first.");
       return;
@@ -194,12 +46,11 @@ function PitchCodes() {
     const { error } = await supabase.from("pitch_code_map").upsert(
       {
         org_id: org.id,
-        pitcher_id: pitcherId,
         team_id: activeTeamId,
         numeric_code: newCode.trim(),
         pitch_type_id: newType,
       },
-      { onConflict: "pitcher_id,numeric_code" },
+      { onConflict: "team_id,numeric_code" },
     );
     if (error) {
       toast.error(error.message);
@@ -230,7 +81,7 @@ function PitchCodes() {
   };
 
   const applyImport = async () => {
-    if (!org || !pitcherId || !importPreview) return;
+    if (!org || !importPreview) return;
     if (!activeTeamId) {
       toast.error("Select a team first.");
       return;
@@ -242,14 +93,13 @@ function PitchCodes() {
     }
     const payload = valid.map((r) => ({
       org_id: org.id,
-      pitcher_id: pitcherId,
       team_id: activeTeamId,
       numeric_code: r.numeric_code,
       pitch_type_id: r.pitch_type_id!,
     }));
     const { error } = await supabase
       .from("pitch_code_map")
-      .upsert(payload, { onConflict: "pitcher_id,numeric_code" });
+      .upsert(payload, { onConflict: "team_id,numeric_code" });
     if (error) {
       toast.error(error.message);
       return;
@@ -260,9 +110,6 @@ function PitchCodes() {
     void refresh();
   };
 
-  const activePitcher = pitchers.find((p) => p.id === pitcherId);
-  const labelOf = (id: string) => pitchTypes.find((p) => p.id === id)?.label ?? "—";
-
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
       <header className="mb-3 flex items-center justify-between">
@@ -271,10 +118,11 @@ function PitchCodes() {
         </Link>
       </header>
 
-      <h1 className="mb-1 text-2xl font-bold">Pitcher Pitch Codes</h1>
+      <h1 className="mb-1 text-2xl font-bold">Team Pitch Codes</h1>
       <p className="mb-4 text-sm text-muted-foreground">
-        Map each pitcher's numeric codes (what they flash from the mound) to a pitch type.
-        {activeTeam && <> Codes are saved for <span className="font-semibold">{activeTeam.name}</span>.</>}
+        One shared code sheet for the whole team. Every pitcher on{" "}
+        {activeTeam ? <span className="font-semibold">{activeTeam.name}</span> : "this team"} uses these
+        mappings during a Pitch Intel game.
       </p>
 
       {!activeTeamId && (
@@ -283,7 +131,7 @@ function PitchCodes() {
           <div className="flex-1">
             <p className="font-semibold">Select a team first.</p>
             <p className="text-xs text-muted-foreground">
-              Pitch code imports must be tied to one of your teams.
+              Pitch codes are saved per team.
             </p>
           </div>
           <Link to="/teams">
@@ -293,57 +141,13 @@ function PitchCodes() {
       )}
 
       {activeTeamId && (
-        <div className="mb-3 rounded-xl border border-border bg-card p-3">
-          <div className="mb-2 text-xs font-bold uppercase">Add pitcher to {activeTeam?.name ?? "team"}</div>
-          <div className="flex flex-wrap gap-2">
-            <Input
-              placeholder="Jersey #"
-              value={newPitcherJersey}
-              onChange={(e) => setNewPitcherJersey(e.target.value.replace(/[^0-9A-Za-z]/g, "").slice(0, 4))}
-              className="w-24 text-center font-mono font-bold"
-            />
-            <Input
-              placeholder="Name (optional)"
-              value={newPitcherName}
-              onChange={(e) => setNewPitcherName(e.target.value.slice(0, 60))}
-              className="flex-1 min-w-[140px]"
-            />
-            <Button onClick={addPitcherToRoster} disabled={addingPitcher} className="gap-1">
-              <Plus className="h-4 w-4" />Add pitcher
-            </Button>
-          </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Roster pitchers are saved on this team so you can map codes before a game starts.
-          </p>
-        </div>
-      )}
-
-      <div className="mb-4">
-        <Select value={pitcherId} onValueChange={setPitcherId} disabled={!activeTeamId || pitchers.length === 0}>
-          <SelectTrigger><SelectValue placeholder={activeTeamId ? (pitchers.length === 0 ? "Add a pitcher above" : "Select a pitcher") : "Select a team first"} /></SelectTrigger>
-          <SelectContent>
-            {pitchers.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                #{p.jersey_number}{p.name ? ` ${p.name}` : ""} · {p.away_team || p.home_team}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {activePitcher && (
         <>
           <div className="mb-3 flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() =>
-                downloadTemplate(
-                  `${activePitcher.jersey_number}-${activePitcher.name ?? "pitcher"}`,
-                  pitchTypes,
-                )
-              }
+              onClick={() => downloadTemplate(activeTeam?.name ?? "team", pitchTypes)}
             >
               <Download className="h-4 w-4" /> Template
             </Button>
@@ -396,30 +200,6 @@ function PitchCodes() {
             <Button onClick={addRow} className="gap-1"><Plus className="h-4 w-4" />Add</Button>
           </div>
 
-          {untagged.length > 0 && activeTeamId && (
-            <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-xs font-bold uppercase">Untagged Codes</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {untagged.length} legacy code{untagged.length === 1 ? "" : "s"} not tied to any team.
-                  </div>
-                </div>
-                <Button size="sm" onClick={assignUntagged}>
-                  Assign to Current Team
-                </Button>
-              </div>
-              <ul className="space-y-1 text-sm">
-                {untagged.map((u) => (
-                  <li key={u.id} className="flex items-center gap-2 rounded-md bg-card/60 px-2 py-1">
-                    <span className="w-12 text-center font-mono font-bold">{u.numeric_code}</span>
-                    <span className="flex-1 truncate text-muted-foreground">{labelOf(u.pitch_type_id)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           <ul className="space-y-1.5">
             {rows.map((r) => (
               <li key={r.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
@@ -437,17 +217,11 @@ function PitchCodes() {
             ))}
             {rows.length === 0 && (
               <li className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                No codes yet. Add one above or import from Excel.
+                No codes yet for {activeTeam?.name ?? "this team"}. Add one above or import from Excel.
               </li>
             )}
           </ul>
         </>
-      )}
-
-      {activeTeamId && pitchers.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No pitchers for {activeTeam?.name ?? "this team"} yet. Add one above to start mapping codes.
-        </div>
       )}
     </div>
   );

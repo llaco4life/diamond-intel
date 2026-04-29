@@ -112,7 +112,7 @@ function BatterProfile() {
 
   const { types: pitchTypes } = usePitchTypes();
   const { entries, refresh } = usePitchEntries(gameId);
-  const { rows: codeMap } = usePitchCodeMap(activePitcherId, game?.team_id ?? null);
+  const { rows: codeMap } = usePitchCodeMap(game?.team_id ?? null);
   const { historicalEntries, gameDateById, gameCount: historicalGameCount } = useOpponentHistory(
     gameId,
     game?.team_id ?? null,
