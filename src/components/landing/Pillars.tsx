@@ -30,10 +30,11 @@ export function Pillars() {
       <div className="mx-auto max-w-6xl px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Three modes. One platform.
+            Scout it. Teach it. Win it.
           </h2>
-          <p className="mt-3 text-muted-foreground">
-            Scout the other side, develop your own, and call every pitch with intent.
+          <p className="mt-3 text-muted-foreground whitespace-pre-line">
+            Scout the opponent, develop your players, and make better decisions{"\n\n"}
+            when the game is on the line.
           </p>
         </div>
 
