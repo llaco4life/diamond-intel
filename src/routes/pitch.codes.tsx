@@ -17,9 +17,10 @@ interface PitcherOpt {
   id: string;
   jersey_number: string;
   name: string | null;
-  game_id: string;
+  game_id: string | null;
   home_team: string;
   away_team: string;
+  source: "roster" | "game";
 }
 
 export const Route = createFileRoute("/pitch/codes")({
