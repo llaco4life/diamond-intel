@@ -66,6 +66,7 @@ import { PitcherManagerDialog, type ManagedPitcher } from "@/components/pitch/Pi
 
 interface GameRow {
   id: string;
+  team_id: string | null;
   home_team: string;
   away_team: string;
   current_inning: number;
@@ -119,6 +120,7 @@ function PitchGameScreen() {
 
   const [editSlot, setEditSlot] = useState<LineupSlot | null>(null);
   const [subSlot, setSubSlot] = useState<LineupSlot | null>(null);
+  const gameMatchesActiveTeam = !game?.team_id || !activeTeamId || game.team_id === activeTeamId;
 
   // Count active team roster for showing the "Load Saved Roster" button
   useEffect(() => {
@@ -170,7 +172,7 @@ function PitchGameScreen() {
     void (async () => {
       const { data: g } = await supabase
         .from("games")
-        .select("id,home_team,away_team,current_inning,home_score,away_score")
+        .select("id,team_id,home_team,away_team,current_inning,home_score,away_score")
         .eq("id", gameId)
         .maybeSingle();
       if (!g) return;
