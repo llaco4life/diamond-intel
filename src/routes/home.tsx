@@ -84,6 +84,23 @@ function HomeContent() {
           icon={<Target className="h-6 w-6" />}
           tone="primary"
         />
+        {isCoach ? (
+          <ModeCard
+            to="/dashboard"
+            title="Coach Dashboard"
+            description="Scouting reports, player insights, at-bat trends, and game summaries—all in one place."
+            icon={<LayoutDashboard className="h-6 w-6" />}
+            tone="pink"
+          />
+        ) : (
+          <ModeCard
+            to="/development"
+            title="My Development"
+            description="Track what you're working on and what you've got."
+            icon={<Sprout className="h-6 w-6" />}
+            tone="pink"
+          />
+        )}
       </section>
 
       <section className="mb-6">
@@ -95,24 +112,6 @@ function HomeContent() {
             No active games yet. Start one from Scout or Learning mode.
           </p>
         </div>
-      </section>
-
-      <section>
-        {isCoach ? (
-          <ShortcutCard
-            to="/dashboard"
-            title="Coach Dashboard"
-            description="Scouting reports, player insights, at-bat trends."
-            icon={<LayoutDashboard className="h-5 w-5" />}
-          />
-        ) : (
-          <ShortcutCard
-            to="/development"
-            title="My Development Log"
-            description="Track what you're working on and what you've got."
-            icon={<Sprout className="h-5 w-5" />}
-          />
-        )}
       </section>
     </div>
   );
