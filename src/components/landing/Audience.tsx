@@ -1,8 +1,8 @@
-import { Whistle, ClipboardList, User } from "lucide-react";
+import { Shield, ClipboardList, User } from "lucide-react";
 
 const audiences = [
   {
-    icon: Whistle,
+    icon: Shield,
     title: "Head Coaches",
     description: "Run scouting, call pitches, and own the program-wide view.",
   },
