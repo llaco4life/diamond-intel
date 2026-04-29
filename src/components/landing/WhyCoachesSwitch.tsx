@@ -36,7 +36,7 @@ export function WhyCoachesSwitch() {
           </h2>
           <p className="mt-3 text-muted-foreground whitespace-pre-line">
             Built from the dugout—not a boardroom.{"\n"}
-            Because what happened last inning should change the next pitch.
+            Because what happened last at-bat should change the next pitch.
           </p>
         </div>
 
