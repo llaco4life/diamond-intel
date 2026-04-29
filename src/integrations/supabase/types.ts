@@ -584,6 +584,7 @@ export type Database = {
           label: string
           org_id: string
           sort_order: number
+          team_id: string
         }
         Insert: {
           code: string
@@ -592,6 +593,7 @@ export type Database = {
           label: string
           org_id: string
           sort_order?: number
+          team_id: string
         }
         Update: {
           code?: string
@@ -600,6 +602,7 @@ export type Database = {
           label?: string
           org_id?: string
           sort_order?: number
+          team_id?: string
         }
         Relationships: []
       }
