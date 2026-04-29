@@ -116,11 +116,44 @@ function TeamDetailContent() {
   };
 
   const removeBatter = async (id: string) => {
+    if (!confirm("Remove this player from the roster?")) return;
     const { error } = await supabase.from("team_roster").delete().eq("id", id);
     if (error) {
       toast.error(error.message);
       return;
     }
+    await load();
+  };
+
+  const startEdit = (b: RosterRow) => {
+    setEditingId(b.id);
+    setEditJersey(b.jersey_number);
+    setEditName(b.name ?? "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditJersey("");
+    setEditName("");
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editJersey.trim()) {
+      toast.error("Jersey number required");
+      return;
+    }
+    setSavingEdit(true);
+    const { error } = await supabase
+      .from("team_roster")
+      .update({ jersey_number: editJersey.trim(), name: editName.trim() || null })
+      .eq("id", id);
+    setSavingEdit(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Player updated");
+    cancelEdit();
     await load();
   };
 
