@@ -34,9 +34,9 @@ export function WhyCoachesSwitch() {
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Real coaching problems, finally solved.
           </h2>
-          <p className="mt-3 text-muted-foreground">
-            Built from the dugout — not a boardroom. Diamond Intel removes the friction so you can
-            actually coach.
+          <p className="mt-3 text-muted-foreground whitespace-pre-line">
+            Built from the dugout—not a boardroom.{"\n\n"}
+            Because what happened last inning should change the next pitch.
           </p>
         </div>
 
