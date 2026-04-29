@@ -78,7 +78,7 @@ function TeamsContent() {
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
       <header className="mb-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-1 text-sm text-muted-foreground">
+        <Link to="/home" search={{ restricted: undefined }} className="flex items-center gap-1 text-sm text-muted-foreground">
           <ChevronLeft className="h-4 w-4" /> Home
         </Link>
       </header>
