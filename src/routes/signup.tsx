@@ -157,7 +157,7 @@ function SignupPage() {
                 className="font-mono uppercase tracking-widest"
               />
               <p className="text-xs text-muted-foreground">
-                Ask your head coach for the 6-character team code.
+                Ask your coach for the 6-character code for your specific team.
               </p>
             </div>
           )}

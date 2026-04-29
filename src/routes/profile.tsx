@@ -31,11 +31,13 @@ function ProfilePage() {
   const roleLabel =
     role === "head_coach" ? "Head Coach" : role === "assistant_coach" ? "Assistant Coach" : "Player";
 
+  const teamJoinCode = (activeTeam as unknown as { join_code?: string } | null)?.join_code ?? null;
+
   const copyCode = async () => {
-    if (!org?.join_code) return;
-    await navigator.clipboard.writeText(org.join_code);
+    if (!teamJoinCode) return;
+    await navigator.clipboard.writeText(teamJoinCode);
     setCopied(true);
-    toast.success("Join code copied");
+    toast.success("Team join code copied");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -78,17 +80,17 @@ function ProfilePage() {
 
       <ActiveTeamCard role={role} />
 
-      {isHeadCoach && org && (
+      {isHeadCoach && activeTeam && teamJoinCode && (
         <section className="mb-4 rounded-2xl border-2 border-primary/30 bg-primary-soft p-5 shadow-card">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">
-            Organization Join Code
+            {activeTeam.name} · Join Code
           </h2>
           <p className="mt-1 text-xs text-foreground/70">
-            Org-wide code for first-time signups. Once joined, assign members to a team. For team-specific invites, use the links below.
+            Share this code with players & assistants joining <strong>{activeTeam.name}</strong>. Each team has its own code — switch teams above to see another team's code.
           </p>
           <div className="mt-4 flex items-center gap-3">
             <div className="flex-1 rounded-xl bg-card px-4 py-4 text-center font-mono text-3xl font-bold tracking-[0.4em] text-foreground shadow-sm">
-              {org.join_code}
+              {teamJoinCode}
             </div>
             <Button onClick={copyCode} size="lg" variant="outline" className="h-auto py-4">
               {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
