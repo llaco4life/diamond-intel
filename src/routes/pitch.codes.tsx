@@ -66,6 +66,23 @@ function PitchCodes() {
     void refresh();
   };
 
+  const updateCode = async (id: string, numericCode: string) => {
+    const trimmed = numericCode.trim();
+    if (!trimmed) {
+      toast.error("Code cannot be empty");
+      void refresh();
+      return;
+    }
+    const { error } = await supabase
+      .from("pitch_code_map")
+      .update({ numeric_code: trimmed })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+    }
+    void refresh();
+  };
+
   const deleteRow = async (id: string) => {
     await supabase.from("pitch_code_map").delete().eq("id", id);
     void refresh();
