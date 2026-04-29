@@ -37,7 +37,7 @@ export function Hero() {
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link to="/signup">I have a team join code</Link>
+              <Link to="/signup">Join with Team Code</Link>
             </Button>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
