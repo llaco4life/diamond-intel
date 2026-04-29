@@ -7,12 +7,12 @@ const steps = [
   {
     n: "02",
     title: "Share the team join code",
-    description: "Send a 6-character code to players and assistants — they're in instantly.",
+    description: "Send a 6-character code to players and assistants; they're in instantly.",
   },
   {
     n: "03",
-    title: "Data flows into the Coach Dashboard",
-    description: "Scouting reports, player insights, and at-bat trends — all in one place.",
+    title: "Make better decisions faster",
+    description: "Scouting reports, hitter tendencies, and live pitch history; ready when it matters.",
   },
 ];
 

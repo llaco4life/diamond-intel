@@ -5,21 +5,21 @@ const pillars = [
     icon: Eye,
     title: "Scout Mode",
     description:
-      "Track opponents inning by inning. Tag tendencies. Build a real game plan your bench can read at a glance.",
+      "Track opponents inning by inning.\nBuild scouting reports your bench can actually use.",
     tone: "primary" as const,
   },
   {
     icon: GraduationCap,
     title: "Learning Mode",
     description:
-      "Players log at-bats, work focus tags, and grow their eye between games — not just on game day.",
+      "Turn every at-bat into development.\nPlayers track patterns, adjust faster, and grow between games.",
     tone: "pink" as const,
   },
   {
     icon: Target,
     title: "Pitch Intel",
     description:
-      "Live pitch calling: codes, count, fatigue, and recommendations from the dugout in real time.",
+      "Know what worked last time before the next pitch is called. Live pitch calling built for real dugout decisions.",
     tone: "primary" as const,
   },
 ];
@@ -33,7 +33,7 @@ export function Pillars() {
             Scout it. Teach it. Win it.
           </h2>
           <p className="mt-3 text-muted-foreground whitespace-pre-line">
-            Scout the opponent, develop your players, and make better decisions{"\n\n"}
+            Scout the opponent, develop your players, and make better decisions{"\n"}
             when the game is on the line.
           </p>
         </div>
@@ -54,7 +54,7 @@ export function Pillars() {
                   <Icon className="h-6 w-6" />
                 </div>
                 <h3 className="text-xl font-bold">{p.title}</h3>
-                <p className="text-sm opacity-90">{p.description}</p>
+                <p className="text-sm opacity-90 whitespace-pre-line">{p.description}</p>
               </div>
             );
           })}
