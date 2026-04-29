@@ -606,32 +606,35 @@ export type Database = {
       pitchers: {
         Row: {
           created_at: string
-          game_id: string
+          game_id: string | null
           id: string
           is_active: boolean
           jersey_number: string
           name: string | null
           notes: string | null
+          team_id: string | null
           team_side: string | null
         }
         Insert: {
           created_at?: string
-          game_id: string
+          game_id?: string | null
           id?: string
           is_active?: boolean
           jersey_number: string
           name?: string | null
           notes?: string | null
+          team_id?: string | null
           team_side?: string | null
         }
         Update: {
           created_at?: string
-          game_id?: string
+          game_id?: string | null
           id?: string
           is_active?: boolean
           jersey_number?: string
           name?: string | null
           notes?: string | null
+          team_id?: string | null
           team_side?: string | null
         }
         Relationships: [
