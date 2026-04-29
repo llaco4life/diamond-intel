@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ChevronLeft, Plus, Trash2, Save, Upload, ImageIcon, UserCog } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Save, Upload, ImageIcon, UserCog, Pencil, X, Check } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
