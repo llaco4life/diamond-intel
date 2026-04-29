@@ -286,18 +286,52 @@ function TeamDetailContent() {
         )}
 
         <ul className="space-y-1.5">
-          {roster.map((b, i) => (
-            <li key={b.id} className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
-              <span className="w-8 text-center text-xs text-muted-foreground">{i + 1}.</span>
-              <span className="w-12 text-center font-mono font-bold">#{b.jersey_number}</span>
-              <span className="flex-1 truncate text-sm">{b.name ?? "—"}</span>
-              {isCoach && (
-                <Button size="icon" variant="ghost" onClick={() => void removeBatter(b.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              )}
-            </li>
-          ))}
+          {roster.map((b, i) => {
+            const isEditing = editingId === b.id;
+            return (
+              <li key={b.id} className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                <span className="w-6 shrink-0 text-center text-xs text-muted-foreground">{i + 1}.</span>
+                {isEditing ? (
+                  <>
+                    <Input
+                      value={editJersey}
+                      onChange={(e) => setEditJersey(e.target.value)}
+                      className="w-14 px-1 text-center font-mono"
+                      placeholder="#"
+                    />
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="flex-1"
+                      placeholder="Name"
+                      autoFocus
+                    />
+                    <Button size="icon" variant="ghost" onClick={() => void saveEdit(b.id)} disabled={savingEdit} title="Save">
+                      <Check className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={cancelEdit} disabled={savingEdit} title="Cancel">
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-12 shrink-0 text-center font-mono font-bold">#{b.jersey_number}</span>
+                    <span className="flex-1 truncate text-sm">{b.name ?? "—"}</span>
+                    {isCoach && (
+                      <>
+                        <Button size="icon" variant="ghost" onClick={() => startEdit(b)} title="Edit player">
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => void removeBatter(b.id)} title="Remove player">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+              </li>
+            );
+          })}
           {roster.length === 0 && (
             <li className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
               No roster yet. Add batters above.
