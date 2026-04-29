@@ -23,7 +23,7 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/", search: { restricted: undefined } });
+    if (!loading && user) navigate({ to: "/home", search: { restricted: undefined } });
   }, [user, loading, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -36,7 +36,7 @@ function LoginPage() {
       return;
     }
     toast.success("Welcome back");
-    navigate({ to: "/", search: { restricted: undefined } });
+    navigate({ to: "/home", search: { restricted: undefined } });
   };
 
   return (

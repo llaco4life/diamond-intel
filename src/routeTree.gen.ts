@@ -16,6 +16,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PitchRouteImport } from './routes/pitch'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LearningRouteImport } from './routes/learning'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DevelopmentRouteImport } from './routes/development'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -63,6 +64,11 @@ const LoginRoute = LoginRouteImport.update({
 const LearningRoute = LearningRouteImport.update({
   id: '/learning',
   path: '/learning',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/home': typeof HomeRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/pitch': typeof PitchRouteWithChildren
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/home': typeof HomeRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/pitch': typeof PitchRouteWithChildren
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/home': typeof HomeRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
   '/pitch': typeof PitchRouteWithChildren
@@ -207,6 +216,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/development'
     | '/forgot-password'
+    | '/home'
     | '/learning'
     | '/login'
     | '/pitch'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/development'
     | '/forgot-password'
+    | '/home'
     | '/learning'
     | '/login'
     | '/pitch'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/development'
     | '/forgot-password'
+    | '/home'
     | '/learning'
     | '/login'
     | '/pitch'
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DevelopmentRoute: typeof DevelopmentRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  HomeRoute: typeof HomeRoute
   LearningRoute: typeof LearningRouteWithChildren
   LoginRoute: typeof LoginRoute
   PitchRoute: typeof PitchRouteWithChildren
@@ -335,6 +348,13 @@ declare module '@tanstack/react-router' {
       path: '/learning'
       fullPath: '/learning'
       preLoaderRoute: typeof LearningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -494,6 +514,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DevelopmentRoute: DevelopmentRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  HomeRoute: HomeRoute,
   LearningRoute: LearningRouteWithChildren,
   LoginRoute: LoginRoute,
   PitchRoute: PitchRouteWithChildren,
