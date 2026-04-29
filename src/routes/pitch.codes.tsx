@@ -4,6 +4,7 @@ import { ChevronLeft, Download, Upload, Plus, Trash2, AlertCircle } from "lucide
 import { ProtectedShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,6 +34,7 @@ function PitchCodes() {
   const [newCode, setNewCode] = useState("");
   const [newType, setNewType] = useState("");
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const fileInput = useRef<HTMLInputElement>(null);
 
   const labelOf = (id: string) => pitchTypes.find((p) => p.id === id)?.label ?? "—";
@@ -85,6 +87,39 @@ function PitchCodes() {
 
   const deleteRow = async (id: string) => {
     await supabase.from("pitch_code_map").delete().eq("id", id);
+    setSelected((s) => {
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    });
+    void refresh();
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === rows.length) setSelected(new Set());
+    else setSelected(new Set(rows.map((r) => r.id)));
+  };
+
+  const deleteSelected = async () => {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    if (!confirm(`Delete ${ids.length} code${ids.length === 1 ? "" : "s"}?`)) return;
+    const { error } = await supabase.from("pitch_code_map").delete().in("id", ids);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Deleted ${ids.length} code${ids.length === 1 ? "" : "s"}`);
+    setSelected(new Set());
     void refresh();
   };
 
@@ -217,9 +252,32 @@ function PitchCodes() {
             <Button onClick={addRow} className="gap-1"><Plus className="h-4 w-4" />Add</Button>
           </div>
 
+          {rows.length > 0 && (
+            <div className="mb-2 flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={selected.size > 0 && selected.size === rows.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+                {selected.size > 0
+                  ? `${selected.size} selected`
+                  : "Select all"}
+              </label>
+              {selected.size > 0 && (
+                <Button variant="destructive" size="sm" className="gap-1" onClick={deleteSelected}>
+                  <Trash2 className="h-4 w-4" /> Delete selected
+                </Button>
+              )}
+            </div>
+          )}
+
           <ul className="space-y-1.5">
             {rows.map((r) => (
               <li key={r.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+                <Checkbox
+                  checked={selected.has(r.id)}
+                  onCheckedChange={() => toggleSelected(r.id)}
+                />
                 <Input
                   defaultValue={r.numeric_code}
                   onBlur={(e) => {
