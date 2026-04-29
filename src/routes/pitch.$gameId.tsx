@@ -103,6 +103,7 @@ function PitchGameScreen() {
   const [batterTeam, setBatterTeam] = useState<string>("");
   const [outs, setOuts] = useState(0);
   const [pitcherMgrOpen, setPitcherMgrOpen] = useState(false);
+  const [endingGame, setEndingGame] = useState(false);
 
   const { entries } = usePitchEntries(gameId);
   const { lineup, add, update, remove, substitute, reorder, finalized, setFinalized } =
@@ -330,7 +331,28 @@ function PitchGameScreen() {
     }
   };
 
-  // Add batter
+  const endGame = async () => {
+    if (endingGame) return;
+    setEndingGame(true);
+    const { data, error } = await supabase
+      .from("games")
+      .update({ status: "ended" })
+      .eq("id", gameId)
+      .select("id, status")
+      .single();
+    if (error) {
+      setEndingGame(false);
+      toast.error(error.message);
+      return;
+    }
+    if (!data || data.status !== "ended") {
+      setEndingGame(false);
+      toast.error("Could not confirm the game ended. Please try again.");
+      return;
+    }
+    toast.success("Game ended");
+    navigate({ to: "/pitch" });
+  };
   const [newBatterJersey, setNewBatterJersey] = useState("");
   const [newBatterName, setNewBatterName] = useState("");
   const inningOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
