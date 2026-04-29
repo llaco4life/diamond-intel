@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Eye, GraduationCap, Sprout, LayoutDashboard, ArrowRight, Target } from "lucide-react";
 import { ProtectedShell } from "@/components/AppShell";
@@ -15,9 +15,20 @@ export const Route = createFileRoute("/home")({
 
 function HomePage() {
   const { restricted } = Route.useSearch();
+  const navigate = useNavigate();
+  const { user, profile, loading } = useAuth();
+
   useEffect(() => {
     if (restricted) toast.error("Access restricted — coaches only");
   }, [restricted]);
+
+  // If signed in but not yet onboarded, send to /onboarding.
+  useEffect(() => {
+    if (loading) return;
+    if (user && !profile?.org_id) {
+      navigate({ to: "/onboarding" });
+    }
+  }, [user, profile, loading, navigate]);
 
   return (
     <ProtectedShell>

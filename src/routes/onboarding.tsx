@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ArrowRight, Users, Whistle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Users, ClipboardList } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,7 +127,7 @@ function OnboardingPage() {
               </p>
               <div className="mt-5 space-y-3">
                 <ChoiceCard
-                  icon={<Whistle className="h-5 w-5" />}
+                  icon={<ClipboardList className="h-5 w-5" />}
                   title="I'm a head coach"
                   description="Create a new team and invite your staff and players."
                   onClick={() => setView("create")}

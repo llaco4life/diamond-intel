@@ -14,6 +14,7 @@ import { Route as ScoutRouteImport } from './routes/scout'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PitchRouteImport } from './routes/pitch'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LearningRouteImport } from './routes/learning'
 import { Route as HomeRouteImport } from './routes/home'
@@ -54,6 +55,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const PitchRoute = PitchRouteImport.update({
   id: '/pitch',
   path: '/pitch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/home': typeof HomeRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/pitch': typeof PitchRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/home': typeof HomeRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/pitch': typeof PitchRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/home': typeof HomeRoute
   '/learning': typeof LearningRouteWithChildren
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/pitch': typeof PitchRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/learning'
     | '/login'
+    | '/onboarding'
     | '/pitch'
     | '/profile'
     | '/reset-password'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/learning'
     | '/login'
+    | '/onboarding'
     | '/pitch'
     | '/profile'
     | '/reset-password'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/learning'
     | '/login'
+    | '/onboarding'
     | '/pitch'
     | '/profile'
     | '/reset-password'
@@ -289,6 +301,7 @@ export interface RootRouteChildren {
   HomeRoute: typeof HomeRoute
   LearningRoute: typeof LearningRouteWithChildren
   LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
   PitchRoute: typeof PitchRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -334,6 +347,13 @@ declare module '@tanstack/react-router' {
       path: '/pitch'
       fullPath: '/pitch'
       preLoaderRoute: typeof PitchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -517,6 +537,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomeRoute: HomeRoute,
   LearningRoute: LearningRouteWithChildren,
   LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
   PitchRoute: PitchRouteWithChildren,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,

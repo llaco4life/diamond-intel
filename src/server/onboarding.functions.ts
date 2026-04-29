@@ -16,7 +16,7 @@ export const completeAsHeadCoach = createServerFn({ method: "POST" })
       "complete_head_coach_onboarding",
       {
         _team_name: data.teamName,
-        _age_group: data.ageGroup ?? null,
+        _age_group: data.ageGroup ?? "",
       },
     );
     if (error) {
