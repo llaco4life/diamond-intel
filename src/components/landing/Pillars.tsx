@@ -19,7 +19,7 @@ const pillars = [
     icon: Target,
     title: "Pitch Intel",
     description:
-      "Know what worked last time before the next pitch is called. Live pitch calling built for real dugout decisions.",
+      "Know what worked last at-bat before the next pitch is called. Live pitch calling built for real dugout decisions.",
     tone: "primary" as const,
   },
 ];
