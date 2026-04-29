@@ -41,7 +41,7 @@ export function ProtectedShell({
       });
     } else if (coachOnly && !isCoach) {
       navigate({
-        to: "/",
+        to: "/home",
         search: { restricted: "1" },
         replace: true,
       });
