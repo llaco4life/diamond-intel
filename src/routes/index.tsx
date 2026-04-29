@@ -41,8 +41,8 @@ function LandingPage() {
       <LandingHeader />
       <main>
         <Hero />
-        <Pillars />
         <WhyCoachesSwitch />
+        <Pillars />
         <HowItWorks />
         <FeatureRows />
         <Audience />
