@@ -39,7 +39,7 @@ export function ActiveTeamProvider({ children }: { children: ReactNode }) {
     }
     const { data } = await supabase
       .from("teams")
-      .select("id,org_id,name,age_group,season,logo_url")
+      .select("id,org_id,name,age_group,season,logo_url,join_code")
       .eq("org_id", org.id)
       .order("created_at", { ascending: true });
     setTeams((data ?? []) as Team[]);
