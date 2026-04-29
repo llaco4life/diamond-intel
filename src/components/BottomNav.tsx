@@ -14,7 +14,7 @@ const items: NavItem[] = [
   { to: "/scout", label: "Scout", icon: Eye },
   { to: "/learning", label: "Learning", icon: GraduationCap },
   { to: "/pitch", label: "Pitch", icon: Target },
-  { to: "/dashboard", label: "Coach", icon: LayoutDashboard, coachOnly: true },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, coachOnly: true },
   { to: "/development", label: "Dev", icon: Sprout },
   { to: "/profile", label: "Profile", icon: User },
 ];
