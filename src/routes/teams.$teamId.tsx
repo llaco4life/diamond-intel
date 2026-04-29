@@ -52,6 +52,10 @@ function TeamDetailContent() {
   const [newJersey, setNewJersey] = useState("");
   const [newName, setNewName] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editJersey, setEditJersey] = useState("");
+  const [editName, setEditName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
