@@ -140,8 +140,16 @@ function InvitePage() {
       return;
     }
 
+    // No session returned — try signing in with the credentials we just used
+    // (handles cases where signUp didn't auto-issue a session but the account is usable).
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInErr) {
+      setSubmitting(false);
+      toast.success("Account created! Check your email to confirm, then return to this link.");
+      return;
+    }
+    // Auth state listener will pick up the new session and the auto-redeem effect will fire.
     setSubmitting(false);
-    toast.success("Account created! Check your email to confirm, then return to this link.");
   };
 
   const onSignin = async (e: React.FormEvent) => {
