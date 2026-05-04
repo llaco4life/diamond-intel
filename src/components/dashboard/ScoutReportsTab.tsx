@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { ScoutingReportView } from "./ScoutingReportView";
 import { TeamList } from "./TeamList";
@@ -26,6 +27,7 @@ type View =
 
 export function ScoutReportsTab() {
   const { org } = useAuth();
+  const { activeTeamId } = useActiveTeam();
   const [mode, setMode] = useState<Mode>("team");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>({ kind: "list" });
@@ -40,15 +42,16 @@ export function ScoutReportsTab() {
     let cancel = false;
     (async () => {
       setLoading(true);
+      let gq = supabase
+        .from("games")
+        .select(
+          "id, game_date, tournament_name, home_team, away_team, home_score, away_score, opponent_id",
+        )
+        .eq("org_id", org.id)
+        .eq("game_type", "scout");
+      if (activeTeamId) gq = gq.eq("team_id", activeTeamId);
       const [{ data: g }, { data: opps }] = await Promise.all([
-        supabase
-          .from("games")
-          .select(
-            "id, game_date, tournament_name, home_team, away_team, home_score, away_score, opponent_id",
-          )
-          .eq("org_id", org.id)
-          .eq("game_type", "scout")
-          .order("game_date", { ascending: false }),
+        gq.order("game_date", { ascending: false }),
         supabase.from("opponents").select("id, team_name").eq("org_id", org.id),
       ]);
       if (cancel) return;
@@ -59,7 +62,7 @@ export function ScoutReportsTab() {
     return () => {
       cancel = true;
     };
-  }, [org?.id]);
+  }, [org?.id, activeTeamId]);
 
   const teams = useMemo(() => buildTeamIndex(games, opponents), [games, opponents]);
   const gameIndex = useMemo(() => buildGameIndex(games), [games]);
