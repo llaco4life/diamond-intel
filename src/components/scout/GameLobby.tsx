@@ -94,11 +94,13 @@ function ActiveGameRow({ game, onJoin, onDelete, deleting }: ActiveGameRowProps)
 
 export function GameLobby({
   orgId,
+  teamId,
   activeGames,
   onStart,
   onJoin,
 }: {
   orgId: string;
+  teamId: string | null;
   activeGames: GameRow[];
   onStart: () => void;
   onJoin: (g: GameRow) => void;
@@ -129,12 +131,15 @@ export function GameLobby({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      setLoading(true);
+      let q = supabase
         .from("games")
         .select("*")
         .eq("org_id", orgId)
         .eq("status", "ended")
-        .eq("game_type", "scout")
+        .eq("game_type", "scout");
+      if (teamId) q = q.eq("team_id", teamId);
+      const { data } = await q
         .order("created_at", { ascending: false })
         .limit(3);
       if (!cancelled) {
@@ -145,7 +150,7 @@ export function GameLobby({
     return () => {
       cancelled = true;
     };
-  }, [orgId]);
+  }, [orgId, teamId]);
 
   const handleResume = async (game: GameRow) => {
     setResumingId(game.id);
