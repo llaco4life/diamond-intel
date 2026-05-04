@@ -60,6 +60,7 @@ function ScoutPage() {
   return (
     <GameLobby
       orgId={org.id}
+      teamId={activeTeamId}
       activeGames={games}
       onStart={() => setShowSetup(true)}
       onJoin={(g) => setJoinedGame(g)}
