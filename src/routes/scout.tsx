@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { ProtectedShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGames, type GameRow } from "@/hooks/useActiveGame";
+import { useActiveTeam } from "@/hooks/useActiveTeam";
 import { GameSetup } from "@/components/scout/GameSetup";
 import { ActiveGame } from "@/components/scout/ActiveGame";
 import { GameLobby } from "@/components/scout/GameLobby";
@@ -23,7 +24,8 @@ function ScoutLayout() {
 
 function ScoutPage() {
   const { org, role, loading: authLoading } = useAuth();
-  const { games, loading } = useActiveGames(org?.id ?? null, "scout");
+  const { activeTeamId } = useActiveTeam();
+  const { games, loading } = useActiveGames(org?.id ?? null, "scout", activeTeamId);
   const isCoach = role === "head_coach" || role === "assistant_coach";
   const [joinedGame, setJoinedGame] = useState<GameRow | null>(null);
   const [showSetup, setShowSetup] = useState(false);
@@ -58,6 +60,7 @@ function ScoutPage() {
   return (
     <GameLobby
       orgId={org.id}
+      teamId={activeTeamId}
       activeGames={games}
       onStart={() => setShowSetup(true)}
       onJoin={(g) => setJoinedGame(g)}

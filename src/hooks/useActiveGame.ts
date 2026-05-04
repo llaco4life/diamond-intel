@@ -26,6 +26,7 @@ export interface GameRow {
 export function useActiveGames(
   orgId: string | null,
   gameType?: "scout" | "learning",
+  teamId?: string | null,
 ) {
   const [games, setGames] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,10 +44,11 @@ export function useActiveGames(
       .eq("org_id", orgId)
       .eq("status", "active");
     if (gameType) q = q.eq("game_type", gameType);
+    if (teamId) q = q.eq("team_id", teamId);
     const { data } = await q.order("created_at", { ascending: false });
     setGames((data as GameRow[] | null) ?? []);
     setLoading(false);
-  }, [orgId, gameType]);
+  }, [orgId, gameType, teamId]);
 
   useEffect(() => {
     reload();
