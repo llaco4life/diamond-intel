@@ -32,6 +32,7 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminTeamsRouteImport } from './routes/admin.teams'
 import { Route as AdminOrgsRouteImport } from './routes/admin.orgs'
+import { Route as AdminInvitesRouteImport } from './routes/admin.invites'
 import { Route as AdminGamesRouteImport } from './routes/admin.games'
 import { Route as TeamsTeamIdMembersRouteImport } from './routes/teams.$teamId.members'
 import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
@@ -153,6 +154,11 @@ const AdminOrgsRoute = AdminOrgsRouteImport.update({
   path: '/orgs',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminInvitesRoute = AdminInvitesRouteImport.update({
+  id: '/invites',
+  path: '/invites',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminGamesRoute = AdminGamesRouteImport.update({
   id: '/games',
   path: '/games',
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/admin/games': typeof AdminGamesRoute
+  '/admin/invites': typeof AdminInvitesRoute
   '/admin/orgs': typeof AdminOrgsRoute
   '/admin/teams': typeof AdminTeamsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -226,6 +233,7 @@ export interface FileRoutesByTo {
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/admin/games': typeof AdminGamesRoute
+  '/admin/invites': typeof AdminInvitesRoute
   '/admin/orgs': typeof AdminOrgsRoute
   '/admin/teams': typeof AdminTeamsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -257,6 +265,7 @@ export interface FileRoutesById {
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
   '/admin/games': typeof AdminGamesRoute
+  '/admin/invites': typeof AdminInvitesRoute
   '/admin/orgs': typeof AdminOrgsRoute
   '/admin/teams': typeof AdminTeamsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/scout'
     | '/signup'
     | '/admin/games'
+    | '/admin/invites'
     | '/admin/orgs'
     | '/admin/teams'
     | '/admin/users'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/scout'
     | '/signup'
     | '/admin/games'
+    | '/admin/invites'
     | '/admin/orgs'
     | '/admin/teams'
     | '/admin/users'
@@ -348,6 +359,7 @@ export interface FileRouteTypes {
     | '/scout'
     | '/signup'
     | '/admin/games'
+    | '/admin/invites'
     | '/admin/orgs'
     | '/admin/teams'
     | '/admin/users'
@@ -546,6 +558,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrgsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/invites': {
+      id: '/admin/invites'
+      path: '/invites'
+      fullPath: '/admin/invites'
+      preLoaderRoute: typeof AdminInvitesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/games': {
       id: '/admin/games'
       path: '/games'
@@ -586,6 +605,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminGamesRoute: typeof AdminGamesRoute
+  AdminInvitesRoute: typeof AdminInvitesRoute
   AdminOrgsRoute: typeof AdminOrgsRoute
   AdminTeamsRoute: typeof AdminTeamsRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -594,6 +614,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminGamesRoute: AdminGamesRoute,
+  AdminInvitesRoute: AdminInvitesRoute,
   AdminOrgsRoute: AdminOrgsRoute,
   AdminTeamsRoute: AdminTeamsRoute,
   AdminUsersRoute: AdminUsersRoute,
