@@ -1,56 +1,40 @@
-# Super Admin Console — P0 + P1 Build
+I checked the app code and the password reset route already exists at `/reset-password`, and the forgot-password form is already sending reset emails with `redirectTo: ${window.location.origin}/reset-password`. That means the app side is mostly in place. The likely fix is the authentication redirect allow-list in Lovable Cloud.
 
-Build a full super-admin console at `/admin`, seed `omar@rtbcustoms.com` as the first super admin, and ship moderation + data management tools.
+Plan to fix it:
 
-## What you'll get
+1. Update Lovable Cloud auth redirect settings
+   - Set the main Site URL to the published app URL:
+     - `https://diamond-intel.lovable.app`
+   - Add these allowed redirect URL patterns:
+     - `https://diamond-intel.lovable.app/**`
+     - `https://id-preview--29d04973-92d3-4d40-ab94-46026a489337.lovable.app/**`
+     - `https://preview--diamond-intel.lovable.app/**`
+     - `http://localhost:*/**`
 
-A new **Admin** area (hidden from normal users, no bottom nav) with:
+2. Re-test with a fresh reset email
+   - Old reset emails may still point to the wrong fallback URL.
+   - Send a brand-new password reset email after saving the settings.
+   - Click the new email link and confirm it opens `/reset-password` inside Diamond Intel.
 
-1. **Dashboard** — total users, orgs, teams, games, signups in last 7/30 days
-2. **Users** — searchable list of every user across every org with actions:
-   - View detail (profile, org, role, last sign-in, games created)
-   - Block / unblock (Supabase auth ban — instantly logs them out, blocks future logins)
-   - Force sign-out
-   - Delete account (auth user + profile + memberships, cascades data)
-   - Promote / demote super_admin
-3. **Organizations** — list every org with member count, team count, game count, creation date
-   - View detail: members, teams, recent activity
-   - Delete org (with strong confirm — wipes everything)
-4. **Teams** — cross-org team browser, view roster, delete team
-5. **Games** — cross-org game browser, filter by org/team/status, delete individual games (fixes orphaned-data cleanup)
-6. **Invites** — view all invite links across orgs, revoke any invite
-7. **Audit log** — every admin action recorded (who did what, when, target)
+3. Harden the app reset flow if needed
+   - Keep `/reset-password` public so users are not redirected away before they set a new password.
+   - Improve the reset page so it handles both hash-based recovery links and query-code recovery links reliably.
+   - Prevent the normal auth redirect flow from immediately sending recovery users to `/home` before they finish choosing a new password.
 
-## Access model
+How you can update the setting manually:
 
-```text
-app_role enum: head_coach | assistant_coach | player | super_admin (NEW)
+Desktop:
+- Open Cloud from the top toolbar.
+- Go to Users.
+- Click the Auth settings gear.
+- Open General settings / Advanced redirect settings.
+- Update Site URL and Redirect URLs using the values above.
 
-/admin/*  →  requires super_admin role
-            (separate layout, no BottomNav, own sidebar)
-```
+Mobile:
+- Tap the `...` menu in Chat mode.
+- Open Cloud.
+- Go to Users.
+- Open Auth settings.
+- Update the same Site URL and Redirect URLs.
 
-- New `is_super_admin()` SQL helper (security definer)
-- `/admin` route group gated in `beforeLoad` — non-admins redirect to `/home`
-- All admin server functions check `is_super_admin(auth.uid())` server-side, not just UI
-- Admin queries use `supabaseAdmin` (service role) so they bypass org-scoped RLS
-
-## Technical plan
-
-### Database migration
-- Add `super_admin` to `app_role` enum
-- Create `is_super_admin(uuid)` security-definer function
-- Create `admin_audit_log` table: `id, actor_id, action, target_type, target_id, metadata jsonb, created_at`
-- RLS on `admin_audit_log`: only super_admins read; inserts via server only
-- Seed: insert `('<omar's auth uid>', 'super_admin')` into `user_roles` after looking up the email in `auth.users` via the migration
-
-### Server functions (`src/server/admin.functions.ts`)
-All protected by `requireSupabaseAuth` + an `assertSuperAdmin(userId)` helper that uses `supabaseAdmin`:
-- `adminListUsers({ search, page })` — joins auth.users + profiles + roles + org
-- `adminGetUser({ userId })`
-- `adminBlockUser({ userId })` / `adminUnblockUser` — uses `supabaseAdmin.auth.admin.updateUserById` with `ban_duration`
-- `adminDeleteUser({ userId })` — `supabaseAdmin.auth.admin.deleteUser`
-- `adminSetSuperAdmin({ userId, enabled })`
-- `adminListOrgs`, `adminGetOrg`, `adminDeleteOrg`
-- `adminListTeams`, `adminDeleteTeam`
-- `adminListGames({ orgId?
+After that, request a new reset email. If it still lands on the wrong page, I’ll make the reset-flow hardening changes in the app code next.
