@@ -23,21 +23,42 @@ function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Supabase auto-exchanges the recovery token from the URL hash and
-    // emits a PASSWORD_RECOVERY event with a temporary session.
+    let cancelled = false;
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || session) {
-        setHasSession(true);
+      if (event === "PASSWORD_RECOVERY" || session) setHasSession(true);
+      setReady(true);
+    });
+
+    (async () => {
+      // Surface any error returned in the URL (expired/invalid link)
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const query = new URLSearchParams(window.location.search);
+      const errDesc = hash.get("error_description") || query.get("error_description");
+      if (errDesc) {
+        toast.error(decodeURIComponent(errDesc));
       }
-      setReady(true);
-    });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setHasSession(true);
-      setReady(true);
-    });
+      // PKCE-style recovery: ?code=...  → exchange for a session
+      const code = query.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) toast.error(error.message);
+        // Clean ?code= out of the URL
+        window.history.replaceState({}, "", window.location.pathname);
+      }
 
-    return () => sub.subscription.unsubscribe();
+      const { data } = await supabase.auth.getSession();
+      if (!cancelled) {
+        if (data.session) setHasSession(true);
+        setReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
