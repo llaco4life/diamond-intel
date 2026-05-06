@@ -1,6 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { installServerFnAuth } from "@/integrations/supabase/serverFnAuth";
 import type { Session, User } from "@supabase/supabase-js";
+
+installServerFnAuth();
 
 export type AppRole = "head_coach" | "assistant_coach" | "player";
 
