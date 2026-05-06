@@ -20,13 +20,15 @@ async function audit(
   targetId?: string,
   metadata: Record<string, unknown> = {},
 ) {
-  await supabaseAdmin.from("admin_audit_log").insert({
-    actor_id: actorId,
-    action,
-    target_type: targetType ?? null,
-    target_id: targetId ?? null,
-    metadata,
-  });
+  await supabaseAdmin.from("admin_audit_log").insert([
+    {
+      actor_id: actorId,
+      action,
+      target_type: targetType ?? null,
+      target_id: targetId ?? null,
+      metadata: metadata as never,
+    },
+  ]);
 }
 
 // ---------- Stats ----------
