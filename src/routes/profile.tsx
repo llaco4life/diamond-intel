@@ -21,7 +21,7 @@ export const Route = createFileRoute("/profile")({
 });
 
 function ProfilePage() {
-  const { profile, org, role, signOut, refreshProfile } = useAuth();
+  const { profile, org, role, isSuperAdmin, signOut, refreshProfile } = useAuth();
   const { activeTeam, activeTeamId } = useActiveTeam();
   const [jersey, setJersey] = useState(profile?.jersey_number ?? "");
   const [saving, setSaving] = useState(false);
