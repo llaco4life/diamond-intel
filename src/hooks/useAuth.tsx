@@ -25,6 +25,7 @@ interface AuthContextValue {
   profile: Profile | null;
   org: Organization | null;
   role: AppRole | null;
+  isSuperAdmin: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
