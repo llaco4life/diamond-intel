@@ -24,6 +24,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TeamsIndexRouteImport } from './routes/teams.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as TeamsTeamIdRouteImport } from './routes/teams.$teamId'
 import { Route as PitchCodesRouteImport } from './routes/pitch.codes'
 import { Route as PitchGameIdRouteImport } from './routes/pitch.$gameId'
@@ -108,6 +109,11 @@ const TeamsIndexRoute = TeamsIndexRouteImport.update({
   path: '/teams/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const TeamsTeamIdRoute = TeamsTeamIdRouteImport.update({
   id: '/teams/$teamId',
   path: '/teams/$teamId',
@@ -153,7 +159,7 @@ const PitchGameIdBatterBatterKeyRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
   '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
+  '/admin/': typeof AdminIndexRoute
   '/teams/': typeof TeamsIndexRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
@@ -178,7 +185,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -195,6 +201,7 @@ export interface FileRoutesByTo {
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
   '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
+  '/admin': typeof AdminIndexRoute
   '/teams': typeof TeamsIndexRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
@@ -204,7 +211,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/development': typeof DevelopmentRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -221,6 +228,7 @@ export interface FileRoutesById {
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
   '/pitch/codes': typeof PitchCodesRoute
   '/teams/$teamId': typeof TeamsTeamIdRouteWithChildren
+  '/admin/': typeof AdminIndexRoute
   '/teams/': typeof TeamsIndexRoute
   '/learning/summary/$sessionId': typeof LearningSummarySessionIdRoute
   '/scout/summary/$gameId': typeof ScoutSummaryGameIdRoute
@@ -248,6 +256,7 @@ export interface FileRouteTypes {
     | '/pitch/$gameId'
     | '/pitch/codes'
     | '/teams/$teamId'
+    | '/admin/'
     | '/teams/'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
@@ -256,7 +265,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/dashboard'
     | '/development'
     | '/forgot-password'
@@ -273,6 +281,7 @@ export interface FileRouteTypes {
     | '/pitch/$gameId'
     | '/pitch/codes'
     | '/teams/$teamId'
+    | '/admin'
     | '/teams'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
@@ -298,6 +307,7 @@ export interface FileRouteTypes {
     | '/pitch/$gameId'
     | '/pitch/codes'
     | '/teams/$teamId'
+    | '/admin/'
     | '/teams/'
     | '/learning/summary/$sessionId'
     | '/scout/summary/$gameId'
@@ -307,7 +317,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   DevelopmentRoute: typeof DevelopmentRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -432,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/teams/$teamId': {
       id: '/teams/$teamId'
       path: '/teams/$teamId'
@@ -490,6 +507,16 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface LearningRouteChildren {
   LearningSummarySessionIdRoute: typeof LearningSummarySessionIdRoute
@@ -551,7 +578,7 @@ const TeamsTeamIdRouteWithChildren = TeamsTeamIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   DashboardRoute: DashboardRoute,
   DevelopmentRoute: DevelopmentRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
