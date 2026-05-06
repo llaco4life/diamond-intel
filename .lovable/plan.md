@@ -1,64 +1,56 @@
-## Problem
+# Super Admin Console — P0 + P1 Build
 
-On the new 14U team, `/pitch/codes` shows no pitchers and no Import option because:
+Build a full super-admin console at `/admin`, seed `omar@rtbcustoms.com` as the first super admin, and ship moderation + data management tools.
 
-- Pitchers live in the `pitchers` table, which is tied to a `game_id`.
-- The codes page builds its pitcher dropdown by querying `pitchers` joined to `games`, then filtering to the active team.
-- The 14U team has no games yet → no pitcher rows → empty dropdown → no way to add or import codes.
+## What you'll get
 
-Pitch code mappings (`pitch_code_map`) themselves are already team-scoped correctly. The blocker is **pitcher discovery**, not the codes themselves.
+A new **Admin** area (hidden from normal users, no bottom nav) with:
 
-## Goal
+1. **Dashboard** — total users, orgs, teams, games, signups in last 7/30 days
+2. **Users** — searchable list of every user across every org with actions:
+   - View detail (profile, org, role, last sign-in, games created)
+   - Block / unblock (Supabase auth ban — instantly logs them out, blocks future logins)
+   - Force sign-out
+   - Delete account (auth user + profile + memberships, cascades data)
+   - Promote / demote super_admin
+3. **Organizations** — list every org with member count, team count, game count, creation date
+   - View detail: members, teams, recent activity
+   - Delete org (with strong confirm — wipes everything)
+4. **Teams** — cross-org team browser, view roster, delete team
+5. **Games** — cross-org game browser, filter by org/team/status, delete individual games (fixes orphaned-data cleanup)
+6. **Invites** — view all invite links across orgs, revoke any invite
+7. **Audit log** — every admin action recorded (who did what, when, target)
 
-Every new team should be able to set up pitch codes without first having to start a game — same setup and capability as the 12U team, but with isolated data.
+## Access model
 
-## Approach: Team-scoped pitcher roster
+```text
+app_role enum: head_coach | assistant_coach | player | super_admin (NEW)
 
-Add a lightweight "team pitcher roster" so coaches can add pitchers to a team directly from `/pitch/codes`, then map codes to them. Existing game-based pitchers continue to work and merge into the same view.
+/admin/*  →  requires super_admin role
+            (separate layout, no BottomNav, own sidebar)
+```
 
-### 1. Schema (migration)
+- New `is_super_admin()` SQL helper (security definer)
+- `/admin` route group gated in `beforeLoad` — non-admins redirect to `/home`
+- All admin server functions check `is_super_admin(auth.uid())` server-side, not just UI
+- Admin queries use `supabaseAdmin` (service role) so they bypass org-scoped RLS
 
-Add a nullable `team_id` to `pitchers` so a pitcher row can belong to a team without belonging to a game:
+## Technical plan
 
-- `pitchers.team_id uuid null` (references `teams.id` conceptually; no FK per project convention).
-- `pitchers.game_id` becomes nullable (a roster pitcher exists before any game).
-- Add a check/validation: at least one of `team_id` or `game_id` must be set.
-- Update RLS on `pitchers`:
-  - SELECT/INSERT/UPDATE/DELETE allowed when EITHER the linked `game.org_id = get_my_org_id()` OR the linked `team.org_id = get_my_org_id()`.
+### Database migration
+- Add `super_admin` to `app_role` enum
+- Create `is_super_admin(uuid)` security-definer function
+- Create `admin_audit_log` table: `id, actor_id, action, target_type, target_id, metadata jsonb, created_at`
+- RLS on `admin_audit_log`: only super_admins read; inserts via server only
+- Seed: insert `('<omar's auth uid>', 'super_admin')` into `user_roles` after looking up the email in `auth.users` via the migration
 
-No data migration needed — existing pitcher rows keep their `game_id` and just have `team_id = null`.
-
-### 2. Codes page (`src/routes/pitch.codes.tsx`)
-
-- Query pitchers in two buckets and merge:
-  1. `pitchers` where `team_id = activeTeamId`
-  2. `pitchers` joined to `games` where `games.team_id = activeTeamId` (current behavior)
-- De-dupe by jersey + name (already happens).
-- Add an "Add pitcher" affordance at the top of the page (jersey #, optional name) that inserts a row with `team_id = activeTeamId`, `game_id = null`. This unblocks Template / Import .xlsx immediately.
-- Keep all existing controls: Template download, Import .xlsx, manual add row, untagged-codes assignment.
-
-### 3. Game flow (no behavior change for users)
-
-When a coach starts a Pitch Intel game and adds a pitcher who already exists on the team roster (same jersey #), reuse/link that pitcher rather than creating a duplicate. If they add a brand-new pitcher in-game, also stamp `team_id` on the new row so it appears in the codes page next time.
-
-This is a small follow-up edit in the pitcher creation paths inside `src/routes/pitch.$gameId.tsx` and `src/components/pitch/PitcherManagerDialog.tsx` (set `team_id: activeTeamId` on insert).
-
-### 4. Empty state copy
-
-When the active team has zero pitchers (roster + games), replace the current "No pitchers in the system yet. Start a Pitch Intel game…" message with:
-
-> "No pitchers for {team name} yet. Add one below or download the template to bulk import."
-
-…and show the Add Pitcher form + Template/Import buttons immediately.
-
-## Files to change
-
-- New migration: add `team_id` to `pitchers`, make `game_id` nullable, update RLS.
-- `src/routes/pitch.codes.tsx` — merged pitcher query, Add Pitcher form, updated empty state.
-- `src/routes/pitch.$gameId.tsx` — stamp `team_id` when creating in-game pitchers; reuse existing roster pitcher by jersey when present.
-- `src/components/pitch/PitcherManagerDialog.tsx` — same stamping/reuse on insert.
-
-## Out of scope
-
-- Roster management UI beyond the codes page (a dedicated Pitchers page can come later).
-- Backfilling `team_id` on historical pitcher rows (not needed; they remain reachable via their game).
+### Server functions (`src/server/admin.functions.ts`)
+All protected by `requireSupabaseAuth` + an `assertSuperAdmin(userId)` helper that uses `supabaseAdmin`:
+- `adminListUsers({ search, page })` — joins auth.users + profiles + roles + org
+- `adminGetUser({ userId })`
+- `adminBlockUser({ userId })` / `adminUnblockUser` — uses `supabaseAdmin.auth.admin.updateUserById` with `ban_duration`
+- `adminDeleteUser({ userId })` — `supabaseAdmin.auth.admin.deleteUser`
+- `adminSetSuperAdmin({ userId, enabled })`
+- `adminListOrgs`, `adminGetOrg`, `adminDeleteOrg`
+- `adminListTeams`, `adminDeleteTeam`
+- `adminListGames({ orgId?

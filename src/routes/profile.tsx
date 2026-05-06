@@ -21,7 +21,7 @@ export const Route = createFileRoute("/profile")({
 });
 
 function ProfilePage() {
-  const { profile, org, role, signOut, refreshProfile } = useAuth();
+  const { profile, org, role, isSuperAdmin, signOut, refreshProfile } = useAuth();
   const { activeTeam, activeTeamId } = useActiveTeam();
   const [jersey, setJersey] = useState(profile?.jersey_number ?? "");
   const [saving, setSaving] = useState(false);
@@ -134,6 +134,17 @@ function ProfilePage() {
           Coming soon — once you've logged a game, your history will appear here.
         </p>
       </section>
+
+      {isSuperAdmin && (
+        <div className="mt-4">
+          <Link to="/admin">
+            <Button variant="outline" className="w-full">
+              <Settings className="mr-2 h-4 w-4" />
+              Admin Console
+            </Button>
+          </Link>
+        </div>
+      )}
 
       <div className="mt-6">
         <Button variant="outline" className="w-full" onClick={signOut}>

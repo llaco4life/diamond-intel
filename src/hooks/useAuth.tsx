@@ -25,6 +25,7 @@ interface AuthContextValue {
   profile: Profile | null;
   org: Organization | null;
   role: AppRole | null;
+  isSuperAdmin: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [org, setOrg] = useState<Organization | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const initialized = useRef(false);
 
@@ -49,14 +51,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loadUserData = async (userId: string, allowSelfHeal = true) => {
-    const [profileRes, roleRes, userRes] = await Promise.all([
+    const [profileRes, rolesRes, userRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase.auth.getUser(),
     ]);
 
     let p = profileRes.data as Profile | null;
-    let roleVal = (roleRes.data?.role as AppRole | undefined) ?? null;
+    const allRoles = (rolesRes.data ?? []).map((r) => r.role as string);
+    const superAdmin = allRoles.includes("super_admin");
+    const primary = allRoles.find((r) => r !== "super_admin") as AppRole | undefined;
+    let roleVal: AppRole | null = primary ?? null;
 
     // Self-heal: invited user landed here without a profile because redeem_invite
     // never ran on signup (e.g. confirmed email outside the /invite/<token> page).
@@ -76,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setProfile(p);
     setRole(roleVal);
+    setIsSuperAdmin(superAdmin);
 
     if (p?.org_id) {
       const { data: orgData } = await supabase
@@ -101,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         setOrg(null);
         setRole(null);
+        setIsSuperAdmin(false);
         finishInit();
       }
     });
@@ -128,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, profile, org, role, loading, signOut, refreshProfile }}
+      value={{ user, session, profile, org, role, isSuperAdmin, loading, signOut, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>
