@@ -30,6 +30,7 @@ import { Route as PitchCodesRouteImport } from './routes/pitch.codes'
 import { Route as PitchGameIdRouteImport } from './routes/pitch.$gameId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminOrgsRouteImport } from './routes/admin.orgs'
 import { Route as TeamsTeamIdMembersRouteImport } from './routes/teams.$teamId.members'
 import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
 import { Route as LearningSummarySessionIdRouteImport } from './routes/learning.summary.$sessionId'
@@ -140,6 +141,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminOrgsRoute = AdminOrgsRouteImport.update({
+  id: '/orgs',
+  path: '/orgs',
+  getParentRoute: () => AdminRoute,
+} as any)
 const TeamsTeamIdMembersRoute = TeamsTeamIdMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/admin/orgs': typeof AdminOrgsRoute
   '/admin/users': typeof AdminUsersRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/admin/orgs': typeof AdminOrgsRoute
   '/admin/users': typeof AdminUsersRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/admin/orgs': typeof AdminOrgsRoute
   '/admin/users': typeof AdminUsersRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pitch/$gameId': typeof PitchGameIdRouteWithChildren
@@ -261,6 +270,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/admin/orgs'
     | '/admin/users'
     | '/invite/$token'
     | '/pitch/$gameId'
@@ -287,6 +297,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/admin/orgs'
     | '/admin/users'
     | '/invite/$token'
     | '/pitch/$gameId'
@@ -314,6 +325,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/admin/orgs'
     | '/admin/users'
     | '/invite/$token'
     | '/pitch/$gameId'
@@ -496,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/orgs': {
+      id: '/admin/orgs'
+      path: '/orgs'
+      fullPath: '/admin/orgs'
+      preLoaderRoute: typeof AdminOrgsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/teams/$teamId/members': {
       id: '/teams/$teamId/members'
       path: '/members'
@@ -528,11 +547,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminOrgsRoute: typeof AdminOrgsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminOrgsRoute: AdminOrgsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
