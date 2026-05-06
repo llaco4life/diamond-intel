@@ -34,6 +34,7 @@ import { Route as AdminTeamsRouteImport } from './routes/admin.teams'
 import { Route as AdminOrgsRouteImport } from './routes/admin.orgs'
 import { Route as AdminInvitesRouteImport } from './routes/admin.invites'
 import { Route as AdminGamesRouteImport } from './routes/admin.games'
+import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as TeamsTeamIdMembersRouteImport } from './routes/teams.$teamId.members'
 import { Route as ScoutSummaryGameIdRouteImport } from './routes/scout.summary.$gameId'
 import { Route as LearningSummarySessionIdRouteImport } from './routes/learning.summary.$sessionId'
@@ -164,6 +165,11 @@ const AdminGamesRoute = AdminGamesRouteImport.update({
   path: '/games',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
 const TeamsTeamIdMembersRoute = TeamsTeamIdMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -202,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/orgs': typeof AdminOrgsRoute
@@ -232,6 +239,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/orgs': typeof AdminOrgsRoute
@@ -264,6 +272,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/scout': typeof ScoutRouteWithChildren
   '/signup': typeof SignupRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/orgs': typeof AdminOrgsRoute
@@ -297,6 +306,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/admin/audit'
     | '/admin/games'
     | '/admin/invites'
     | '/admin/orgs'
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/admin/audit'
     | '/admin/games'
     | '/admin/invites'
     | '/admin/orgs'
@@ -358,6 +369,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/scout'
     | '/signup'
+    | '/admin/audit'
     | '/admin/games'
     | '/admin/invites'
     | '/admin/orgs'
@@ -572,6 +584,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminGamesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/teams/$teamId/members': {
       id: '/teams/$teamId/members'
       path: '/members'
@@ -604,6 +623,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminAuditRoute: typeof AdminAuditRoute
   AdminGamesRoute: typeof AdminGamesRoute
   AdminInvitesRoute: typeof AdminInvitesRoute
   AdminOrgsRoute: typeof AdminOrgsRoute
@@ -613,6 +633,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAuditRoute: AdminAuditRoute,
   AdminGamesRoute: AdminGamesRoute,
   AdminInvitesRoute: AdminInvitesRoute,
   AdminOrgsRoute: AdminOrgsRoute,
