@@ -39,7 +39,7 @@ function AdminTeams() {
               <tr key={t.id} className="border-b">
                 <td className="p-2 font-medium">{t.name}</td>
                 <td className="p-2">{t.age_group ?? "—"}</td>
-                <td className="p-2">{(t as { organizations?: { name: string } | null }).organizations?.name ?? "—"}</td>
+                <td className="p-2">{(Array.isArray(t.organizations) ? t.organizations[0]?.name : (t.organizations as { name?: string } | null)?.name) ?? "—"}</td>
                 <td className="p-2 text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</td>
                 <td className="p-2 text-right">
                   <AlertDialog>
