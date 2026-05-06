@@ -135,6 +135,17 @@ function ProfilePage() {
         </p>
       </section>
 
+      {isSuperAdmin && (
+        <div className="mt-4">
+          <Link to="/admin">
+            <Button variant="outline" className="w-full">
+              <Settings className="mr-2 h-4 w-4" />
+              Admin Console
+            </Button>
+          </Link>
+        </div>
+      )}
+
       <div className="mt-6">
         <Button variant="outline" className="w-full" onClick={signOut}>
           <LogOut className="mr-2 h-4 w-4" />
