@@ -81,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setProfile(p);
     setRole(roleVal);
+    setIsSuperAdmin(superAdmin);
 
     if (p?.org_id) {
       const { data: orgData } = await supabase
