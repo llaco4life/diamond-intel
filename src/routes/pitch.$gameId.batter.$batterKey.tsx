@@ -31,6 +31,8 @@ import { ResultPad } from "@/components/pitch/ResultPad";
 import { PitchTypePad } from "@/components/pitch/PitchTypePad";
 import { PitchLocationGrid } from "@/components/pitch/PitchLocationGrid";
 import type { BatterHand } from "@/lib/pitchIntel/pitchZones";
+import { PitchHeatmap } from "@/components/pitch/PitchHeatmap";
+import { PitchEntryEditDialog } from "@/components/pitch/PitchEntryEditDialog";
 import { SprayChartModal } from "@/components/pitch/SprayChartModal";
 import { AbResultPicker } from "@/components/pitch/AbResultPicker";
 import { RecommendationBox } from "@/components/pitch/RecommendationBox";
@@ -76,7 +78,8 @@ function BatterProfile() {
   const isSlotKey = parts[1] === "slot";
   const slotId = isSlotKey ? parts.slice(2).join(":") : null;
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role, isSuperAdmin } = useAuth();
+  const isCoach = role === "head_coach" || role === "assistant_coach" || isSuperAdmin;
   const { activeTeamId, activeTeam } = useActiveTeam();
 
   const { lineup } = usePitchLineup(gameId, batterTeam);
@@ -253,6 +256,7 @@ function BatterProfile() {
   const [abPickerOpen, setAbPickerOpen] = useState(false);
   const [pendingAbResult, setPendingAbResult] = useState<AbResult | null>(null);
   const [lastPendingPitchId, setLastPendingPitchId] = useState<string | null>(null);
+  const [editingPitchId, setEditingPitchId] = useState<string | null>(null);
 
   const activePitcher = pitchers.find((p) => p.id === activePitcherId);
   const totalPitchesThisPitcher = entries.filter((e) => e.pitcher_id === activePitcherId).length;
@@ -456,10 +460,11 @@ function BatterProfile() {
       </div>
 
       <Tabs defaultValue="current">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="current">Current At-Bat</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="current">Current</TabsTrigger>
           <TabsTrigger value="previous">Previous</TabsTrigger>
-          <TabsTrigger value="spray">Spray Chart</TabsTrigger>
+          <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+          <TabsTrigger value="spray">Spray</TabsTrigger>
         </TabsList>
 
         <TabsContent value="current" className="mt-3 space-y-3">
@@ -514,15 +519,30 @@ function BatterProfile() {
 
           {activePa && activePa.pitches.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-3 text-xs">
-              <div className="mb-1 font-semibold uppercase text-muted-foreground">This PA pitch log</div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="font-semibold uppercase text-muted-foreground">This PA pitch log</span>
+                {isCoach && <span className="text-[10px] text-muted-foreground">tap to edit</span>}
+              </div>
               {activePa.pitches.map((p, i) => {
                 const ptLabel = p.pitch_type_id ? pitchTypes.find((pt) => pt.id === p.pitch_type_id)?.label : null;
-                return (
-                  <div key={p.id} className="font-mono">
+                const line = (
+                  <>
                     {i + 1}. {p.balls_before}-{p.strikes_before} → {p.result.replace("_", " ")} ({p.balls_after}-{p.strikes_after})
                     {ptLabel ? ` · ${ptLabel}` : ""}
                     {p.pitch_location ? ` · zone ${p.pitch_location}` : ""}
-                  </div>
+                  </>
+                );
+                return isCoach ? (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setEditingPitchId(p.id)}
+                    className="block w-full rounded px-1 py-0.5 text-left font-mono hover:bg-muted"
+                  >
+                    {line}
+                  </button>
+                ) : (
+                  <div key={p.id} className="font-mono">{line}</div>
                 );
               })}
             </div>
@@ -559,8 +579,20 @@ function BatterProfile() {
           {completePas.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed at-bats yet.</p>
           ) : (
-            completePas.map((pa) => <PaCard key={pa.id} pa={pa} pitchTypes={pitchTypes} />)
+            completePas.map((pa) => (
+              <PaCard
+                key={pa.id}
+                pa={pa}
+                pitchTypes={pitchTypes}
+                isCoach={isCoach}
+                onEditPitch={(id) => setEditingPitchId(id)}
+              />
+            ))
           )}
+        </TabsContent>
+
+        <TabsContent value="heatmap" className="mt-3">
+          <PitchHeatmap entries={myEntries} hand={batterHand} />
         </TabsContent>
 
         <TabsContent value="spray" className="mt-3">
@@ -578,6 +610,13 @@ function BatterProfile() {
         suggested={pendingAbResult}
         onPick={handleAbPick}
         onClose={() => setAbPickerOpen(false)}
+      />
+      <PitchEntryEditDialog
+        open={editingPitchId != null}
+        pitch={editingPitchId ? entries.find((e) => e.id === editingPitchId) ?? null : null}
+        pitchTypes={pitchTypes}
+        onClose={() => setEditingPitchId(null)}
+        onSaved={() => void refresh()}
       />
     </div>
   );
@@ -638,7 +677,17 @@ function groupPAs(entries: PitchEntryRow[]): PA[] {
   return Array.from(map.values()).sort((a, b) => b.atBatSeq - a.atBatSeq);
 }
 
-function PaCard({ pa, pitchTypes }: { pa: PA; pitchTypes: { id: string; label: string }[] }) {
+function PaCard({
+  pa,
+  pitchTypes,
+  isCoach,
+  onEditPitch,
+}: {
+  pa: PA;
+  pitchTypes: { id: string; label: string }[];
+  isCoach: boolean;
+  onEditPitch: (id: string) => void;
+}) {
   const labelMap = new Map(pitchTypes.map((p) => [p.id, p.label]));
   const seq = pa.pitches
     .map((p) => (p.pitch_type_id ? labelMap.get(p.pitch_type_id)?.split(" ")[0] : "?"))
@@ -654,6 +703,24 @@ function PaCard({ pa, pitchTypes }: { pa: PA; pitchTypes: { id: string; label: s
         <div className="mt-1 text-xs text-muted-foreground">
           {pa.contactQuality === "hard" || pa.contactQuality === "barrel" ? "🔴" : "🟢"} {pa.contactQuality}
           {pa.sprayZone ? ` · ${pa.sprayZone}` : ""}
+        </div>
+      )}
+      {isCoach && pa.pitches.length > 0 && (
+        <div className="mt-2 border-t border-border pt-2 text-[11px]">
+          <div className="mb-1 text-muted-foreground">tap pitch to edit</div>
+          <div className="flex flex-wrap gap-1">
+            {pa.pitches.map((p, i) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onEditPitch(p.id)}
+                className="rounded border border-border bg-secondary px-2 py-1 font-mono hover:bg-muted"
+              >
+                {i + 1}: {p.result.replace("_", " ")}
+                {p.pitch_location ? ` z${p.pitch_location}` : ""}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
