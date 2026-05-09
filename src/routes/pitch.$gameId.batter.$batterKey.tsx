@@ -460,10 +460,11 @@ function BatterProfile() {
       </div>
 
       <Tabs defaultValue="current">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="current">Current At-Bat</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="current">Current</TabsTrigger>
           <TabsTrigger value="previous">Previous</TabsTrigger>
-          <TabsTrigger value="spray">Spray Chart</TabsTrigger>
+          <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+          <TabsTrigger value="spray">Spray</TabsTrigger>
         </TabsList>
 
         <TabsContent value="current" className="mt-3 space-y-3">
