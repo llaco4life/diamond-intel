@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+export type PitchEntryMode = "numeric_codes" | "tap_buttons" | "both";
+
 export interface Team {
   id: string;
   org_id: string;
@@ -10,6 +12,7 @@ export interface Team {
   season: string | null;
   logo_url: string | null;
   join_code: string;
+  pitch_entry_mode: PitchEntryMode;
 }
 
 interface ActiveTeamCtx {
