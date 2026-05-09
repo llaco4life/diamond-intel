@@ -76,6 +76,8 @@ export interface PitchEntryRow {
   spray_zone: SprayZone | null;
   contact_quality: ContactQuality | null;
   ab_result: AbResult | null;
+  pitch_location: number | null;
+  batter_hand: "R" | "L" | "S" | null;
   logged_by: string;
   created_at: string;
 }
