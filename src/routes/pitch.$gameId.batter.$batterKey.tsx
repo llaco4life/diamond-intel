@@ -28,6 +28,9 @@ import {
 import { CountDisplay } from "@/components/pitch/CountDisplay";
 import { CodeEntry } from "@/components/pitch/CodeEntry";
 import { ResultPad } from "@/components/pitch/ResultPad";
+import { PitchTypePad } from "@/components/pitch/PitchTypePad";
+import { PitchLocationGrid } from "@/components/pitch/PitchLocationGrid";
+import type { BatterHand } from "@/lib/pitchIntel/pitchZones";
 import { SprayChartModal } from "@/components/pitch/SprayChartModal";
 import { AbResultPicker } from "@/components/pitch/AbResultPicker";
 import { RecommendationBox } from "@/components/pitch/RecommendationBox";
