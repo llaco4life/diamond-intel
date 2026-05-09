@@ -499,17 +499,32 @@ function BatterProfile() {
             />
           )}
 
-          <CodeEntry codeMap={codeMap} pitchTypes={pitchTypes} value={code} onChange={setCode} />
+          {(activeTeam?.pitch_entry_mode ?? "numeric_codes") !== "tap_buttons" && (
+            <CodeEntry codeMap={codeMap} pitchTypes={pitchTypes} value={code} onChange={setCode} />
+          )}
+          {(activeTeam?.pitch_entry_mode ?? "numeric_codes") !== "numeric_codes" && (
+            <PitchTypePad
+              pitchTypes={pitchTypes}
+              value={selectedPitchTypeId}
+              onChange={setSelectedPitchTypeId}
+            />
+          )}
+          <PitchLocationGrid hand={batterHand} value={pitchLocation} onChange={setPitchLocation} />
           <ResultPad onPick={logPitch} disabled={!activePitcher} />
 
           {activePa && activePa.pitches.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-3 text-xs">
               <div className="mb-1 font-semibold uppercase text-muted-foreground">This PA pitch log</div>
-              {activePa.pitches.map((p, i) => (
-                <div key={p.id} className="font-mono">
-                  {i + 1}. {p.balls_before}-{p.strikes_before} → {p.result.replace("_", " ")} ({p.balls_after}-{p.strikes_after})
-                </div>
-              ))}
+              {activePa.pitches.map((p, i) => {
+                const ptLabel = p.pitch_type_id ? pitchTypes.find((pt) => pt.id === p.pitch_type_id)?.label : null;
+                return (
+                  <div key={p.id} className="font-mono">
+                    {i + 1}. {p.balls_before}-{p.strikes_before} → {p.result.replace("_", " ")} ({p.balls_after}-{p.strikes_after})
+                    {ptLabel ? ` · ${ptLabel}` : ""}
+                    {p.pitch_location ? ` · zone ${p.pitch_location}` : ""}
+                  </div>
+                );
+              })}
             </div>
           )}
 
