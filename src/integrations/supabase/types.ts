@@ -499,6 +499,7 @@ export type Database = {
           at_bat_seq: number
           balls_after: number
           balls_before: number
+          batter_hand: string | null
           batter_key: string
           batter_number: string
           batter_team: string
@@ -509,6 +510,7 @@ export type Database = {
           inning: number
           logged_by: string
           numeric_code: string | null
+          pitch_location: number | null
           pitch_seq: number
           pitch_type_id: string | null
           pitcher_id: string
@@ -522,6 +524,7 @@ export type Database = {
           at_bat_seq: number
           balls_after: number
           balls_before: number
+          batter_hand?: string | null
           batter_key: string
           batter_number: string
           batter_team: string
@@ -532,6 +535,7 @@ export type Database = {
           inning: number
           logged_by: string
           numeric_code?: string | null
+          pitch_location?: number | null
           pitch_seq: number
           pitch_type_id?: string | null
           pitcher_id: string
@@ -545,6 +549,7 @@ export type Database = {
           at_bat_seq?: number
           balls_after?: number
           balls_before?: number
+          batter_hand?: string | null
           batter_key?: string
           batter_number?: string
           batter_team?: string
@@ -555,6 +560,7 @@ export type Database = {
           inning?: number
           logged_by?: string
           numeric_code?: string | null
+          pitch_location?: number | null
           pitch_seq?: number
           pitch_type_id?: string | null
           pitcher_id?: string
@@ -898,6 +904,7 @@ export type Database = {
           logo_url: string | null
           name: string
           org_id: string
+          pitch_entry_mode: string
           season: string | null
           updated_at: string
         }
@@ -910,6 +917,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           org_id: string
+          pitch_entry_mode?: string
           season?: string | null
           updated_at?: string
         }
@@ -922,6 +930,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           org_id?: string
+          pitch_entry_mode?: string
           season?: string | null
           updated_at?: string
         }

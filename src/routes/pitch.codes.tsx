@@ -28,7 +28,7 @@ function PitchCodesRoute() {
 
 function PitchCodes() {
   const { org } = useAuth();
-  const { activeTeamId, activeTeam } = useActiveTeam();
+  const { activeTeamId, activeTeam, refresh: refreshTeams } = useActiveTeam();
   const { types: pitchTypes } = usePitchTypes();
   const { rows, refresh } = usePitchCodeMap(activeTeamId);
   const [newCode, setNewCode] = useState("");
@@ -36,6 +36,22 @@ function PitchCodes() {
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const entryMode = activeTeam?.pitch_entry_mode ?? "numeric_codes";
+
+  const setEntryMode = async (mode: "numeric_codes" | "tap_buttons" | "both") => {
+    if (!activeTeamId) return;
+    const { error } = await supabase
+      .from("teams")
+      .update({ pitch_entry_mode: mode })
+      .eq("id", activeTeamId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Pitch entry mode updated");
+    void refreshTeams();
+  };
 
   const labelOf = (id: string) => pitchTypes.find((p) => p.id === id)?.label ?? "—";
 
@@ -194,6 +210,40 @@ function PitchCodes() {
 
       {activeTeamId && (
         <>
+          <div className="mb-4 rounded-2xl border border-border bg-card p-3">
+            <div className="mb-2 text-xs font-bold uppercase text-muted-foreground">Pitch entry mode</div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                { id: "numeric_codes", label: "Numeric codes", hint: "Type catcher's number" },
+                { id: "tap_buttons", label: "Tap buttons", hint: "Tap pitch type" },
+                { id: "both", label: "Both", hint: "Show both" },
+              ] as const).map((opt) => {
+                const selected = entryMode === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => void setEntryMode(opt.id)}
+                    className={
+                      "flex flex-col items-center justify-center rounded-lg border px-2 py-2 text-center transition-colors " +
+                      (selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-secondary hover:bg-secondary/70")
+                    }
+                  >
+                    <span className="text-sm font-semibold">{opt.label}</span>
+                    <span className={"mt-0.5 text-[10px] " + (selected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                      {opt.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Tap-only teams skip numeric codes entirely. The numeric code list below is only used in "Numeric codes" or "Both".
+            </p>
+          </div>
+
           <div className="mb-3 flex flex-wrap gap-2">
             <Button
               variant="outline"

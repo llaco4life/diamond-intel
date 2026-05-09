@@ -28,6 +28,9 @@ import {
 import { CountDisplay } from "@/components/pitch/CountDisplay";
 import { CodeEntry } from "@/components/pitch/CodeEntry";
 import { ResultPad } from "@/components/pitch/ResultPad";
+import { PitchTypePad } from "@/components/pitch/PitchTypePad";
+import { PitchLocationGrid } from "@/components/pitch/PitchLocationGrid";
+import type { BatterHand } from "@/lib/pitchIntel/pitchZones";
 import { SprayChartModal } from "@/components/pitch/SprayChartModal";
 import { AbResultPicker } from "@/components/pitch/AbResultPicker";
 import { RecommendationBox } from "@/components/pitch/RecommendationBox";
@@ -232,6 +235,20 @@ function BatterProfile() {
     : (myEntries.reduce((m, e) => Math.max(m, e.at_bat_seq), 0) + 1);
 
   const [code, setCode] = useState("");
+  const [selectedPitchTypeId, setSelectedPitchTypeId] = useState<string | null>(null);
+  const [pitchLocation, setPitchLocation] = useState<number | null>(null);
+  const [batterHand, setBatterHand] = useState<BatterHand>(() => {
+    if (typeof window === "undefined") return "R";
+    const saved = window.localStorage.getItem(`pitch-hand:${batterKey}`);
+    return (saved === "L" || saved === "S" || saved === "R") ? saved : "R";
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(`pitch-hand:${batterKey}`, batterHand);
+    } catch {
+      // ignore
+    }
+  }, [batterHand, batterKey]);
   const [sprayOpen, setSprayOpen] = useState(false);
   const [abPickerOpen, setAbPickerOpen] = useState(false);
   const [pendingAbResult, setPendingAbResult] = useState<AbResult | null>(null);
@@ -259,7 +276,7 @@ function BatterProfile() {
       at_bat_seq: nextAtBatSeq,
       pitch_seq: paPitchSeq + 1,
       numeric_code: code.trim() || null,
-      pitch_type_id: matched?.pitch_type_id ?? null,
+      pitch_type_id: selectedPitchTypeId ?? matched?.pitch_type_id ?? null,
       result,
       balls_before: count.balls,
       strikes_before: count.strikes,
@@ -268,6 +285,8 @@ function BatterProfile() {
       spray_zone: null as SprayZone | null,
       contact_quality: null as ContactQuality | null,
       ab_result: null as AbResult | null,
+      pitch_location: pitchLocation,
+      batter_hand: batterHand,
       logged_by: user.id,
     };
 
@@ -282,6 +301,8 @@ function BatterProfile() {
     }
 
     setCode("");
+    setSelectedPitchTypeId(null);
+    setPitchLocation(null);
     void refresh();
 
     if (outcome.needsContact) {
@@ -402,6 +423,24 @@ function BatterProfile() {
                 : "No pitcher selected"}
             </div>
           </div>
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+            {(["R", "L", "S"] as const).map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => setBatterHand(h)}
+                className={
+                  "h-7 w-7 rounded-md text-xs font-bold " +
+                  (batterHand === h
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted")
+                }
+                aria-label={`Batter handedness ${h}`}
+              >
+                {h}
+              </button>
+            ))}
+          </div>
         </div>
         {slot && slot.subs.length > 0 && (
           <div className="mt-2 space-y-0.5 border-t border-primary/20 pt-2 text-[11px] text-muted-foreground">
@@ -460,17 +499,32 @@ function BatterProfile() {
             />
           )}
 
-          <CodeEntry codeMap={codeMap} pitchTypes={pitchTypes} value={code} onChange={setCode} />
+          {(activeTeam?.pitch_entry_mode ?? "numeric_codes") !== "tap_buttons" && (
+            <CodeEntry codeMap={codeMap} pitchTypes={pitchTypes} value={code} onChange={setCode} />
+          )}
+          {(activeTeam?.pitch_entry_mode ?? "numeric_codes") !== "numeric_codes" && (
+            <PitchTypePad
+              pitchTypes={pitchTypes}
+              value={selectedPitchTypeId}
+              onChange={setSelectedPitchTypeId}
+            />
+          )}
+          <PitchLocationGrid hand={batterHand} value={pitchLocation} onChange={setPitchLocation} />
           <ResultPad onPick={logPitch} disabled={!activePitcher} />
 
           {activePa && activePa.pitches.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-3 text-xs">
               <div className="mb-1 font-semibold uppercase text-muted-foreground">This PA pitch log</div>
-              {activePa.pitches.map((p, i) => (
-                <div key={p.id} className="font-mono">
-                  {i + 1}. {p.balls_before}-{p.strikes_before} → {p.result.replace("_", " ")} ({p.balls_after}-{p.strikes_after})
-                </div>
-              ))}
+              {activePa.pitches.map((p, i) => {
+                const ptLabel = p.pitch_type_id ? pitchTypes.find((pt) => pt.id === p.pitch_type_id)?.label : null;
+                return (
+                  <div key={p.id} className="font-mono">
+                    {i + 1}. {p.balls_before}-{p.strikes_before} → {p.result.replace("_", " ")} ({p.balls_after}-{p.strikes_after})
+                    {ptLabel ? ` · ${ptLabel}` : ""}
+                    {p.pitch_location ? ` · zone ${p.pitch_location}` : ""}
+                  </div>
+                );
+              })}
             </div>
           )}
 
