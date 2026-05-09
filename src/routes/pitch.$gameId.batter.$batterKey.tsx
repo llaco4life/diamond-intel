@@ -78,7 +78,8 @@ function BatterProfile() {
   const isSlotKey = parts[1] === "slot";
   const slotId = isSlotKey ? parts.slice(2).join(":") : null;
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role, isSuperAdmin } = useAuth();
+  const isCoach = role === "head_coach" || role === "assistant_coach" || isSuperAdmin;
   const { activeTeamId, activeTeam } = useActiveTeam();
 
   const { lineup } = usePitchLineup(gameId, batterTeam);
