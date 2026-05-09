@@ -423,6 +423,24 @@ function BatterProfile() {
                 : "No pitcher selected"}
             </div>
           </div>
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+            {(["R", "L", "S"] as const).map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => setBatterHand(h)}
+                className={
+                  "h-7 w-7 rounded-md text-xs font-bold " +
+                  (batterHand === h
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted")
+                }
+                aria-label={`Batter handedness ${h}`}
+              >
+                {h}
+              </button>
+            ))}
+          </div>
         </div>
         {slot && slot.subs.length > 0 && (
           <div className="mt-2 space-y-0.5 border-t border-primary/20 pt-2 text-[11px] text-muted-foreground">
