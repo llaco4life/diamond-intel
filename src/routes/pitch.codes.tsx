@@ -28,7 +28,7 @@ function PitchCodesRoute() {
 
 function PitchCodes() {
   const { org } = useAuth();
-  const { activeTeamId, activeTeam } = useActiveTeam();
+  const { activeTeamId, activeTeam, refresh: refreshTeams } = useActiveTeam();
   const { types: pitchTypes } = usePitchTypes();
   const { rows, refresh } = usePitchCodeMap(activeTeamId);
   const [newCode, setNewCode] = useState("");
@@ -36,6 +36,22 @@ function PitchCodes() {
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const entryMode = activeTeam?.pitch_entry_mode ?? "numeric_codes";
+
+  const setEntryMode = async (mode: "numeric_codes" | "tap_buttons" | "both") => {
+    if (!activeTeamId) return;
+    const { error } = await supabase
+      .from("teams")
+      .update({ pitch_entry_mode: mode })
+      .eq("id", activeTeamId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Pitch entry mode updated");
+    void refreshTeams();
+  };
 
   const labelOf = (id: string) => pitchTypes.find((p) => p.id === id)?.label ?? "—";
 
