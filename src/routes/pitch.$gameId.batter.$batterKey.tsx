@@ -579,8 +579,20 @@ function BatterProfile() {
           {completePas.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed at-bats yet.</p>
           ) : (
-            completePas.map((pa) => <PaCard key={pa.id} pa={pa} pitchTypes={pitchTypes} />)
+            completePas.map((pa) => (
+              <PaCard
+                key={pa.id}
+                pa={pa}
+                pitchTypes={pitchTypes}
+                isCoach={isCoach}
+                onEditPitch={(id) => setEditingPitchId(id)}
+              />
+            ))
           )}
+        </TabsContent>
+
+        <TabsContent value="heatmap" className="mt-3">
+          <PitchHeatmap entries={myEntries} hand={batterHand} />
         </TabsContent>
 
         <TabsContent value="spray" className="mt-3">
@@ -598,6 +610,13 @@ function BatterProfile() {
         suggested={pendingAbResult}
         onPick={handleAbPick}
         onClose={() => setAbPickerOpen(false)}
+      />
+      <PitchEntryEditDialog
+        open={editingPitchId != null}
+        pitch={editingPitchId ? entries.find((e) => e.id === editingPitchId) ?? null : null}
+        pitchTypes={pitchTypes}
+        onClose={() => setEditingPitchId(null)}
+        onSaved={() => void refresh()}
       />
     </div>
   );
