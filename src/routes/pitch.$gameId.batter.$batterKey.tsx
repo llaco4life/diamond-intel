@@ -677,7 +677,17 @@ function groupPAs(entries: PitchEntryRow[]): PA[] {
   return Array.from(map.values()).sort((a, b) => b.atBatSeq - a.atBatSeq);
 }
 
-function PaCard({ pa, pitchTypes }: { pa: PA; pitchTypes: { id: string; label: string }[] }) {
+function PaCard({
+  pa,
+  pitchTypes,
+  isCoach,
+  onEditPitch,
+}: {
+  pa: PA;
+  pitchTypes: { id: string; label: string }[];
+  isCoach: boolean;
+  onEditPitch: (id: string) => void;
+}) {
   const labelMap = new Map(pitchTypes.map((p) => [p.id, p.label]));
   const seq = pa.pitches
     .map((p) => (p.pitch_type_id ? labelMap.get(p.pitch_type_id)?.split(" ")[0] : "?"))
@@ -693,6 +703,24 @@ function PaCard({ pa, pitchTypes }: { pa: PA; pitchTypes: { id: string; label: s
         <div className="mt-1 text-xs text-muted-foreground">
           {pa.contactQuality === "hard" || pa.contactQuality === "barrel" ? "🔴" : "🟢"} {pa.contactQuality}
           {pa.sprayZone ? ` · ${pa.sprayZone}` : ""}
+        </div>
+      )}
+      {isCoach && pa.pitches.length > 0 && (
+        <div className="mt-2 border-t border-border pt-2 text-[11px]">
+          <div className="mb-1 text-muted-foreground">tap pitch to edit</div>
+          <div className="flex flex-wrap gap-1">
+            {pa.pitches.map((p, i) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onEditPitch(p.id)}
+                className="rounded border border-border bg-secondary px-2 py-1 font-mono hover:bg-muted"
+              >
+                {i + 1}: {p.result.replace("_", " ")}
+                {p.pitch_location ? ` z${p.pitch_location}` : ""}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
