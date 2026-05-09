@@ -276,7 +276,7 @@ function BatterProfile() {
       at_bat_seq: nextAtBatSeq,
       pitch_seq: paPitchSeq + 1,
       numeric_code: code.trim() || null,
-      pitch_type_id: matched?.pitch_type_id ?? null,
+      pitch_type_id: selectedPitchTypeId ?? matched?.pitch_type_id ?? null,
       result,
       balls_before: count.balls,
       strikes_before: count.strikes,
@@ -285,6 +285,8 @@ function BatterProfile() {
       spray_zone: null as SprayZone | null,
       contact_quality: null as ContactQuality | null,
       ab_result: null as AbResult | null,
+      pitch_location: pitchLocation,
+      batter_hand: batterHand,
       logged_by: user.id,
     };
 
@@ -299,6 +301,8 @@ function BatterProfile() {
     }
 
     setCode("");
+    setSelectedPitchTypeId(null);
+    setPitchLocation(null);
     void refresh();
 
     if (outcome.needsContact) {
