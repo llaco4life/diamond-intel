@@ -519,15 +519,30 @@ function BatterProfile() {
 
           {activePa && activePa.pitches.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-3 text-xs">
-              <div className="mb-1 font-semibold uppercase text-muted-foreground">This PA pitch log</div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="font-semibold uppercase text-muted-foreground">This PA pitch log</span>
+                {isCoach && <span className="text-[10px] text-muted-foreground">tap to edit</span>}
+              </div>
               {activePa.pitches.map((p, i) => {
                 const ptLabel = p.pitch_type_id ? pitchTypes.find((pt) => pt.id === p.pitch_type_id)?.label : null;
-                return (
-                  <div key={p.id} className="font-mono">
+                const line = (
+                  <>
                     {i + 1}. {p.balls_before}-{p.strikes_before} → {p.result.replace("_", " ")} ({p.balls_after}-{p.strikes_after})
                     {ptLabel ? ` · ${ptLabel}` : ""}
                     {p.pitch_location ? ` · zone ${p.pitch_location}` : ""}
-                  </div>
+                  </>
+                );
+                return isCoach ? (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setEditingPitchId(p.id)}
+                    className="block w-full rounded px-1 py-0.5 text-left font-mono hover:bg-muted"
+                  >
+                    {line}
+                  </button>
+                ) : (
+                  <div key={p.id} className="font-mono">{line}</div>
                 );
               })}
             </div>
