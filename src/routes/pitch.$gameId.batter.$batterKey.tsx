@@ -256,6 +256,7 @@ function BatterProfile() {
   const [abPickerOpen, setAbPickerOpen] = useState(false);
   const [pendingAbResult, setPendingAbResult] = useState<AbResult | null>(null);
   const [lastPendingPitchId, setLastPendingPitchId] = useState<string | null>(null);
+  const [editingPitchId, setEditingPitchId] = useState<string | null>(null);
 
   const activePitcher = pitchers.find((p) => p.id === activePitcherId);
   const totalPitchesThisPitcher = entries.filter((e) => e.pitcher_id === activePitcherId).length;
