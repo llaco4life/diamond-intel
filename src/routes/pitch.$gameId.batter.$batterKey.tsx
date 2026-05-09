@@ -232,6 +232,20 @@ function BatterProfile() {
     : (myEntries.reduce((m, e) => Math.max(m, e.at_bat_seq), 0) + 1);
 
   const [code, setCode] = useState("");
+  const [selectedPitchTypeId, setSelectedPitchTypeId] = useState<string | null>(null);
+  const [pitchLocation, setPitchLocation] = useState<number | null>(null);
+  const [batterHand, setBatterHand] = useState<BatterHand>(() => {
+    if (typeof window === "undefined") return "R";
+    const saved = window.localStorage.getItem(`pitch-hand:${batterKey}`);
+    return (saved === "L" || saved === "S" || saved === "R") ? saved : "R";
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(`pitch-hand:${batterKey}`, batterHand);
+    } catch {
+      // ignore
+    }
+  }, [batterHand, batterKey]);
   const [sprayOpen, setSprayOpen] = useState(false);
   const [abPickerOpen, setAbPickerOpen] = useState(false);
   const [pendingAbResult, setPendingAbResult] = useState<AbResult | null>(null);
