@@ -1,40 +1,43 @@
-I checked the app code and the password reset route already exists at `/reset-password`, and the forgot-password form is already sending reset emails with `redirectTo: ${window.location.origin}/reset-password`. That means the app side is mostly in place. The likely fix is the authentication redirect allow-list in Lovable Cloud.
+Combined implementation of both approved features.
 
-Plan to fix it:
+## Feature A — Tap buttons for pitch types (alternative to numeric codes)
 
-1. Update Lovable Cloud auth redirect settings
-   - Set the main Site URL to the published app URL:
-     - `https://diamond-intel.lovable.app`
-   - Add these allowed redirect URL patterns:
-     - `https://diamond-intel.lovable.app/**`
-     - `https://id-preview--29d04973-92d3-4d40-ab94-46026a489337.lovable.app/**`
-     - `https://preview--diamond-intel.lovable.app/**`
-     - `http://localhost:*/**`
+### Schema
+- `teams.pitch_entry_mode` text NOT NULL DEFAULT `'numeric_codes'`, CHECK in (`numeric_codes`, `tap_buttons`, `both`).
 
-2. Re-test with a fresh reset email
-   - Old reset emails may still point to the wrong fallback URL.
-   - Send a brand-new password reset email after saving the settings.
-   - Click the new email link and confirm it opens `/reset-password` inside Diamond Intel.
+### UI
+- New `src/components/pitch/PitchTypePad.tsx` — grid of buttons, one per `pitch_types` row for the active team. Selecting highlights and stores `pitch_type_id` in local state; cleared after each logged pitch.
+- `src/routes/pitch.codes.tsx` — add a mode selector (radio: numeric codes / tap buttons / both) at top, persisted to `teams.pitch_entry_mode`.
+- `src/routes/pitch.$gameId.batter.$batterKey.tsx` — branch on team mode:
+  - `numeric_codes` → today's `CodeEntry` only.
+  - `tap_buttons` → `PitchTypePad` only.
+  - `both` → both stacked.
+- `logPitch()` resolves `pitch_type_id` from tapped button first, then code-map lookup, else null.
+- Empty state in tap mode if team has no pitch types: link to `/pitch/codes`.
+- `useActiveTeam` returns `pitch_entry_mode` on the active team object.
 
-3. Harden the app reset flow if needed
-   - Keep `/reset-password` public so users are not redirected away before they set a new password.
-   - Improve the reset page so it handles both hash-based recovery links and query-code recovery links reliably.
-   - Prevent the normal auth redirect flow from immediately sending recovery users to `/home` before they finish choosing a new password.
+## Feature B — 3×3 pitch location grid (zones 1–9)
 
-How you can update the setting manually:
+### Schema
+- `pitch_entries.pitch_location` smallint nullable, CHECK between 1 and 9.
+- `pitch_entries.batter_hand` text nullable (`'R' | 'L' | 'S'`).
 
-Desktop:
-- Open Cloud from the top toolbar.
-- Go to Users.
-- Click the Auth settings gear.
-- Open General settings / Advanced redirect settings.
-- Update Site URL and Redirect URLs using the values above.
+### UI
+- New `src/lib/pitchIntel/pitchZones.ts` — `zoneLabel(zone, hand)` returning e.g. `"high inside"` / `"high away"`, mirrored for LHH.
+- New `src/components/pitch/PitchLocationGrid.tsx` — 3×3 of large thumb-tap squares numbered 1–9 (top-left → bottom-right). Selecting highlights; tapping again clears. Sub-label under each number reflects hand.
+- `src/routes/pitch.$gameId.batter.$batterKey.tsx`:
+  - Add R / L / S handedness toggle near the batter header (defaults to last-used for that batter, stored locally).
+  - Render `PitchLocationGrid` between pitch-type entry and `ResultPad`.
+  - Include `pitch_location` + `batter_hand` in the `pitch_entries` insert.
+  - Clear selection after each logged pitch.
+  - Show zone in "This PA pitch log" lines: `1. 0-0 → ball (1-0) · zone 3`.
+- `src/lib/pitchIntel/types.ts` — extend `PitchEntryRow` with the two new fields.
 
-Mobile:
-- Tap the `...` menu in Chat mode.
-- Open Cloud.
-- Go to Users.
-- Open Auth settings.
-- Update the same Site URL and Redirect URLs.
+### Out of scope (both)
+- Heatmap visualizations, zone-aware recommendations, per-pitcher tendencies — leave columns available for a follow-up.
+- No changes to spray chart (`spray_zone` is unrelated batted-ball field).
+- No per-pitcher tap-mode override (team-level only).
 
-After that, request a new reset email. If it still lands on the wrong page, I’ll make the reset-flow hardening changes in the app code next.
+### Migration order
+1. Run combined SQL migration (both column adds + the teams column).
+2. Implement components and route changes in one pass.
