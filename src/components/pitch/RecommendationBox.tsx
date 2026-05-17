@@ -1,5 +1,5 @@
 import { recommend } from "@/lib/pitchIntel/recommend";
-import type { PitchEntryRow, PitchTypeRow } from "@/lib/pitchIntel/types";
+import type { PitchCodeMapRow, PitchEntryRow, PitchTypeRow } from "@/lib/pitchIntel/types";
 import { Sparkles, ThumbsDown, Target, History } from "lucide-react";
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
   historicalEntries?: PitchEntryRow[];
   gameDateById?: Map<string, string>;
   historicalGameCount?: number;
+  codeMap?: PitchCodeMapRow[];
 }
 
 export function RecommendationBox(props: Props) {
@@ -26,6 +27,15 @@ export function RecommendationBox(props: Props) {
     gameDateById: props.gameDateById,
     historicalGameCount: props.historicalGameCount,
   });
+
+  const codeFor = (pitchTypeId: string): string | null => {
+    const m = props.codeMap?.find((c) => c.pitch_type_id === pitchTypeId);
+    return m?.numeric_code ?? null;
+  };
+  const withCode = (pitchTypeId: string, label: string) => {
+    const c = codeFor(pitchTypeId);
+    return c ? `${label} (${c})` : label;
+  };
 
   const s = out.sources;
   const sourceLine = s && (s.todayCount + s.historyCount) > 0
@@ -73,7 +83,7 @@ export function RecommendationBox(props: Props) {
                 Best chase pitch
               </div>
               <div className="text-sm font-semibold">
-                {out.bestChase.label}{" "}
+                {withCode(out.bestChase.pitchTypeId, out.bestChase.label)}{" "}
                 <span className="text-xs font-normal text-muted-foreground">
                   · {out.bestChase.score}% swing-strike rate
                 </span>
@@ -86,7 +96,7 @@ export function RecommendationBox(props: Props) {
               <ul className="space-y-1">
                 {out.recommended.map((r) => (
                   <li key={r.pitchTypeId} className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{r.label}</span>
+                    <span className="font-medium">{withCode(r.pitchTypeId, r.label)}</span>
                     <span className="font-mono text-xs text-muted-foreground">
                       +{r.score} · {r.samples}
                     </span>
@@ -105,7 +115,7 @@ export function RecommendationBox(props: Props) {
                 {out.avoid.map((r) => (
                   <li key={r.pitchTypeId} className="flex items-center justify-between text-sm">
                     <span className="font-semibold text-red-700 dark:text-red-300 line-through decoration-red-500/60">
-                      {r.label}
+                      {withCode(r.pitchTypeId, r.label)}
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">
                       {r.score} · {r.samples}

@@ -510,6 +510,7 @@ function BatterProfile() {
               historicalEntries={historicalEntries}
               gameDateById={gameDateById}
               historicalGameCount={historicalGameCount}
+              codeMap={codeMap}
             />
           )}
 
