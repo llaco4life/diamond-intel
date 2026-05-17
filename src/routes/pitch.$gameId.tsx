@@ -262,10 +262,14 @@ function PitchGameScreen() {
   const switchPitcher = async (id: string) => {
     setActivePitcherId(id);
     setPitchers((prev) => prev.map((p) => ({ ...p, is_active: p.id === id })));
-    await Promise.all([
-      supabase.from("pitchers").update({ is_active: false }).eq("game_id", gameId),
-      supabase.from("pitchers").update({ is_active: true }).eq("id", id),
-    ]);
+    // Sequential: a parallel "deactivate all" can land AFTER "activate one"
+    // and clobber it, causing the active pitcher to revert on next load.
+    await supabase
+      .from("pitchers")
+      .update({ is_active: false })
+      .eq("game_id", gameId)
+      .neq("id", id);
+    await supabase.from("pitchers").update({ is_active: true }).eq("id", id);
   };
 
   const addPitcher = async ({ jersey, name }: { jersey: string; name?: string }) => {
