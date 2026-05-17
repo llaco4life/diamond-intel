@@ -1,43 +1,51 @@
-Combined implementation of both approved features.
+## Problem
 
-## Feature A — Tap buttons for pitch types (alternative to numeric codes)
+On the pitch tracking screen the batter shows as `#?` and the team appears lowercase (`· canes`) instead of `#24 Makayla · Canes`. The lineup row from the Lineup screen never resolves.
 
-### Schema
-- `teams.pitch_entry_mode` text NOT NULL DEFAULT `'numeric_codes'`, CHECK in (`numeric_codes`, `tap_buttons`, `both`).
+## Root cause
 
-### UI
-- New `src/components/pitch/PitchTypePad.tsx` — grid of buttons, one per `pitch_types` row for the active team. Selecting highlights and stores `pitch_type_id` in local state; cleared after each logged pitch.
-- `src/routes/pitch.codes.tsx` — add a mode selector (radio: numeric codes / tap buttons / both) at top, persisted to `teams.pitch_entry_mode`.
-- `src/routes/pitch.$gameId.batter.$batterKey.tsx` — branch on team mode:
-  - `numeric_codes` → today's `CodeEntry` only.
-  - `tap_buttons` → `PitchTypePad` only.
-  - `both` → both stacked.
-- `logPitch()` resolves `pitch_type_id` from tapped button first, then code-map lookup, else null.
-- Empty state in tap mode if team has no pitch types: link to `/pitch/codes`.
-- `useActiveTeam` returns `pitch_entry_mode` on the active team object.
+`makeBatterKey(team, jersey)` in `src/lib/pitchIntel/types.ts` lowercases the team:
 
-## Feature B — 3×3 pitch location grid (zones 1–9)
+```ts
+return `${team.trim().toLowerCase()}:${jersey.trim()}`;
+```
 
-### Schema
-- `pitch_entries.pitch_location` smallint nullable, CHECK between 1 and 9.
-- `pitch_entries.batter_hand` text nullable (`'R' | 'L' | 'S'`).
+So the link built in `pitch.$gameId.tsx` and `NextBatterBanner.tsx` produces a URL like `canes:slot:<id>`. In `pitch.$gameId.batter.$batterKey.tsx`:
 
-### UI
-- New `src/lib/pitchIntel/pitchZones.ts` — `zoneLabel(zone, hand)` returning e.g. `"high inside"` / `"high away"`, mirrored for LHH.
-- New `src/components/pitch/PitchLocationGrid.tsx` — 3×3 of large thumb-tap squares numbered 1–9 (top-left → bottom-right). Selecting highlights; tapping again clears. Sub-label under each number reflects hand.
-- `src/routes/pitch.$gameId.batter.$batterKey.tsx`:
-  - Add R / L / S handedness toggle near the batter header (defaults to last-used for that batter, stored locally).
-  - Render `PitchLocationGrid` between pitch-type entry and `ResultPad`.
-  - Include `pitch_location` + `batter_hand` in the `pitch_entries` insert.
-  - Clear selection after each logged pitch.
-  - Show zone in "This PA pitch log" lines: `1. 0-0 → ball (1-0) · zone 3`.
-- `src/lib/pitchIntel/types.ts` — extend `PitchEntryRow` with the two new fields.
+```ts
+const batterTeam = parts[0]; // "canes"  (lowercased)
+const { lineup } = usePitchLineup(gameId, batterTeam);
+```
 
-### Out of scope (both)
-- Heatmap visualizations, zone-aware recommendations, per-pitcher tendencies — leave columns available for a follow-up.
-- No changes to spray chart (`spray_zone` is unrelated batted-ball field).
-- No per-pitcher tap-mode override (team-level only).
+But the lineup was saved under the original case (`Canes`) in both `localStorage` (`pitch-lineup:<gameId>:Canes`) and in `pitch_lineups` (`team = 'Canes'`). The query returns nothing, `slot` is `null`, so `jersey` falls back to `"?"` and the heading renders `· canes`.
 
-### Migration order
-1. Run combined SQL migration (both column adds + the teams column).
-2. Implement components and route changes in one pass.
+## Fix
+
+In `src/routes/pitch.$gameId.batter.$batterKey.tsx`, resolve the URL's lowercased team back to the game's actual cased team name once the game loads, then use that resolved value for every downstream hook and label.
+
+1. Keep `const urlTeam = parts[0]` (lowercase from URL).
+2. After `game` loads, derive:
+   ```ts
+   const batterTeam = useMemo(() => {
+     if (!game) return urlTeam;
+     if (game.away_team.toLowerCase() === urlTeam) return game.away_team;
+     if (game.home_team.toLowerCase() === urlTeam) return game.home_team;
+     return urlTeam;
+   }, [game, urlTeam]);
+   ```
+3. Replace every existing `batterTeam` usage with the new memoized value (it's already named `batterTeam` — just swap the source). That covers:
+   - `usePitchLineup(gameId, batterTeam)` → now finds the lineup row
+   - `useCurrentBatter(gameId, batterTeam, lineup.length)`
+   - `useOpponentHistory(..., batterTeam, ...)`
+   - The `keys.add(makeBatterKey(batterTeam, ...))` set for entry matching (still works — `makeBatterKey` lowercases on both sides)
+   - `batter_team: batterTeam` on insert (now stores correct case, consistent with existing data)
+   - The header text `· {batterTeam}` (now shows `· Canes`)
+   - `advanceHalfInning` comparison against `game.away_team`
+4. While `game` is still loading, the existing "Loading game…" early return already prevents rendering the header, so the lowercase fallback is invisible to the user.
+
+No schema changes, no other files touched. This is a single-file, presentation/data-resolution fix.
+
+## Out of scope
+
+- Changing `makeBatterKey` to preserve case (would break existing stored `batter_key` values in `pitch_entries`).
+- Reworking lineup storage to be case-insensitive.
