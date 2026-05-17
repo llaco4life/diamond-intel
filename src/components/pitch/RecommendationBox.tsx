@@ -83,7 +83,7 @@ export function RecommendationBox(props: Props) {
                 Best chase pitch
               </div>
               <div className="text-sm font-semibold">
-                {out.bestChase.label}{" "}
+                {withCode(out.bestChase.pitchTypeId, out.bestChase.label)}{" "}
                 <span className="text-xs font-normal text-muted-foreground">
                   · {out.bestChase.score}% swing-strike rate
                 </span>
