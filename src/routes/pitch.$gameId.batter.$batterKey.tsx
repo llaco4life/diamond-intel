@@ -73,7 +73,7 @@ function BatterProfile() {
   const { gameId, batterKey: rawKey } = Route.useParams();
   const batterKey = decodeBatterKey(rawKey);
   const parts = batterKey.split(":");
-  const batterTeam = parts[0];
+  const urlTeam = parts[0];
   // New form: team:slot:<slotId>  · Legacy form: team:<jersey>
   const isSlotKey = parts[1] === "slot";
   const slotId = isSlotKey ? parts.slice(2).join(":") : null;
@@ -81,6 +81,16 @@ function BatterProfile() {
   const { user, role, isSuperAdmin } = useAuth();
   const isCoach = role === "head_coach" || role === "assistant_coach" || isSuperAdmin;
   const { activeTeamId, activeTeam } = useActiveTeam();
+
+  const [game, setGame] = useState<GameRow | null>(null);
+  // URL lowercases the team via makeBatterKey; resolve back to the game's actual casing
+  // so lineup/storage lookups (which use original case) match.
+  const batterTeam = useMemo(() => {
+    if (!game) return urlTeam;
+    if (game.away_team.toLowerCase() === urlTeam) return game.away_team;
+    if (game.home_team.toLowerCase() === urlTeam) return game.home_team;
+    return urlTeam;
+  }, [game, urlTeam]);
 
   const { lineup } = usePitchLineup(gameId, batterTeam);
   const slot = slotId ? lineup.find((s) => s.slotId === slotId) ?? null : null;
