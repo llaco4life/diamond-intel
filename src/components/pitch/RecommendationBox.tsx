@@ -96,7 +96,7 @@ export function RecommendationBox(props: Props) {
               <ul className="space-y-1">
                 {out.recommended.map((r) => (
                   <li key={r.pitchTypeId} className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{r.label}</span>
+                    <span className="font-medium">{withCode(r.pitchTypeId, r.label)}</span>
                     <span className="font-mono text-xs text-muted-foreground">
                       +{r.score} · {r.samples}
                     </span>
