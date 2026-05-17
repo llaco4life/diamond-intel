@@ -115,7 +115,7 @@ export function RecommendationBox(props: Props) {
                 {out.avoid.map((r) => (
                   <li key={r.pitchTypeId} className="flex items-center justify-between text-sm">
                     <span className="font-semibold text-red-700 dark:text-red-300 line-through decoration-red-500/60">
-                      {r.label}
+                      {withCode(r.pitchTypeId, r.label)}
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">
                       {r.score} · {r.samples}
