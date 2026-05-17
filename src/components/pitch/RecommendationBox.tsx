@@ -28,6 +28,15 @@ export function RecommendationBox(props: Props) {
     historicalGameCount: props.historicalGameCount,
   });
 
+  const codeFor = (pitchTypeId: string): string | null => {
+    const m = props.codeMap?.find((c) => c.pitch_type_id === pitchTypeId);
+    return m?.numeric_code ?? null;
+  };
+  const withCode = (pitchTypeId: string, label: string) => {
+    const c = codeFor(pitchTypeId);
+    return c ? `${label} (${c})` : label;
+  };
+
   const s = out.sources;
   const sourceLine = s && (s.todayCount + s.historyCount) > 0
     ? `${s.todayCount + s.historyCount} pitches · ${s.todayCount} today${
