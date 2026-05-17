@@ -121,7 +121,6 @@ function BatterProfile() {
     });
   };
 
-  const [game, setGame] = useState<GameRow | null>(null);
   const [pitchers, setPitchers] = useState<PitcherRow[]>([]);
   const [activePitcherId, setActivePitcherId] = useState<string>("");
   const [outs, setOuts] = useState(0);
