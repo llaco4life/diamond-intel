@@ -1,5 +1,5 @@
 import { recommend } from "@/lib/pitchIntel/recommend";
-import type { PitchEntryRow, PitchTypeRow } from "@/lib/pitchIntel/types";
+import type { PitchCodeMapRow, PitchEntryRow, PitchTypeRow } from "@/lib/pitchIntel/types";
 import { Sparkles, ThumbsDown, Target, History } from "lucide-react";
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
   historicalEntries?: PitchEntryRow[];
   gameDateById?: Map<string, string>;
   historicalGameCount?: number;
+  codeMap?: PitchCodeMapRow[];
 }
 
 export function RecommendationBox(props: Props) {
